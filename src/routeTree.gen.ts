@@ -19,6 +19,7 @@ import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFleetRouteImport } from './routes/_authenticated/fleet'
 import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authenticated/quickbooks'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 
@@ -71,6 +72,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const OfferTokenRoute = OfferTokenRouteImport.update({
+  id: '/offer/$token',
+  path: '/offer/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardTokenRoute = OnboardTokenRouteImport.update({
   id: '/onboard/$token',
   path: '/onboard/$token',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/fleet': typeof AuthenticatedFleetRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
 }
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/fleet': typeof AuthenticatedFleetRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
 }
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/_authenticated/fleet': typeof AuthenticatedFleetRoute
   '/_authenticated/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
 }
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/quickbooks'
     | '/reports'
+    | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/quickbooks'
     | '/reports'
+    | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
   id:
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fleet'
     | '/_authenticated/quickbooks'
     | '/_authenticated/reports'
+    | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
   fileRoutesById: FileRoutesById
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  OfferTokenRoute: typeof OfferTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
 }
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/offer/$token': {
+      id: '/offer/$token'
+      path: '/offer/$token'
+      fullPath: '/offer/$token'
+      preLoaderRoute: typeof OfferTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboard/$token': {
       id: '/onboard/$token'
       path: '/onboard/$token'
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  OfferTokenRoute: OfferTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
 }

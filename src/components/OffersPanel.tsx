@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Mail, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { carrierCompliance, usd, type Carrier, type Load } from "@/lib/tms";
+import { usd, type Carrier, type Load } from "@/lib/tms";
 import { composeEmail } from "@/lib/email";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,9 +39,8 @@ export function OffersPanel({ load, carriers }: { load: Load; carriers: Carrier[
   }, [load.id, carriers]);
 
   const suggestions = useMemo(() => {
-    const ok = carriers.filter((c) => c.status === "vetted" && carrierCompliance(c).ok !== false || (c.status === "vetted"));
-    return ok
-      .filter((c) => c.status !== "dnu")
+    return carriers
+      .filter((c) => c.status === "vetted")
       .map((c) => {
         const h = history.filter((x) => x.carrier_id === c.id);
         const runs = h.reduce((a, x) => a + (x.runs ?? 0), 0);
