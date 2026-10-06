@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
+import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
 import { FleetPanel } from "@/components/FleetPanel";
 import { fleetQuery, driversQuery } from "@/lib/queries";
@@ -322,23 +323,15 @@ function Cockpit({
         </Panel>
 
         <Panel title="Carrier & compliance">
-          <Select
-            value={load.carrier_id ?? "none"}
-            onValueChange={(v) => update({ carrier_id: v === "none" ? null : v, status: v !== "none" && load.status === "available" ? "booked" : load.status }, "Carrier assigned")}
-          >
-            <SelectTrigger className="mb-3"><SelectValue placeholder="Assign carrier" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No carrier</SelectItem>
-              {carriers.map((c) => {
-                const cc = carrierCompliance(c);
-                return (
-                  <SelectItem key={c.id} value={c.id} disabled={!cc.ok}>
-                    {c.legal_name} · MC {c.mc_number} {c.status === "dnu" ? "⛔ DNU" : !cc.ok ? "⚠ not compliant" : "✓"}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <div className="mb-3">
+            <CarrierPicker
+              key={load.id + (load.carrier_id ?? "")}
+              carriers={carriers}
+              currentId={load.carrier_id}
+              onPick={(id) => update({ carrier_id: id, status: id && load.status === "available" ? "booked" : load.status }, id ? "Carrier assigned" : "Carrier removed")}
+              onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
+            />
+          </div>
           {carrier && compliance && (
             <ul className="space-y-1 text-sm">
               <Check ok={carrier.authority_status === "Authorized"} label={`Operating authority: ${carrier.authority_status}`} />
