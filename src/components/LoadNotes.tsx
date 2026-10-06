@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { MentionInput, findMentions, saveMentions } from "@/components/MentionInput";
 
 export function LoadNotes({ loadId }: { loadId: string }) {
   const qc = useQueryClient();
@@ -33,13 +33,15 @@ export function LoadNotes({ loadId }: { loadId: string }) {
     if (!body) return;
     const { error } = await supabase.from("load_notes").insert({ load_id: loadId, body });
     if (error) return toast.error(error.message);
+    const { data: u } = await supabase.auth.getUser();
+    if (u.user) await saveMentions(findMentions(body, people), body, { source: "note", load_id: loadId }, u.user.id);
     setText("");
     qc.invalidateQueries({ queryKey: key });
   };
   return (
     <div className="space-y-2 text-sm">
       <div className="flex gap-2">
-        <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a note for the team…" />
+        <MentionInput value={text} onChange={setText} people={people} placeholder="Add a note for the team… (@ to tag)" />
         <Button onClick={add}>Add</Button>
       </div>
       {notes.length === 0 && <div className="text-muted-foreground">No notes yet.</div>}
