@@ -1,0 +1,502 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
+  public: {
+    Tables: {
+      broker_commissions: {
+        Row: {
+          commission_pct: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          commission_pct?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          commission_pct?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      carriers: {
+        Row: {
+          address: string | null
+          agreement_signed: boolean
+          authority_status: string
+          auto_liability: number | null
+          cargo_insurance: number | null
+          city: string | null
+          coi_received: boolean
+          contact_name: string | null
+          created_at: string
+          dba: string | null
+          dnu_reason: string | null
+          dot_number: string | null
+          email: string | null
+          equipment: string | null
+          factoring_company: string | null
+          factoring_remit: string | null
+          id: string
+          insurance_expires: string | null
+          legal_name: string
+          mc_number: string | null
+          phone: string | null
+          safety_rating: string | null
+          state: string | null
+          status: Database["public"]["Enums"]["carrier_status"]
+          w9_received: boolean
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          agreement_signed?: boolean
+          authority_status?: string
+          auto_liability?: number | null
+          cargo_insurance?: number | null
+          city?: string | null
+          coi_received?: boolean
+          contact_name?: string | null
+          created_at?: string
+          dba?: string | null
+          dnu_reason?: string | null
+          dot_number?: string | null
+          email?: string | null
+          equipment?: string | null
+          factoring_company?: string | null
+          factoring_remit?: string | null
+          id?: string
+          insurance_expires?: string | null
+          legal_name: string
+          mc_number?: string | null
+          phone?: string | null
+          safety_rating?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["carrier_status"]
+          w9_received?: boolean
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          agreement_signed?: boolean
+          authority_status?: string
+          auto_liability?: number | null
+          cargo_insurance?: number | null
+          city?: string | null
+          coi_received?: boolean
+          contact_name?: string | null
+          created_at?: string
+          dba?: string | null
+          dnu_reason?: string | null
+          dot_number?: string | null
+          email?: string | null
+          equipment?: string | null
+          factoring_company?: string | null
+          factoring_remit?: string | null
+          id?: string
+          insurance_expires?: string | null
+          legal_name?: string
+          mc_number?: string | null
+          phone?: string | null
+          safety_rating?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["carrier_status"]
+          w9_received?: boolean
+          zip?: string | null
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          phone: string | null
+          state: string | null
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          kind: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
+      loads: {
+        Row: {
+          accessorials: Json
+          broker_id: string | null
+          carrier_id: string | null
+          carrier_rate: number
+          commodity: string | null
+          consignee_id: string | null
+          created_at: string
+          customer_id: string | null
+          customer_rate: number
+          delivery_at: string | null
+          delivery_notes: string | null
+          dest_city: string
+          dest_state: string
+          equipment: string
+          id: string
+          last_check_call: string | null
+          load_number: string
+          miles: number | null
+          origin_city: string
+          origin_state: string
+          pickup_at: string | null
+          pickup_notes: string | null
+          pieces: number | null
+          pod_received: boolean
+          ratecon_signed: boolean
+          shipper_id: string | null
+          status: Database["public"]["Enums"]["load_status"]
+          temperature: string | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          accessorials?: Json
+          broker_id?: string | null
+          carrier_id?: string | null
+          carrier_rate?: number
+          commodity?: string | null
+          consignee_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_rate?: number
+          delivery_at?: string | null
+          delivery_notes?: string | null
+          dest_city: string
+          dest_state: string
+          equipment?: string
+          id?: string
+          last_check_call?: string | null
+          load_number?: string
+          miles?: number | null
+          origin_city: string
+          origin_state: string
+          pickup_at?: string | null
+          pickup_notes?: string | null
+          pieces?: number | null
+          pod_received?: boolean
+          ratecon_signed?: boolean
+          shipper_id?: string | null
+          status?: Database["public"]["Enums"]["load_status"]
+          temperature?: string | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          accessorials?: Json
+          broker_id?: string | null
+          carrier_id?: string | null
+          carrier_rate?: number
+          commodity?: string | null
+          consignee_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_rate?: number
+          delivery_at?: string | null
+          delivery_notes?: string | null
+          dest_city?: string
+          dest_state?: string
+          equipment?: string
+          id?: string
+          last_check_call?: string | null
+          load_number?: string
+          miles?: number | null
+          origin_city?: string
+          origin_state?: string
+          pickup_at?: string | null
+          pickup_notes?: string | null
+          pieces?: number | null
+          pod_received?: boolean
+          ratecon_signed?: boolean
+          shipper_id?: string | null
+          status?: Database["public"]["Enums"]["load_status"]
+          temperature?: string | null
+          weight_lbs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loads_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_consignee_id_fkey"
+            columns: ["consignee_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_shipper_id_fkey"
+            columns: ["shipper_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      app_role: "admin" | "broker"
+      carrier_status: "pending" | "vetted" | "dnu"
+      load_status:
+        | "available"
+        | "vetting"
+        | "booked"
+        | "dispatched"
+        | "rolling"
+        | "delivered"
+        | "invoiced"
+        | "paid"
+        | "issue"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin", "broker"],
+      carrier_status: ["pending", "vetted", "dnu"],
+      load_status: [
+        "available",
+        "vetting",
+        "booked",
+        "dispatched",
+        "rolling",
+        "delivered",
+        "invoiced",
+        "paid",
+        "issue",
+      ],
+    },
+  },
+} as const
