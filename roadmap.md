@@ -29,3 +29,9 @@
 - [x] FMCSA live lookup (Add carrier + Re-check FMCSA)
 - [x] Gmail/Workspace email option for invites + rate cons
 - [x] Team chat pop-up + per-load notes
+- [ ] @mentions in chat + notes
+- [ ] Mass load offers to carriers (accept/reject/counter, send from my Gmail or dispatch)
+- [ ] Carrier lane history
+- [ ] Rate View + price a load
+- [ ] Public market rates (FreightWaves/DAT/Freightview public pages)
+- [ ] Quotes tab + RFP mode
