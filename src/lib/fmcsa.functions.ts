@@ -51,7 +51,8 @@ export const lookupFmcsa = createServerFn({ method: "POST" })
     const authRows = ((auth?.content as { carrierAuthority?: Record<string, string> }[] | undefined) ?? []).map((a) => a.carrierAuthority ?? {});
     const anyActive = authRows.some((a) => a.commonAuthorityStatus === "A" || a.contractAuthorityStatus === "A");
     const anyRevoked = authRows.some((a) => a.commonAuthorityStatus === "I" || a.authorizedForHire === "N");
-    const docket = mc ?? String(((dockets?.content as { docketNumber?: number; prefix?: string }[] | undefined) ?? []).find((d) => d.prefix === "MC")?.docketNumber ?? "") || null;
+    const mcFound = ((dockets?.content as { docketNumber?: number; prefix?: string }[] | undefined) ?? []).find((d) => d.prefix === "MC")?.docketNumber;
+    const docket = mc ?? (mcFound ? String(mcFound) : null);
 
     const allowed = c["allowedToOperate"] === "Y";
     const oos = !!c["oosDate"];
