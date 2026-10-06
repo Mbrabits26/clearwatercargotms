@@ -22,6 +22,13 @@
       "when": 1791313374811,
       "tag": "0002_fleet",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791313679192,
+      "tag": "0003_qb_sync",
+      "breakpoints": true
     }
   ]
 }

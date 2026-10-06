@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut, Container } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/directory", label: "Directory", icon: Building2 },
     { to: "/carriers", label: "Carriers", icon: ShieldCheck },
     { to: "/fleet", label: "Fleet", icon: Container },
-    ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings }] : []),
+    { to: "/reports", label: "Reports", icon: BarChart3 },
+    ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen }, { to: "/admin", label: "Admin", icon: Settings }] : []),
   ] as const;
   return (
     <div className="flex h-screen flex-col">

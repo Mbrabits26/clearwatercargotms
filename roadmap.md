@@ -17,4 +17,6 @@
 - [ ] Live FMCSA lookup (blocked: FMCSA web key)
 - [ ] Carrier onboarding portal sync (blocked: portal choice/account)
 - [ ] Digital rate con signing links + document attachments
-- [ ] QuickBooks Online sync (blocked: QuickBooks account)
+- [x] QuickBooks section: AR/AP send queue + sync log
+- [ ] Live QuickBooks delivery of queued items (blocked: QuickBooks account connection)
+- [x] Customizable reports: customer AR, carrier AP, broker loads/amounts, custom filters + CSV

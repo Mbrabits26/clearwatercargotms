@@ -427,6 +427,56 @@ export type Database = {
         }
         Relationships: []
       }
+      qb_sync: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          load_id: string
+          payee: string | null
+          qb_ref: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          load_id: string
+          payee?: string | null
+          qb_ref?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          load_id?: string
+          payee?: string | null
+          qb_ref?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qb_sync_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
