@@ -32,7 +32,17 @@ function Carriers() {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<string | null>(data[0]?.id ?? null);
   const [adding, setAdding] = useState(false);
-  const rows = data.filter((c) => `${c.legal_name} ${c.dba ?? ""} ${c.mc_number} ${c.dot_number}`.toLowerCase().includes(q.toLowerCase()));
+  const [flt, setFlt] = useState<"all" | "expired" | "soon" | "docs">("all");
+  const missingDocs = (c: Carrier) => !c.w9_received || !c.coi_received || !c.agreement_signed || (!!c.factoring_company && !c.noa_received);
+  const test = {
+    all: () => true,
+    expired: (c: Carrier) => c.status !== "dnu" && ["expired", "missing"].includes(carrierExpiry(c)),
+    soon: (c: Carrier) => c.status !== "dnu" && carrierExpiry(c) === "soon",
+    docs: (c: Carrier) => c.status !== "dnu" && missingDocs(c),
+  };
+  const rows = data
+    .filter(test[flt])
+    .filter((c) => `${c.legal_name} ${c.dba ?? ""} ${c.mc_number} ${c.dot_number}`.toLowerCase().includes(q.toLowerCase()));
   const c = data.find((x) => x.id === sel);
   const refresh = () => qc.invalidateQueries({ queryKey: ["carriers"] });
 
@@ -47,16 +57,13 @@ function Carriers() {
           <Button size="icon" onClick={() => setAdding(true)} aria-label="Add carrier"><Plus className="h-4 w-4" /></Button>
         </div>
         <NewCarrierInvite />
-        {(() => {
-          const exp = data.filter((x) => x.status !== "dnu" && carrierExpiry(x) !== "ok" && carrierExpiry(x) !== "soon").length;
-          const soon = data.filter((x) => x.status !== "dnu" && carrierExpiry(x) === "soon").length;
-          return exp + soon > 0 ? (
-            <div className="flex gap-3 border-b bg-warning/10 px-3 py-2 text-xs">
-              {exp > 0 && <span className="text-destructive">{exp} expired / missing insurance</span>}
-              {soon > 0 && <span className="text-warning">{soon} expiring within 30 days</span>}
-            </div>
-          ) : null;
-        })()}
+        <div className="flex flex-wrap gap-1 border-b p-2">
+          {([["all", "All", ""], ["expired", "Expired / missing insurance", "text-destructive"], ["soon", "Expiring ≤30 days", "text-warning"], ["docs", "Missing documents", "text-destructive"]] as const).map(([k, l, cls]) => (
+            <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : cls || "text-muted-foreground")}>
+              {l} ({data.filter(test[k]).length})
+            </button>
+          ))}
+        </div>
         <ul className="min-h-0 flex-1 overflow-auto">
           {rows.map((r) => (
             <li key={r.id} onClick={() => setSel(r.id)} className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", sel === r.id && "bg-muted")}>
@@ -65,8 +72,12 @@ function Carriers() {
                 <span className="flex gap-1">{r.status !== "dnu" && <ExpiryBadge s={carrierExpiry(r)} />}<StatusPill c={r} /></span>
               </div>
               <div className="text-xs text-muted-foreground">MC {r.mc_number} · DOT {r.dot_number} · {r.equipment}</div>
+              {r.status !== "dnu" && missingDocs(r) && (
+                <div className="text-[11px] text-destructive">Missing: {[!r.w9_received && "W-9", !r.coi_received && "COI", !r.agreement_signed && "Agreement", r.factoring_company && !r.noa_received && "NOA"].filter(Boolean).join(", ")}</div>
+              )}
             </li>
           ))}
+          {!rows.length && <li className="p-4 text-sm text-muted-foreground">No carriers match this filter.</li>}
         </ul>
       </aside>
       <section className="overflow-auto p-6">{c ? <CarrierDetail key={c.id} c={c} refresh={refresh} /> : <p className="text-muted-foreground">Select a carrier.</p>}</section>
