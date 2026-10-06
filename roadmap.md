@@ -22,3 +22,8 @@
 - [x] Customizable reports: customer AR, carrier AP, broker loads/amounts, custom filters + CSV
 - [x] Admin access for accounting@ and eric@clearwatercargo.com (verified email only)
 - [x] Bulk import (xlsx/csv) on Directory + Carriers; import customerlist.xlsx
+- [x] Document/spreadsheet import → load builder (AI extraction, multi-load docs)
+- [x] Type-to-search customer/shipper/consignee/carrier with add-new
+- [x] Carrier packet invite email drafts (Carriers tab, carrier detail, dispatch)
+- [ ] QuickBooks Online live connection (blocked: Intuit developer app Client ID/Secret)
+- [ ] FMCSA live lookup (blocked: free FMCSA WebKey from mobile.fmcsa.dot.gov)

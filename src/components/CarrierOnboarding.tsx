@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, FileText, Link2, Upload } from "lucide-react";
+import { Copy, FileText, Link2, Mail, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DOC_KINDS, expiryState, fmtDate, type Carrier, type ExpiryState } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -131,8 +131,8 @@ export function InvitePanel({ c }: { c: Carrier }) {
   const create = async () => {
     const { data, error } = await supabase.from("carrier_invites").insert({ carrier_id: c.id, email: c.email }).select("token").single();
     if (error) return toast.error(error.message);
-    await navigator.clipboard.writeText(link(data.token)).catch(() => {});
-    toast.success("Onboarding link copied — send it to the carrier");
+    draftInviteEmail(data.token, c.email, c.contact_name ?? c.legal_name);
+    toast.success("Invite email drafted and link copied");
     qc.invalidateQueries({ queryKey: key });
   };
   const revoke = async (id: string) => {
@@ -155,6 +155,7 @@ export function InvitePanel({ c }: { c: Carrier }) {
             </span>
             {i.status === "sent" && (
               <span className="flex gap-1">
+                <Button size="sm" variant="ghost" title="Email" onClick={() => draftInviteEmail(i.token, i.email ?? c.email, c.contact_name ?? c.legal_name)}><Mail className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(link(i.token)).then(() => toast.success("Link copied"))}><Copy className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => revoke(i.id)}>Cancel</Button>
               </span>
@@ -166,19 +167,29 @@ export function InvitePanel({ c }: { c: Carrier }) {
   );
 }
 
+/** Copies the packet link and opens a pre-written email to the carrier. */
+export function draftInviteEmail(token: string, email?: string | null, name?: string | null) {
+  const url = `${window.location.origin}/onboard/${token}`;
+  navigator.clipboard.writeText(url).catch(() => {});
+  const body = `Hello${name ? ` ${name}` : ""},\n\nThank you for your interest in hauling with Clearwater Cargo LLC. Please complete our carrier onboarding packet (company info, W-9, certificate of insurance, factoring NOA if applicable, and the broker-carrier agreement) at the secure link below:\n\n${url}\n\nThe link is good for 14 days. Questions? Call us at 252-497-7916.\n\nClearwater Cargo LLC\nP.O Box 100, Staley, NC 27355`;
+  window.open(`mailto:${email ?? ""}?subject=${encodeURIComponent("Clearwater Cargo — Carrier Onboarding Packet")}&body=${encodeURIComponent(body)}`);
+}
+
 export function NewCarrierInvite() {
   const [email, setEmail] = useState("");
-  const create = async () => {
+  const create = async (mail: boolean) => {
     const { data, error } = await supabase.from("carrier_invites").insert({ email: email || null }).select("token").single();
     if (error) return toast.error(error.message);
-    await navigator.clipboard.writeText(`${window.location.origin}/onboard/${data.token}`).catch(() => {});
-    toast.success("Link copied — the carrier is added as pending when they submit");
+    if (mail) draftInviteEmail(data.token, email);
+    else await navigator.clipboard.writeText(`${window.location.origin}/onboard/${data.token}`).catch(() => {});
+    toast.success(mail ? "Email drafted and link copied" : "Link copied — the carrier is added as pending when they submit");
     setEmail("");
   };
   return (
     <div className="flex gap-2 border-b p-3">
-      <Input placeholder="New carrier email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <Button size="sm" variant="secondary" onClick={create}><Link2 className="mr-1 h-4 w-4" />Invite</Button>
+      <Input placeholder="New carrier email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Button size="sm" onClick={() => create(true)} title="Draft invite email"><Mail className="mr-1 h-4 w-4" />Email</Button>
+      <Button size="sm" variant="secondary" onClick={() => create(false)} title="Copy link only"><Link2 className="h-4 w-4" /></Button>
     </div>
   );
 }
