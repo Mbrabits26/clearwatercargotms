@@ -8,6 +8,7 @@ import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, type Carrier } from "@/lib/tms";
 import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInvite } from "@/components/CarrierOnboarding";
 import { Button } from "@/components/ui/button";
+import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,6 +58,7 @@ function Carriers() {
           <Button size="icon" onClick={() => setAdding(true)} aria-label="Add carrier"><Plus className="h-4 w-4" /></Button>
         </div>
         <NewCarrierInvite />
+        <div className="border-b px-3 py-2"><BulkImportButton target="carrier" onDone={refresh} /></div>
         <div className="flex flex-wrap gap-1 border-b p-2">
           {([["all", "All", ""], ["expired", "Expired / missing insurance", "text-destructive"], ["soon", "Expiring ≤30 days", "text-warning"], ["docs", "Missing documents", "text-destructive"]] as const).map(([k, l, cls]) => (
             <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : cls || "text-muted-foreground")}>

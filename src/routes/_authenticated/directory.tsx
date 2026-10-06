@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
+import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -58,7 +59,10 @@ function Directory() {
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold uppercase">Directory</h1>
-        <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {label.toLowerCase()}</Button>
+        <div className="flex gap-2">
+          <BulkImportButton target="company" onDone={() => qc.invalidateQueries({ queryKey: ["companies"] })} />
+          <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {label.toLowerCase()}</Button>
+        </div>
       </div>
       <div className="mb-4 flex gap-3">
         <Tabs value={kind} onValueChange={setKind}>
