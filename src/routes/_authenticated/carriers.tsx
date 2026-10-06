@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Ban, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
-import { carrierCompliance, DNU_REASONS, type Carrier } from "@/lib/tms";
+import { carrierCompliance, carrierExpiry, DNU_REASONS, type Carrier } from "@/lib/tms";
+import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInvite } from "@/components/CarrierOnboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,12 +46,23 @@ function Carriers() {
           </div>
           <Button size="icon" onClick={() => setAdding(true)} aria-label="Add carrier"><Plus className="h-4 w-4" /></Button>
         </div>
+        <NewCarrierInvite />
+        {(() => {
+          const exp = data.filter((x) => x.status !== "dnu" && carrierExpiry(x) !== "ok" && carrierExpiry(x) !== "soon").length;
+          const soon = data.filter((x) => x.status !== "dnu" && carrierExpiry(x) === "soon").length;
+          return exp + soon > 0 ? (
+            <div className="flex gap-3 border-b bg-warning/10 px-3 py-2 text-xs">
+              {exp > 0 && <span className="text-destructive">{exp} expired / missing insurance</span>}
+              {soon > 0 && <span className="text-warning">{soon} expiring within 30 days</span>}
+            </div>
+          ) : null;
+        })()}
         <ul className="min-h-0 flex-1 overflow-auto">
           {rows.map((r) => (
             <li key={r.id} onClick={() => setSel(r.id)} className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", sel === r.id && "bg-muted")}>
               <div className="flex items-center justify-between">
                 <span className="font-medium">{r.legal_name}</span>
-                <StatusPill c={r} />
+                <span className="flex gap-1">{r.status !== "dnu" && <ExpiryBadge s={carrierExpiry(r)} />}<StatusPill c={r} /></span>
               </div>
               <div className="text-xs text-muted-foreground">MC {r.mc_number} · DOT {r.dot_number} · {r.equipment}</div>
             </li>
@@ -78,11 +90,6 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
     toast.success(msg);
     refresh();
   };
-  const docs = [
-    ["w9_received", "W-9"],
-    ["coi_received", "Certificate of insurance"],
-    ["agreement_signed", "Broker-carrier agreement"],
-  ] as const;
   const docsDone = c.w9_received && c.coi_received && c.agreement_signed;
 
   return (
@@ -104,28 +111,18 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Authority & safety</h3>
           <Row k="Operating authority" v={c.authority_status} bad={c.authority_status !== "Authorized"} />
           <Row k="Safety rating" v={c.safety_rating ?? "—"} />
-          <Row k="Insurance expires" v={c.insurance_expires ?? "—"} bad={!c.insurance_expires || new Date(c.insurance_expires) < new Date()} />
-          <Row k="Auto liability" v={`$${Number(c.auto_liability).toLocaleString()}`} />
-          <Row k="Cargo" v={`$${Number(c.cargo_insurance).toLocaleString()}`} />
-        </div>
-        <div className="rounded border bg-card p-4">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Onboarding packet</h3>
-          {docs.map(([k, l]) => (
-            <label key={k} className="flex items-center gap-2 py-1 text-sm">
-              <input type="checkbox" checked={c[k]} onChange={(e) => update({ [k]: e.target.checked } as Partial<Carrier>, `${l} updated`)} />
-              {l}
-            </label>
-          ))}
-          <Button
-            size="sm" className="mt-3" disabled={!docsDone || c.status !== "pending"}
-            onClick={() => update({ status: "vetted" }, "Carrier marked vetted")}
-          >
+          <Button size="sm" className="mt-3" disabled={!docsDone || c.status !== "pending"} onClick={() => update({ status: "vetted" }, "Carrier marked vetted")}>
             Mark vetted
           </Button>
+          {!docsDone && c.status === "pending" && <p className="mt-1 text-xs text-muted-foreground">Needs W-9, COI and signed agreement first.</p>}
         </div>
+        <InsurancePanel c={c} update={update} />
       </div>
+      <DocumentsPanel c={c} update={update} />
+      <InvitePanel c={c} />
       <div className="rounded border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Factoring / notice of assignment</h3>
+        {c.factoring_company && !c.noa_received && <p className="mb-2 text-xs text-destructive">NOA not on file — upload it in the packet above before paying the factor.</p>}
         <div className="flex gap-2">
           <Input placeholder="Factoring company (blank = pay carrier direct)" value={factor} onChange={(e) => setFactor(e.target.value)} />
           <Button variant="secondary" onClick={() => update({ factoring_company: factor || null }, "Pay-to updated")}>Save NOA</Button>
