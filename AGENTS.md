@@ -21,3 +21,5 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
+- Outbound emails go through `composeEmail` in src/lib/email.ts (Gmail compose or mailto, per-browser preference) — one place to change mail behavior.
+- Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
