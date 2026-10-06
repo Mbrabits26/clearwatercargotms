@@ -20,3 +20,4 @@
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders both preview and signed copy; the signing link stores a snapshot so the carrier signs exactly what was sent. RC # = load number. Signed PDFs live in the private load-docs bucket under the load id.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
+- FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
