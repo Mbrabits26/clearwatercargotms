@@ -118,3 +118,6 @@
     letter-spacing: 0.01em;
   }
 }
+
+.legal-agreement .legal-section-head { font-weight: 700; margin: 1rem 0 0.5rem; color: var(--gold); }
+.legal-agreement .legal-sub { margin: 0 0 0.5rem 1rem; }

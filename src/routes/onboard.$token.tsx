@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { getInvite, submitPacket } from "@/lib/onboarding.functions";
+import { agreementLegalHtml } from "@/content/agreement-legal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -145,9 +146,7 @@ function Portal() {
       </section>
       <section className="rounded border bg-card p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">4. Broker-carrier agreement</h2>
-        <p className="text-sm text-muted-foreground">
-          By signing, the carrier agrees to haul loads tendered by Clearwater Cargo, LLC under the rates and terms on each rate confirmation; not to re-broker, double-broker or hold freight hostage; to maintain the insurance listed above; and to provide proof of delivery for payment.
-        </p>
+        <div className="legal-agreement max-h-96 overflow-auto rounded border bg-background p-4 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: agreementLegalHtml }} />
         {fileIn("agreement", "Upload a signed copy instead (optional)")}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />I have read and accept the broker-carrier agreement.</label>
         {field("signer_name", "Type your full name to sign *")}
