@@ -19,6 +19,7 @@ import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFleetRouteImport } from './routes/_authenticated/fleet'
 import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authenticated/quickbooks'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -69,6 +70,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const OnboardTokenRoute = OnboardTokenRouteImport.update({
+  id: '/onboard/$token',
+  path: '/onboard/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/fleet': typeof AuthenticatedFleetRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/onboard/$token': typeof OnboardTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/fleet': typeof AuthenticatedFleetRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/onboard/$token': typeof OnboardTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/fleet': typeof AuthenticatedFleetRoute
   '/_authenticated/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/onboard/$token': typeof OnboardTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/quickbooks'
     | '/reports'
+    | '/onboard/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/quickbooks'
     | '/reports'
+    | '/onboard/$token'
   id:
     | '__root__'
     | '/'
@@ -140,12 +151,14 @@ export interface FileRouteTypes {
     | '/_authenticated/fleet'
     | '/_authenticated/quickbooks'
     | '/_authenticated/reports'
+    | '/onboard/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  OnboardTokenRoute: typeof OnboardTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/onboard/$token': {
+      id: '/onboard/$token'
+      path: '/onboard/$token'
+      fullPath: '/onboard/$token'
+      preLoaderRoute: typeof OnboardTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -250,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  OnboardTokenRoute: OnboardTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
