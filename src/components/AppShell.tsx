@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/dispatch", label: "Dispatch Board", icon: Truck },
     { to: "/directory", label: "Directory", icon: Building2 },
     { to: "/carriers", label: "Carriers", icon: ShieldCheck },
+    { to: "/fleet", label: "Fleet", icon: Container },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings }] : []),
   ] as const;
   return (

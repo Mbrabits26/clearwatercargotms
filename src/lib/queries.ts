@@ -33,3 +33,19 @@ export const profilesQuery = queryOptions({
     return data;
   },
 });
+export const fleetQuery = queryOptions({
+  queryKey: ["fleet"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("fleet_units").select("*").order("unit_number");
+    if (error) throw error;
+    return data;
+  },
+});
+export const driversQuery = queryOptions({
+  queryKey: ["drivers"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("drivers").select("*").order("full_name");
+    if (error) throw error;
+    return data;
+  },
+});
