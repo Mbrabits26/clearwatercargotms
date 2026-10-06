@@ -15,7 +15,7 @@
 - [ ] Outside-broker loads hauled by our trucks (MC#, external rate con, billing)
 - [ ] Google Places autofill (needs Google Maps connection)
 - [ ] Live FMCSA lookup (blocked: FMCSA web key)
-- [ ] Carrier onboarding portal sync (blocked: portal choice/account)
+- [x] Carrier onboarding packet portal (built in-app: invite links, uploads, insurance expiry alerts)
 - [ ] Digital rate con signing links + document attachments
 - [x] QuickBooks section: AR/AP send queue + sync log
 - [ ] Live QuickBooks delivery of queued items (blocked: QuickBooks account connection)
