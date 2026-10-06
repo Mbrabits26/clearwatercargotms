@@ -36,6 +36,13 @@
       "when": 1791314064080,
       "tag": "0004_carrier_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791314828153,
+      "tag": "0005_ratecon_signing",
+      "breakpoints": true
     }
   ]
 }
