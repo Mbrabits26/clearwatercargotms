@@ -13,7 +13,7 @@ export function FleetPanel({ load }: { load: Load }) {
 
   const assign = async (key: "truck_id" | "trailer_id" | "driver_id", id: string | null) => {
     const prev = load[key];
-    const { error } = await supabase.from("loads").update({ [key]: id }).eq("id", load.id);
+    const { error } = await supabase.from("loads").update({ [key]: id } as Partial<Load>).eq("id", load.id);
     if (error) return toast.error(error.message);
     if (key === "driver_id") {
       if (prev) await supabase.from("drivers").update({ status: "available" }).eq("id", prev);
