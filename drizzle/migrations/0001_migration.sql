@@ -1,0 +1,1 @@
+grant insert, update, delete on public.user_roles to authenticated;
