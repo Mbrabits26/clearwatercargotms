@@ -16,6 +16,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCarriersRouteImport } from './routes/_authenticated/carriers'
 import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
+import { Route as AuthenticatedFleetRouteImport } from './routes/_authenticated/fleet'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -51,6 +52,11 @@ const AuthenticatedDispatchRoute = AuthenticatedDispatchRouteImport.update({
   path: '/dispatch',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFleetRoute = AuthenticatedFleetRouteImport.update({
+  id: '/fleet',
+  path: '/fleet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/carriers': typeof AuthenticatedCarriersRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
+  '/fleet': typeof AuthenticatedFleetRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/carriers': typeof AuthenticatedCarriersRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
+  '/fleet': typeof AuthenticatedFleetRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,12 +85,27 @@ export interface FileRoutesById {
   '/_authenticated/carriers': typeof AuthenticatedCarriersRoute
   '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
+  '/_authenticated/fleet': typeof AuthenticatedFleetRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/admin' | '/carriers' | '/directory' | '/dispatch'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/carriers'
+    | '/directory'
+    | '/dispatch'
+    | '/fleet'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/admin' | '/carriers' | '/directory' | '/dispatch'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/carriers'
+    | '/directory'
+    | '/dispatch'
+    | '/fleet'
   id:
     | '__root__'
     | '/'
@@ -92,6 +115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/carriers'
     | '/_authenticated/directory'
     | '/_authenticated/dispatch'
+    | '/_authenticated/fleet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -151,6 +175,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDispatchRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fleet': {
+      id: '/_authenticated/fleet'
+      path: '/fleet'
+      fullPath: '/fleet'
+      preLoaderRoute: typeof AuthenticatedFleetRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -159,6 +190,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCarriersRoute: typeof AuthenticatedCarriersRoute
   AuthenticatedDirectoryRoute: typeof AuthenticatedDirectoryRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
+  AuthenticatedFleetRoute: typeof AuthenticatedFleetRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -166,6 +198,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCarriersRoute: AuthenticatedCarriersRoute,
   AuthenticatedDirectoryRoute: AuthenticatedDirectoryRoute,
   AuthenticatedDispatchRoute: AuthenticatedDispatchRoute,
+  AuthenticatedFleetRoute: AuthenticatedFleetRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
