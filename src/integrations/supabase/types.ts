@@ -32,12 +32,98 @@ export type Database = {
         }
         Relationships: []
       }
+      carrier_documents: {
+        Row: {
+          carrier_id: string
+          expires_on: string | null
+          file_name: string | null
+          file_path: string
+          id: string
+          kind: string
+          source: string
+          uploaded_at: string
+        }
+        Insert: {
+          carrier_id: string
+          expires_on?: string | null
+          file_name?: string | null
+          file_path: string
+          id?: string
+          kind: string
+          source?: string
+          uploaded_at?: string
+        }
+        Update: {
+          carrier_id?: string
+          expires_on?: string | null
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          kind?: string
+          source?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_documents_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_invites: {
+        Row: {
+          carrier_id: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          expires_at: string
+          id: string
+          status: string
+          submitted_at: string | null
+          token: string
+        }
+        Insert: {
+          carrier_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Update: {
+          carrier_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_invites_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carriers: {
         Row: {
           address: string | null
           agreement_signed: boolean
           authority_status: string
           auto_liability: number | null
+          cargo_expires: string | null
           cargo_insurance: number | null
           city: string | null
           coi_received: boolean
@@ -54,10 +140,12 @@ export type Database = {
           insurance_expires: string | null
           legal_name: string
           mc_number: string | null
+          noa_received: boolean
           phone: string | null
           safety_rating: string | null
           state: string | null
           status: Database["public"]["Enums"]["carrier_status"]
+          voided_check_received: boolean
           w9_received: boolean
           zip: string | null
         }
@@ -66,6 +154,7 @@ export type Database = {
           agreement_signed?: boolean
           authority_status?: string
           auto_liability?: number | null
+          cargo_expires?: string | null
           cargo_insurance?: number | null
           city?: string | null
           coi_received?: boolean
@@ -82,10 +171,12 @@ export type Database = {
           insurance_expires?: string | null
           legal_name: string
           mc_number?: string | null
+          noa_received?: boolean
           phone?: string | null
           safety_rating?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["carrier_status"]
+          voided_check_received?: boolean
           w9_received?: boolean
           zip?: string | null
         }
@@ -94,6 +185,7 @@ export type Database = {
           agreement_signed?: boolean
           authority_status?: string
           auto_liability?: number | null
+          cargo_expires?: string | null
           cargo_insurance?: number | null
           city?: string | null
           coi_received?: boolean
@@ -110,10 +202,12 @@ export type Database = {
           insurance_expires?: string | null
           legal_name?: string
           mc_number?: string | null
+          noa_received?: boolean
           phone?: string | null
           safety_rating?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["carrier_status"]
+          voided_check_received?: boolean
           w9_received?: boolean
           zip?: string | null
         }
