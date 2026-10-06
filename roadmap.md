@@ -20,3 +20,5 @@
 - [x] QuickBooks section: AR/AP send queue + sync log
 - [ ] Live QuickBooks delivery of queued items (blocked: QuickBooks account connection)
 - [x] Customizable reports: customer AR, carrier AP, broker loads/amounts, custom filters + CSV
+- [ ] Admin access for accounting@ and eric@clearwatercargo.com (verified email only)
+- [ ] Bulk import (xlsx/csv) on Directory + Carriers; import customerlist.xlsx
