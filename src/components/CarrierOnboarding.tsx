@@ -172,7 +172,7 @@ export function draftInviteEmail(token: string, email?: string | null, name?: st
   const url = `${window.location.origin}/onboard/${token}`;
   navigator.clipboard.writeText(url).catch(() => {});
   const body = `Hello${name ? ` ${name}` : ""},\n\nThank you for your interest in hauling with Clearwater Cargo LLC. Please complete our carrier onboarding packet (company info, W-9, certificate of insurance, factoring NOA if applicable, and the broker-carrier agreement) at the secure link below:\n\n${url}\n\nThe link is good for 14 days. Questions? Call us at 252-497-7916.\n\nClearwater Cargo LLC\nP.O Box 100, Staley, NC 27355`;
-  window.open(`mailto:${email ?? ""}?subject=${encodeURIComponent("Clearwater Cargo — Carrier Onboarding Packet")}&body=${encodeURIComponent(body)}`);
+  composeEmail(email ?? "", "Clearwater Cargo — Carrier Onboarding Packet", body);
 }
 
 export function NewCarrierInvite() {
