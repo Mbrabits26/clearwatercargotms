@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Copy, Download, FileSignature, FileText, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRateConData, buildRateConPdf } from "@/lib/ratecon";
+import { composeEmail } from "@/lib/email";
 import { fmtDate, type Carrier, type Company, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     await navigator.clipboard.writeText(url).catch(() => {});
     if (email) {
       const body = `Please review and sign rate confirmation ${load.load_number} (${snapshot.lane}):\n\n${url}\n\nClearwater Cargo LLC · 252-497-7916`;
-      window.open(`mailto:${email}?subject=${encodeURIComponent(`Rate Confirmation ${load.load_number} — Clearwater Cargo`)}&body=${encodeURIComponent(body)}`);
+      composeEmail(email, `Rate Confirmation ${load.load_number} — Clearwater Cargo`, body);
     }
     toast.success("Signing link copied" + (email ? " and email drafted" : ""));
     qc.invalidateQueries({ queryKey: key });

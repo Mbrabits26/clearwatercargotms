@@ -17,6 +17,7 @@ import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
 import { FleetPanel } from "@/components/FleetPanel";
+import { LoadNotes } from "@/components/LoadNotes";
 import { fleetQuery, driversQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
@@ -399,6 +400,10 @@ function Cockpit({
 
         <Panel title="Clearwater fleet assignment">
           <FleetPanel load={load} />
+        </Panel>
+
+        <Panel title="Team notes">
+          <LoadNotes loadId={load.id} />
         </Panel>
 
         <Panel title="Lane intelligence">

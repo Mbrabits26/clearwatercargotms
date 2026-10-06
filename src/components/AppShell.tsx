@@ -1,14 +1,18 @@
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
+import { ChatWidget } from "@/components/ChatWidget";
+import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, isAdmin } = useRouteContext({ from: "/_authenticated" });
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [mail, setMail] = useState<MailClient>("gmail");
+  useEffect(() => setMail(getMailClient()), []);
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
@@ -47,6 +51,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <select
+            value={mail}
+            onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }}
+            className="rounded border bg-background px-1.5 py-0.5 text-xs"
+            title="Which email to use for invites and rate cons"
+          >
+            <option value="gmail">Email: Gmail</option>
+            <option value="default">Email: Default app</option>
+          </select>
           <span className="rounded border border-gold/40 px-2 py-0.5 text-xs uppercase tracking-wider text-gold">
             {isAdmin ? "Admin" : "Broker"}
           </span>
@@ -57,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+      <ChatWidget userId={user.id} />
     </div>
   );
 }
