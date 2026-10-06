@@ -146,7 +146,7 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
           {target === "company" && (
             <Select value={kind} onValueChange={setKind}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{[["customer", "Customers"], ["shipper", "Shippers"], ["consignee", "Consignees"]].map(([v, l]) => <SelectItem key={v} value={v}>Import as {l}</SelectItem>)}</SelectContent>
+              <SelectContent>{([["customer", "Customers"], ["shipper", "Shippers"], ["consignee", "Consignees"]] as const).map(([v, l]) => <SelectItem key={v} value={v}>Import as {l}</SelectItem>)}</SelectContent>
             </Select>
           )}
           <input type="file" accept=".xlsx,.xls,.csv" className="text-sm" onChange={(e) => read(e.target.files?.[0])} />
