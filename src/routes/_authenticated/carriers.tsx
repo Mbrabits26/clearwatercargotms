@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { FmcsaButton, FmcsaSummary } from "@/components/FmcsaLookup";
+import type { FmcsaCarrier } from "@/lib/fmcsa.functions";
 
 export const Route = createFileRoute("/_authenticated/carriers")({
   head: () => ({
@@ -96,6 +98,7 @@ function StatusPill({ c }: { c: Carrier }) {
 function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
   const [reason, setReason] = useState<string>("Double-brokering");
   const [factor, setFactor] = useState(c.factoring_company ?? "");
+  const [fm, setFm] = useState<FmcsaCarrier | null>(null);
   const comp = carrierCompliance(c);
   const update = async (patch: Partial<Carrier>, msg: string) => {
     const { error } = await supabase.from("carriers").update(patch).eq("id", c.id);
@@ -121,9 +124,20 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded border bg-card p-4">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Authority & safety</h3>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-gold">Authority & safety</h3>
+            <FmcsaButton mc={c.mc_number} dot={c.dot_number} label="Re-check FMCSA" onResult={(r) => {
+              setFm(r);
+              update({
+                authority_status: r.authority_status, safety_rating: r.safety_rating,
+                dot_number: c.dot_number || r.dot_number, mc_number: c.mc_number || r.mc_number,
+                address: c.address || r.address, city: c.city || r.city, state: c.state || r.state, zip: c.zip || r.zip,
+              }, "Updated from FMCSA");
+            }} />
+          </div>
+          {fm && <div className="mb-2"><FmcsaSummary r={fm} /></div>}
           <Row k="Operating authority" v={c.authority_status} bad={c.authority_status !== "Authorized"} />
-          <Row k="Safety rating" v={c.safety_rating ?? "—"} />
+          <Row k="Safety rating" v={c.safety_rating ?? "—"} bad={c.safety_rating === "Unsatisfactory"} />
           <Button size="sm" className="mt-3" disabled={!docsDone || c.status !== "pending"} onClick={() => update({ status: "vetted" }, "Carrier marked vetted")}>
             Mark vetted
           </Button>
@@ -173,15 +187,25 @@ function Row({ k, v, bad }: { k: string; v: string; bad?: boolean }) {
 
 function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; onDone: (id: string) => void }) {
   const [f, setF] = useState<Record<string, string>>({ authority_status: "Authorized" });
+  const [fm, setFm] = useState<FmcsaCarrier | null>(null);
   const fields = [
     ["legal_name", "Legal name"], ["dba", "DBA"], ["mc_number", "MC #"], ["dot_number", "DOT #"],
     ["city", "City"], ["state", "State"], ["phone", "Phone"], ["email", "Email"],
     ["equipment", "Equipment"], ["insurance_expires", "Insurance expires (YYYY-MM-DD)"],
   ] as const;
+  const fill = (r: FmcsaCarrier) => {
+    setFm(r);
+    setF((p) => ({
+      ...p, legal_name: r.legal_name, dba: r.dba ?? "", dot_number: r.dot_number, mc_number: r.mc_number ?? p.mc_number ?? "",
+      city: r.city ?? "", state: r.state ?? "", phone: r.phone ?? p.phone ?? "", address: r.address ?? "", zip: r.zip ?? "",
+      authority_status: r.authority_status, safety_rating: r.safety_rating,
+    }));
+  };
   const save = async () => {
     if (!f.legal_name || (!f.mc_number && !f.dot_number)) return toast.error("Legal name and MC or DOT are required");
     const { data, error } = await supabase.from("carriers").insert({
       legal_name: f.legal_name, dba: f.dba || null, mc_number: f.mc_number || null, dot_number: f.dot_number || null,
+      address: f.address || null, zip: f.zip || null, safety_rating: f.safety_rating || "Not Rated",
       city: f.city || null, state: f.state?.toUpperCase() || null, phone: f.phone || null, email: f.email || null,
       equipment: f.equipment || null, insurance_expires: f.insurance_expires || null, authority_status: f.authority_status ?? "Authorized",
     }).select("id").single();
@@ -189,13 +213,18 @@ function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
     toast.success("Carrier added as pending");
     onDone(data.id);
     setF({ authority_status: "Authorized" });
+    setFm(null);
     onOpenChange(false);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add carrier</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground">Enter details from SAFER. Automatic FMCSA lookup by MC/DOT can be switched on once an FMCSA web key is added.</p>
+        <div className="flex items-center gap-2">
+          <p className="flex-1 text-xs text-muted-foreground">Enter the MC # or DOT #, then pull the carrier's details straight from FMCSA / SAFER.</p>
+          <FmcsaButton mc={f.mc_number} dot={f.dot_number} onResult={fill} />
+        </div>
+        {fm && <FmcsaSummary r={fm} />}
         <div className="grid grid-cols-2 gap-3">
           {fields.map(([k, l]) => (
             <label key={k} className="text-xs text-muted-foreground">{l}
