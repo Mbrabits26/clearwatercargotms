@@ -18,3 +18,4 @@
 - QuickBooks sends are recorded in `qb_sync` (admin-only RLS) as a queue; a future server-side worker delivers queued rows once QuickBooks is connected.
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders both preview and signed copy; the signing link stores a snapshot so the carrier signs exactly what was sent. RC # = load number. Signed PDFs live in the private load-docs bucket under the load id.
+- Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
