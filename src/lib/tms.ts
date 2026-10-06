@@ -46,7 +46,9 @@ export function carrierCompliance(c: Carrier) {
   const issues: string[] = [];
   if (c.status === "dnu") issues.push(`Do Not Use: ${c.dnu_reason ?? "no reason"}`);
   if (c.authority_status !== "Authorized") issues.push(`Authority ${c.authority_status}`);
-  if (!c.insurance_expires || new Date(c.insurance_expires) < new Date()) issues.push("Insurance missing/expired");
+  if (!c.insurance_expires || new Date(c.insurance_expires) < new Date()) issues.push("Auto liability insurance missing/expired");
+  if (c.cargo_expires && new Date(c.cargo_expires) < new Date()) issues.push("Cargo insurance expired");
+  if (c.factoring_company && !c.noa_received) issues.push("Factoring NOA missing");
   if (!c.w9_received) issues.push("W-9 missing");
   if (!c.coi_received) issues.push("COI missing");
   if (!c.agreement_signed) issues.push("Broker agreement unsigned");
@@ -74,3 +76,24 @@ export const DRIVER_STATUSES = [
   { value: "unavailable", label: "Unavailable", cls: "border-destructive/50 text-destructive" },
 ];
 export const ACTIVE_STATUSES = ["booked", "dispatched", "rolling", "issue", "vetting"];
+
+export const EXPIRY_SOON_DAYS = 30;
+export type ExpiryState = "missing" | "expired" | "soon" | "ok";
+export function expiryState(d: string | null | undefined): ExpiryState {
+  if (!d) return "missing";
+  const days = (new Date(d).getTime() - Date.now()) / 86400_000;
+  if (days < 0) return "expired";
+  if (days <= EXPIRY_SOON_DAYS) return "soon";
+  return "ok";
+}
+export function carrierExpiry(c: Carrier): ExpiryState {
+  const s = [expiryState(c.insurance_expires), c.cargo_expires ? expiryState(c.cargo_expires) : "ok"];
+  return s.includes("expired") || s.includes("missing") ? (s.includes("expired") ? "expired" : "missing") : s.includes("soon") ? "soon" : "ok";
+}
+export const DOC_KINDS = [
+  { value: "w9", label: "W-9" },
+  { value: "coi", label: "Certificate of insurance" },
+  { value: "agreement", label: "Broker-carrier agreement" },
+  { value: "noa", label: "Factoring NOA" },
+  { value: "voided_check", label: "Voided check" },
+] as const;

@@ -29,6 +29,13 @@
       "when": 1791313679192,
       "tag": "0003_qb_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791314064080,
+      "tag": "0004_carrier_onboarding",
+      "breakpoints": true
     }
   ]
 }
