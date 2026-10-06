@@ -21,6 +21,7 @@ import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authentic
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
+import { Route as ApiPublicFmcsaPingRouteImport } from './routes/api/public/fmcsa-ping'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +82,11 @@ const SignTokenRoute = SignTokenRouteImport.update({
   path: '/sign/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicFmcsaPingRoute = ApiPublicFmcsaPingRouteImport.update({
+  id: '/api/public/fmcsa-ping',
+  path: '/api/public/fmcsa-ping',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/api/public/fmcsa-ping': typeof ApiPublicFmcsaPingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/api/public/fmcsa-ping': typeof ApiPublicFmcsaPingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/api/public/fmcsa-ping': typeof ApiPublicFmcsaPingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/api/public/fmcsa-ping'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/api/public/fmcsa-ping'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/api/public/fmcsa-ping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -172,6 +184,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
+  ApiPublicFmcsaPingRoute: typeof ApiPublicFmcsaPingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/fmcsa-ping': {
+      id: '/api/public/fmcsa-ping'
+      path: '/api/public/fmcsa-ping'
+      fullPath: '/api/public/fmcsa-ping'
+      preLoaderRoute: typeof ApiPublicFmcsaPingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -292,6 +312,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
+  ApiPublicFmcsaPingRoute: ApiPublicFmcsaPingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
