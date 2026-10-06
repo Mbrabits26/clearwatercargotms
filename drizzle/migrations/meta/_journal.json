@@ -57,6 +57,13 @@
       "when": 1791316333352,
       "tag": "0007_named_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791316558684,
+      "tag": "0008_staff_scoped_policies",
+      "breakpoints": true
     }
   ]
 }
