@@ -213,6 +213,48 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          author_id: string
+          body: string
+          channel: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string
+          body: string
+          channel: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      chat_reads: {
+        Row: {
+          channel: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Update: {
+          channel?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -344,6 +386,38 @@ export type Database = {
           year?: number | null
         }
         Relationships: []
+      }
+      load_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          load_id: string
+        }
+        Insert: {
+          author_id?: string
+          body: string
+          created_at?: string
+          id?: string
+          load_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          load_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_notes_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       loads: {
         Row: {
