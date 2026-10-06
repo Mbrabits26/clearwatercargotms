@@ -56,7 +56,7 @@ export function LoadBuilderDialog({
         dest_city: f.dest_city, dest_state: f.dest_state.toUpperCase(),
         pickup_at: f.pickup_at ? new Date(f.pickup_at).toISOString() : null,
         delivery_at: f.delivery_at ? new Date(f.delivery_at).toISOString() : null,
-        equipment: f.equipment, commodity: f.commodity || null,
+        equipment: f.equipment ?? "Dry Van", commodity: f.commodity || null,
         weight_lbs: num("weight_lbs"), pieces: num("pieces"), miles: num("miles"),
         temperature: f.temperature || null,
         pickup_notes: f.pickup_notes || null, delivery_notes: f.delivery_notes || null,

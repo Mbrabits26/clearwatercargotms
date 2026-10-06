@@ -69,7 +69,7 @@ function StatusPill({ c }: { c: Carrier }) {
 }
 
 function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
-  const [reason, setReason] = useState(DNU_REASONS[0]);
+  const [reason, setReason] = useState<string>("Double-brokering");
   const [factor, setFactor] = useState(c.factoring_company ?? "");
   const comp = carrierCompliance(c);
   const update = async (patch: Partial<Carrier>, msg: string) => {
@@ -173,7 +173,7 @@ function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
     const { data, error } = await supabase.from("carriers").insert({
       legal_name: f.legal_name, dba: f.dba || null, mc_number: f.mc_number || null, dot_number: f.dot_number || null,
       city: f.city || null, state: f.state?.toUpperCase() || null, phone: f.phone || null, email: f.email || null,
-      equipment: f.equipment || null, insurance_expires: f.insurance_expires || null, authority_status: f.authority_status,
+      equipment: f.equipment || null, insurance_expires: f.insurance_expires || null, authority_status: f.authority_status ?? "Authorized",
     }).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Carrier added as pending");

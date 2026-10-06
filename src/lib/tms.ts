@@ -3,6 +3,7 @@ import type { Tables, Enums } from "@/integrations/supabase/types";
 export type Load = Tables<"loads">;
 export type Carrier = Tables<"carriers">;
 export type Company = Tables<"companies">;
+export type Profile = Tables<"profiles">;
 export type LoadStatus = Enums<"load_status">;
 export type Accessorial = { type: string; amount: number };
 

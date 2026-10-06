@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import {
   STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
-  ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus,
+  ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
 import { generateRateCon } from "@/lib/ratecon";
 import { Button } from "@/components/ui/button";
@@ -224,9 +224,9 @@ function Cockpit({
 }: {
   load: Load;
   loads: Load[];
-  carriers: ReturnType<typeof useSuspenseQuery<typeof carriersQuery>>["data"];
-  companies: ReturnType<typeof useSuspenseQuery<typeof companiesQuery>>["data"];
-  profiles: ReturnType<typeof useSuspenseQuery<typeof profilesQuery>>["data"];
+  carriers: Carrier[];
+  companies: Company[];
+  profiles: Profile[];
   isAdmin: boolean;
 }) {
   const qc = useQueryClient();
@@ -238,7 +238,7 @@ function Cockpit({
   const t = loadTotals(load);
   const [carrierRate, setCarrierRate] = useState(String(load.carrier_rate));
   const [custRate, setCustRate] = useState(String(load.customer_rate));
-  const [accType, setAccType] = useState(ACCESSORIAL_TYPES[0]);
+  const [accType, setAccType] = useState<string>("Detention");
   const [accAmt, setAccAmt] = useState("");
   const [quickPay, setQuickPay] = useState(false);
   const [advance, setAdvance] = useState("");
