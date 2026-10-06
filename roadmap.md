@@ -27,3 +27,5 @@
 - [x] Carrier packet invite email drafts (Carriers tab, carrier detail, dispatch)
 - [ ] QuickBooks Online live connection (blocked: Intuit developer app Client ID/Secret)
 - [x] FMCSA live lookup (Add carrier + Re-check FMCSA)
+- [x] Gmail/Workspace email option for invites + rate cons
+- [x] Team chat pop-up + per-load notes
