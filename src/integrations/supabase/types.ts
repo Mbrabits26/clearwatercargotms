@@ -359,6 +359,7 @@ export type Database = {
           delivery_at: string | null
           delivery_notes: string | null
           dest_city: string
+          dest_ref: string | null
           dest_state: string
           driver_id: string | null
           equipment: string
@@ -372,7 +373,9 @@ export type Database = {
           pickup_notes: string | null
           pieces: number | null
           pod_received: boolean
+          ratecon_pdf_path: string | null
           ratecon_signed: boolean
+          ship_ref: string | null
           shipper_id: string | null
           status: Database["public"]["Enums"]["load_status"]
           temperature: string | null
@@ -393,6 +396,7 @@ export type Database = {
           delivery_at?: string | null
           delivery_notes?: string | null
           dest_city: string
+          dest_ref?: string | null
           dest_state: string
           driver_id?: string | null
           equipment?: string
@@ -406,7 +410,9 @@ export type Database = {
           pickup_notes?: string | null
           pieces?: number | null
           pod_received?: boolean
+          ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
+          ship_ref?: string | null
           shipper_id?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
@@ -427,6 +433,7 @@ export type Database = {
           delivery_at?: string | null
           delivery_notes?: string | null
           dest_city?: string
+          dest_ref?: string | null
           dest_state?: string
           driver_id?: string | null
           equipment?: string
@@ -440,7 +447,9 @@ export type Database = {
           pickup_notes?: string | null
           pieces?: number | null
           pod_received?: boolean
+          ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
+          ship_ref?: string | null
           shipper_id?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
@@ -564,6 +573,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "qb_sync_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ratecon_requests: {
+        Row: {
+          carrier_email: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          load_id: string
+          pdf_path: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_title: string | null
+          snapshot: Json
+          status: string
+          token: string
+        }
+        Insert: {
+          carrier_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          load_id: string
+          pdf_path?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          snapshot: Json
+          status?: string
+          token?: string
+        }
+        Update: {
+          carrier_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          load_id?: string
+          pdf_path?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          snapshot?: Json
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratecon_requests_load_id_fkey"
             columns: ["load_id"]
             isOneToOne: false
             referencedRelation: "loads"

@@ -16,7 +16,7 @@
 - [ ] Google Places autofill (needs Google Maps connection)
 - [ ] Live FMCSA lookup (blocked: FMCSA web key)
 - [x] Carrier onboarding packet portal (built in-app: invite links, uploads, insurance expiry alerts)
-- [ ] Digital rate con signing links + document attachments
+- [x] Digital rate con signing links (template layout, signed PDF attached to load)
 - [x] QuickBooks section: AR/AP send queue + sync log
 - [ ] Live QuickBooks delivery of queued items (blocked: QuickBooks account connection)
 - [x] Customizable reports: customer AR, carrier AP, broker loads/amounts, custom filters + CSV

@@ -9,7 +9,7 @@ import {
   STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
-import { generateRateCon } from "@/lib/ratecon";
+import { RateConPanel } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -352,13 +352,6 @@ function Cockpit({
             </ul>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              disabled={!carrier}
-              onClick={() => carrier && generateRateCon({ load, carrier, shipper, consignee, brokerName: profiles.find((p) => p.id === (load.broker_id ?? user.id))?.full_name ?? "Clearwater Cargo" })}
-            >
-              <FileText className="mr-1 h-3.5 w-3.5" />Rate con PDF
-            </Button>
             <Button size="sm" variant="outline" disabled={!carrier} onClick={() => update({ ratecon_signed: !load.ratecon_signed })}>
               {load.ratecon_signed ? "Unmark signed" : "Mark rate con signed"}
             </Button>
@@ -366,6 +359,7 @@ function Cockpit({
               {load.pod_received ? "Unmark POD" : "POD received"}
             </Button>
           </div>
+          <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
         </Panel>
 
         <Panel title="Financials">
