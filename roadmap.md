@@ -14,7 +14,7 @@
 - [x] Internal fleet: trucks, trailers, drivers, availability, dispatch assignment
 - [ ] Outside-broker loads hauled by our trucks (MC#, external rate con, billing)
 - [ ] Google Places autofill (needs Google Maps connection)
-- [ ] Live FMCSA lookup (blocked: FMCSA web key)
+- [x] Live FMCSA lookup
 - [x] Carrier onboarding packet portal (built in-app: invite links, uploads, insurance expiry alerts)
 - [x] Digital rate con signing links (template layout, signed PDF attached to load)
 - [x] QuickBooks section: AR/AP send queue + sync log
@@ -26,4 +26,4 @@
 - [x] Type-to-search customer/shipper/consignee/carrier with add-new
 - [x] Carrier packet invite email drafts (Carriers tab, carrier detail, dispatch)
 - [ ] QuickBooks Online live connection (blocked: Intuit developer app Client ID/Secret)
-- [ ] FMCSA live lookup (blocked: free FMCSA WebKey from mobile.fmcsa.dot.gov)
+- [x] FMCSA live lookup (Add carrier + Re-check FMCSA)
