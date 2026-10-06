@@ -59,3 +59,18 @@ export function checkCallOverdue(l: Load) {
   const last = l.last_check_call ? new Date(l.last_check_call).getTime() : 0;
   return Date.now() - last > CHECK_CALL_HOURS * 3600_000;
 }
+export type FleetUnit = Tables<"fleet_units">;
+export type Driver = Tables<"drivers">;
+export const UNIT_STATUSES = [
+  { value: "available", label: "Available", cls: "border-success/50 text-success" },
+  { value: "assigned", label: "Assigned", cls: "border-gold/50 text-gold" },
+  { value: "maintenance", label: "Maintenance", cls: "border-warning/50 text-warning" },
+  { value: "out_of_service", label: "Out of service", cls: "border-destructive/50 text-destructive" },
+];
+export const DRIVER_STATUSES = [
+  { value: "available", label: "Available", cls: "border-success/50 text-success" },
+  { value: "on_load", label: "On load", cls: "border-gold/50 text-gold" },
+  { value: "off_duty", label: "Off duty", cls: "border-muted-foreground/50 text-muted-foreground" },
+  { value: "unavailable", label: "Unavailable", cls: "border-destructive/50 text-destructive" },
+];
+export const ACTIVE_STATUSES = ["booked", "dispatched", "rolling", "issue", "vetting"];

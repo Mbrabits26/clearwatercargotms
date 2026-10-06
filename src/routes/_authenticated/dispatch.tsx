@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { cn } from "@/lib/utils";
+import { FleetPanel } from "@/components/FleetPanel";
+import { fleetQuery, driversQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -31,6 +33,8 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
       context.queryClient.ensureQueryData(carriersQuery),
       context.queryClient.ensureQueryData(companiesQuery),
       context.queryClient.ensureQueryData(profilesQuery),
+      context.queryClient.ensureQueryData(fleetQuery),
+      context.queryClient.ensureQueryData(driversQuery),
     ]),
   component: Dispatch,
 });
@@ -168,7 +172,7 @@ function Dispatch() {
                     {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{l.equipment} · {fmtDate(l.pickup_at)}</span>
+                    <span>{l.equipment} · {fmtDate(l.pickup_at)}{(l.truck_id || l.driver_id) && <span className="ml-2 rounded border border-teal px-1 text-[10px] uppercase text-teal">Our truck</span>}</span>
                     <span className="flex items-center gap-1">
                       {checkCallOverdue(l) && <AlarmClock className="h-3.5 w-3.5 text-warning" />}
                       {usd(t.revenue)}
@@ -406,7 +410,11 @@ function Cockpit({
           </div>
         </Panel>
 
-        <Panel title="Lane intelligence" className="xl:col-span-2">
+        <Panel title="Clearwater fleet assignment">
+          <FleetPanel load={load} />
+        </Panel>
+
+        <Panel title="Lane intelligence">
           <div className="grid grid-cols-2 gap-4">
             {(["d30", "d90"] as const).map((k) => {
               const w = lane[k];

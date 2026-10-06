@@ -167,6 +167,90 @@ export type Database = {
         }
         Relationships: []
       }
+      drivers: {
+        Row: {
+          cdl_expires: string | null
+          cdl_number: string | null
+          cdl_state: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          home_city: string | null
+          id: string
+          medical_expires: string | null
+          phone: string | null
+          status: string
+        }
+        Insert: {
+          cdl_expires?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          home_city?: string | null
+          id?: string
+          medical_expires?: string | null
+          phone?: string | null
+          status?: string
+        }
+        Update: {
+          cdl_expires?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          home_city?: string | null
+          id?: string
+          medical_expires?: string | null
+          phone?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      fleet_units: {
+        Row: {
+          created_at: string
+          equipment: string | null
+          id: string
+          kind: string
+          make_model: string | null
+          notes: string | null
+          plate: string | null
+          status: string
+          unit_number: string
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          equipment?: string | null
+          id?: string
+          kind: string
+          make_model?: string | null
+          notes?: string | null
+          plate?: string | null
+          status?: string
+          unit_number: string
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          equipment?: string | null
+          id?: string
+          kind?: string
+          make_model?: string | null
+          notes?: string | null
+          plate?: string | null
+          status?: string
+          unit_number?: string
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       loads: {
         Row: {
           accessorials: Json
@@ -182,6 +266,7 @@ export type Database = {
           delivery_notes: string | null
           dest_city: string
           dest_state: string
+          driver_id: string | null
           equipment: string
           id: string
           last_check_call: string | null
@@ -197,6 +282,8 @@ export type Database = {
           shipper_id: string | null
           status: Database["public"]["Enums"]["load_status"]
           temperature: string | null
+          trailer_id: string | null
+          truck_id: string | null
           weight_lbs: number | null
         }
         Insert: {
@@ -213,6 +300,7 @@ export type Database = {
           delivery_notes?: string | null
           dest_city: string
           dest_state: string
+          driver_id?: string | null
           equipment?: string
           id?: string
           last_check_call?: string | null
@@ -228,6 +316,8 @@ export type Database = {
           shipper_id?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
+          trailer_id?: string | null
+          truck_id?: string | null
           weight_lbs?: number | null
         }
         Update: {
@@ -244,6 +334,7 @@ export type Database = {
           delivery_notes?: string | null
           dest_city?: string
           dest_state?: string
+          driver_id?: string | null
           equipment?: string
           id?: string
           last_check_call?: string | null
@@ -259,6 +350,8 @@ export type Database = {
           shipper_id?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
+          trailer_id?: string | null
+          truck_id?: string | null
           weight_lbs?: number | null
         }
         Relationships: [
@@ -284,10 +377,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "loads_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "loads_shipper_id_fkey"
             columns: ["shipper_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_units"
             referencedColumns: ["id"]
           },
         ]

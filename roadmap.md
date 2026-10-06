@@ -11,7 +11,8 @@
 
 ## Next
 - [ ] Sales CRM pipeline + spot quote PDFs with 24h expiry
-- [ ] Internal fleet (trucks, trailers, drivers, outside-broker loads)
+- [x] Internal fleet: trucks, trailers, drivers, availability, dispatch assignment
+- [ ] Outside-broker loads hauled by our trucks (MC#, external rate con, billing)
 - [ ] Google Places autofill (needs Google Maps connection)
 - [ ] Live FMCSA lookup (blocked: FMCSA web key)
 - [ ] Carrier onboarding portal sync (blocked: portal choice/account)
