@@ -187,6 +187,9 @@ export type Database = {
           cargo_insurance: number | null
           city: string | null
           coi_received: boolean
+          conditional_by: string | null
+          conditional_note: string | null
+          conditional_until: string | null
           contact_name: string | null
           created_at: string
           dba: string | null
@@ -218,6 +221,9 @@ export type Database = {
           cargo_insurance?: number | null
           city?: string | null
           coi_received?: boolean
+          conditional_by?: string | null
+          conditional_note?: string | null
+          conditional_until?: string | null
           contact_name?: string | null
           created_at?: string
           dba?: string | null
@@ -249,6 +255,9 @@ export type Database = {
           cargo_insurance?: number | null
           city?: string | null
           coi_received?: boolean
+          conditional_by?: string | null
+          conditional_note?: string | null
+          conditional_until?: string | null
           contact_name?: string | null
           created_at?: string
           dba?: string | null

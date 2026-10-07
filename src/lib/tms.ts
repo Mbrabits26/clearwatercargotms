@@ -52,7 +52,10 @@ export function carrierCompliance(c: Carrier) {
   if (!c.w9_received) issues.push("W-9 missing");
   if (!c.coi_received) issues.push("COI missing");
   if (!c.agreement_signed) issues.push("Broker agreement unsigned");
-  return { ok: issues.length === 0 && c.status === "vetted", issues };
+  const conditional = c.status === "pending" && !!c.conditional_until && c.conditional_until >= new Date().toISOString().slice(0, 10)
+    && c.authority_status === "Authorized";
+  if (conditional) return { ok: true, conditional: true, issues };
+  return { ok: issues.length === 0 && c.status === "vetted", conditional: false, issues };
 }
 
 export const CHECK_CALL_HOURS = 4;

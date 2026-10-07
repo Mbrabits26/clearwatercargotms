@@ -40,6 +40,7 @@ export function FmcsaSummary({ r }: { r: FmcsaCarrier }) {
       <div className="text-muted-foreground">
         Authority: {r.authority_status} · Safety: {r.safety_rating} · Power units: {r.power_units ?? "—"} · Liability on file: {usd(r.bipd_on_file)}{r.bipd_required ? ` (req. ${usd(r.bipd_required)})` : ""} · Cargo on file: {usd(r.cargo_on_file)}
       </div>
+      {(r.contact_name || r.email || r.phone || r.cell_phone) && <div className="text-muted-foreground">{[r.contact_name, r.email, r.phone, r.cell_phone && `cell ${r.cell_phone}`, r.fax && `fax ${r.fax}`].filter(Boolean).join(" · ")}</div>}
       <div className="text-muted-foreground">Source: {r.source === "SAFER" ? "SAFER snapshot" : "FMCSA"} · <a href={r.safer_url} target="_blank" rel="noreferrer" className="text-gold underline">Open in SAFER</a></div>
       {r.warnings.map((w) => <div key={w} className="text-destructive">⚠ {w}</div>)}
     </div>

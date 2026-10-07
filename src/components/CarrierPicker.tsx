@@ -40,9 +40,9 @@ export function CarrierPicker({ carriers, currentId, onPick, onAdded }: {
             placeholder="Type carrier name or MC#"
             newLabel="new carrier (pending)"
             options={carriers.map((c) => {
-              const ok = carrierCompliance(c).ok;
+              const cc = carrierCompliance(c); const ok = cc.ok;
               return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, disabled: !ok,
-                sub: `MC ${c.mc_number ?? "—"} · ${c.status === "dnu" ? "⛔ Do not use" : ok ? "✓ Compliant" : "⚠ Not compliant — finish vetting"}` };
+                sub: `MC ${c.mc_number ?? "—"} · ${c.status === "dnu" ? "⛔ Do not use" : cc.conditional ? `◐ Conditional until ${c.conditional_until} — docs pending` : ok ? "✓ Compliant" : "⚠ Not compliant — finish vetting"}` };
             })}
             onChange={(nv) => { setV(nv); if (nv.id) onPick(nv.id); }}
           />
