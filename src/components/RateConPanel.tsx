@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Download, FileSignature, FileText, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [shipRef, setShipRef] = useState(load.ship_ref ?? "");
   const [destRef, setDestRef] = useState(load.dest_ref ?? "");
   const [email, setEmail] = useState(carrier?.email ?? "");
+  useEffect(() => { setEmail(carrier?.email ?? ""); }, [carrier?.id, carrier?.email]);
   const link = (t: string) => `${window.location.origin}/sign/${t}`;
   const current = () => ({ ...load, ship_ref: shipRef || null, dest_ref: destRef || null });
 

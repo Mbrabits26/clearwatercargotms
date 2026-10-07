@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { findMatch, mergeFill } from "@/lib/carrierMerge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +32,7 @@ const CARRIER_FIELDS: Field[] = [
   { key: "email", label: "Email", aliases: ["email", "e-mail"] },
   { key: "contact_name", label: "Contact", aliases: ["contact", "contact name"] },
   { key: "equipment", label: "Equipment", aliases: ["equipment", "trailer", "equipment type"] },
+  { key: "factoring_company", label: "Factoring company", aliases: ["factoring", "factoring company", "factor"] },
   { key: "insurance_expires", label: "Auto liability expires", aliases: ["insurance expires", "auto liability expires", "insurance expiration"] },
   { key: "cargo_expires", label: "Cargo expires", aliases: ["cargo expires", "cargo expiration"] },
 ];
@@ -115,23 +117,46 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
     const { out } = build();
     if (!out.length) return toast.error("No rows with a name to import.");
     setBusy(true);
-    const nameKey = target === "company" ? "name" : "legal_name";
-    const existing = target === "company"
-      ? (await supabase.from("companies").select("name").eq("kind", kind)).data?.map((x) => x.name.toLowerCase()) ?? []
-      : (await supabase.from("carriers").select("legal_name").limit(5000)).data?.map((x) => x.legal_name.toLowerCase()) ?? [];
-    const seen = new Set(existing);
-    const fresh = out.filter((o) => { const k = String(o[nameKey]).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-    let added = 0;
-    for (let i = 0; i < fresh.length; i += 200) {
-      const chunk = fresh.slice(i, i + 200);
-      const { error } = target === "company"
-        ? await supabase.from("companies").insert(chunk.map((c) => ({ ...c, kind, name: c.name! })))
-        : await supabase.from("carriers").insert(chunk.map((c) => ({ ...c, legal_name: c.legal_name!, status: "pending" as const })));
-      if (error) { setBusy(false); return toast.error(`Stopped after ${added} rows: ${error.message}`); }
-      added += chunk.length;
+    if (target === "carrier") {
+      const { data: ex } = await supabase.from("carriers").select("*").limit(10000);
+      const list = [...(ex ?? [])] as (Record<string, unknown> & { id: string; legal_name: string; mc_number: string | null; dot_number: string | null })[];
+      let added = 0, merged = 0, same = 0;
+      const fresh: Record<string, string | null>[] = [];
+      for (const o of out) {
+        const m = findMatch(list, o as never);
+        if (m) {
+          const patch = mergeFill(m, o);
+          if (!Object.keys(patch).length) { same++; continue; }
+          const { error } = await supabase.from("carriers").update(patch).eq("id", m.id);
+          if (error) { setBusy(false); return toast.error(`Stopped on ${o.legal_name}: ${error.message}`); }
+          Object.assign(m, patch); merged++;
+        } else {
+          fresh.push(o);
+          list.push({ ...o, id: `new-${fresh.length}` } as never);
+        }
+      }
+      for (let i = 0; i < fresh.length; i += 200) {
+        const chunk = fresh.slice(i, i + 200);
+        const { error } = await supabase.from("carriers").insert(chunk.map((c) => ({ ...c, legal_name: c.legal_name!, status: "pending" as const })));
+        if (error) { setBusy(false); return toast.error(`Stopped after ${added} new rows: ${error.message}`); }
+        added += chunk.length;
+      }
+      setBusy(false);
+      toast.success(`Added ${added} · merged details into ${merged} existing · ${same} unchanged`);
+    } else {
+      const existing = (await supabase.from("companies").select("name").eq("kind", kind)).data?.map((x) => x.name.toLowerCase()) ?? [];
+      const seen = new Set(existing);
+      const fresh = out.filter((o) => { const k = String(o.name).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+      let added = 0;
+      for (let i = 0; i < fresh.length; i += 200) {
+        const chunk = fresh.slice(i, i + 200);
+        const { error } = await supabase.from("companies").insert(chunk.map((c) => ({ ...c, kind, name: c.name! })));
+        if (error) { setBusy(false); return toast.error(`Stopped after ${added} rows: ${error.message}`); }
+        added += chunk.length;
+      }
+      setBusy(false);
+      toast.success(`Imported ${added}${out.length - added ? ` · skipped ${out.length - added} already in the system` : ""}`);
     }
-    setBusy(false);
-    toast.success(`Imported ${added}${out.length - added ? ` · skipped ${out.length - added} already in the system` : ""}`);
     onDone();
     reset();
     onOpenChange(false);
@@ -141,7 +166,7 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Bulk import {target === "company" ? "directory" : "carriers"}</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground">Upload an Excel (.xlsx/.xls) or CSV file. The first row should be column headings. Cells containing links are ignored, and names already in the system are skipped.{target === "carrier" && " Carriers come in as pending until vetted."}</p>
+        <p className="text-xs text-muted-foreground">Upload an Excel (.xlsx/.xls) or CSV file. The first row should be column headings. Cells containing links are ignored, and {target === "carrier" ? "carriers already in the system (same DOT, MC or name) get their blank details filled in instead of being duplicated. New carriers come in as pending until vetted." : "names already in the system are skipped."}</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           {target === "company" && (
             <Select value={kind} onValueChange={setKind}>
