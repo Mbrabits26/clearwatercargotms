@@ -47,3 +47,8 @@
 - [x] Duplicate carriers merged on add/import + Find duplicates merge tool
 - [x] Admin conditional carrier approval while documents pending (DB-enforced)
 - [x] Rate con email auto-fills from assigned carrier
+- [x] Calendar date pickers; Edit load after creation; editable/deletable load notes and facility notes
+- [x] Load builder typing fix; commission default 0 with admin-confirmed changes
+- [x] Carrier assignment matches DB rules + admin compliance override (recorded on load)
+- [x] Load sheet reader: refs, PO, contacts, handwritten carrier/rate, no guessed customer
+- [x] Full carrier packet upload → review → fills carrier fields and checklist

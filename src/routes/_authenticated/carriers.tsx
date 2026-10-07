@@ -14,6 +14,7 @@ import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInv
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/DatePicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -212,7 +213,7 @@ function ConditionalApproval({ c, update }: { c: Carrier; update: (p: Partial<Ca
         : <p className="text-muted-foreground">Lets this carrier be assigned to loads while documents are pending. Do Not Use and unauthorized carriers can never be approved.</p>}
       {isAdmin ? (
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Input type="date" min={today} value={until} onChange={(e) => setUntil(e.target.value)} className="sm:w-40" />
+          <DatePicker min={today} value={until} onChange={setUntil} className="sm:w-56" />
           <Input placeholder="Note, e.g. W-9 coming Friday" value={note} onChange={(e) => setNote(e.target.value)} />
           <Button size="sm" disabled={c.authority_status !== "Authorized"} onClick={() => update({ conditional_until: until, conditional_note: note || null, conditional_by: user.id }, "Carrier conditionally approved")}>{active ? "Update" : "Approve"}</Button>
           {active && <Button size="sm" variant="ghost" onClick={() => update({ conditional_until: null, conditional_note: null, conditional_by: null }, "Conditional approval removed")}>Remove</Button>}

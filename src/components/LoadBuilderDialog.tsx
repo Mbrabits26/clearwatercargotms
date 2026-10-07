@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EQUIPMENT, type Company } from "@/lib/tms";
+import { EQUIPMENT, type Company, type Load } from "@/lib/tms";
+import { DatePicker } from "@/components/DatePicker";
 import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
 import { extractLoadFromDoc } from "@/lib/extract.functions";
 import type { Extracted } from "@/lib/extract.server";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 type F = Record<string, string>;
 type Kind = "customer" | "shipper" | "consignee";
-type Party = ComboValue & { address?: string; city?: string; state?: string; zip?: string };
+type Party = ComboValue & { address?: string; city?: string; state?: string; zip?: string; phone?: string; contact_name?: string };
 const EMPTY: Party = { id: null, name: "" };
 
 const toB64 = (buf: ArrayBuffer) => {
@@ -28,9 +29,20 @@ const toB64 = (buf: ArrayBuffer) => {
   return btoa(s);
 };
 
+// Defined at module scope so inputs keep focus while typing (an inline component remounts every keystroke).
+const L = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block text-xs text-muted-foreground">{label}<div className="mt-1">{children}</div></label>
+);
+const pad = (n: number) => String(n).padStart(2, "0");
+const toLocal = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export function LoadBuilderDialog({
-  open, onOpenChange, companies, onCreated,
-}: { open: boolean; onOpenChange: (o: boolean) => void; companies: Company[]; onCreated: (id: string) => void }) {
+  open, onOpenChange, companies, onCreated, editLoad,
+}: { open: boolean; onOpenChange: (o: boolean) => void; companies: Company[]; onCreated: (id: string) => void; editLoad?: Load | null }) {
   const qc = useQueryClient();
   const { user } = useRouteContext({ from: "/_authenticated" });
   const extract = useServerFn(extractLoadFromDoc);
@@ -40,6 +52,22 @@ export function LoadBuilderDialog({
   const [found, setFound] = useState<Extracted[]>([]);
   const [foundIdx, setFoundIdx] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [hint, setHint] = useState<string>("");
+  useEffect(() => {
+    if (!open || !editLoad) return;
+    const s = (v: unknown) => (v == null ? "" : String(v));
+    const l = editLoad;
+    setF({
+      origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state,
+      pickup_at: toLocal(l.pickup_at), delivery_at: toLocal(l.delivery_at), equipment: l.equipment,
+      commodity: s(l.commodity), weight_lbs: s(l.weight_lbs), pieces: s(l.pieces), temperature: s(l.temperature), miles: s(l.miles),
+      customer_rate: s(l.customer_rate), carrier_rate: s(l.carrier_rate), pickup_notes: s(l.pickup_notes), delivery_notes: s(l.delivery_notes),
+      ship_ref: s(l.ship_ref), dest_ref: s(l.dest_ref),
+    });
+    const p = (id: string | null): Party => { const c = companies.find((x) => x.id === id); return c ? { id: c.id, name: c.name } : EMPTY; };
+    setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
+    setFound([]); setHint("");
+  }, [open, editLoad?.id]);
   const set = (k: string) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
 
   const match = (kind: Kind, name: string | null) => {
@@ -64,13 +92,16 @@ export function LoadBuilderDialog({
       equipment: eq ?? p.equipment ?? "Dry Van", commodity: s(x.commodity), weight_lbs: s(x.weight_lbs),
       pieces: s(x.pieces), temperature: s(x.temperature), miles: s(x.miles),
       customer_rate: s(x.customer_rate), carrier_rate: s(x.carrier_rate),
-      pickup_notes: [x.reference && `Ref: ${x.reference}`, x.pickup_notes].filter(Boolean).join("\n"),
-      delivery_notes: s(x.delivery_notes),
+      ship_ref: s(x.ship_ref), dest_ref: s(x.dest_ref),
+      pickup_notes: [x.reference && `Ref: ${x.reference}`, x.po_number && `PO: ${x.po_number}`, x.hazmat && "HAZMAT",
+        (x.shipper_contact || x.shipper_phone) && `Contact: ${[x.shipper_contact, x.shipper_phone].filter(Boolean).join(" ")}`, x.pickup_notes].filter(Boolean).join("\n"),
+      delivery_notes: [(x.consignee_contact || x.consignee_phone) && `Contact: ${[x.consignee_contact, x.consignee_phone].filter(Boolean).join(" ")}`, x.delivery_notes].filter(Boolean).join("\n"),
     }));
+    setHint([x.carrier_name && `Suggested carrier: ${x.carrier_name}${x.carrier_mc ? ` (MC ${x.carrier_mc})` : ""} — assign it on the Carrier tab after saving`, x.handwritten_notes && `Handwritten: ${x.handwritten_notes}`].filter(Boolean).join(" · "));
     setParties({
       customer: party("customer", x.customer_name),
-      shipper: party("shipper", x.shipper_name, { address: x.shipper_address ?? "", city: x.origin_city ?? "", state: x.origin_state ?? "", zip: x.origin_zip ?? "" }),
-      consignee: party("consignee", x.consignee_name, { address: x.consignee_address ?? "", city: x.dest_city ?? "", state: x.dest_state ?? "", zip: x.dest_zip ?? "" }),
+      shipper: party("shipper", x.shipper_name, { address: x.shipper_address ?? "", city: x.origin_city ?? "", state: x.origin_state ?? "", zip: x.origin_zip ?? "", phone: x.shipper_phone ?? "", contact_name: x.shipper_contact ?? "" }),
+      consignee: party("consignee", x.consignee_name, { address: x.consignee_address ?? "", city: x.dest_city ?? "", state: x.dest_state ?? "", zip: x.dest_zip ?? "", phone: x.consignee_phone ?? "", contact_name: x.consignee_contact ?? "" }),
     });
   };
 
@@ -109,13 +140,13 @@ export function LoadBuilderDialog({
   const ensureCompany = async (kind: Kind, p: Party) => {
     if (p.id || !p.name.trim()) return p.id;
     const { data, error } = await supabase.from("companies")
-      .insert({ kind, name: p.name.trim(), address: p.address || null, city: p.city || null, state: p.state ? p.state.toUpperCase().slice(0, 2) : null, zip: p.zip || null, created_by: user.id })
+      .insert({ kind, name: p.name.trim(), address: p.address || null, city: p.city || null, state: p.state ? p.state.toUpperCase().slice(0, 2) : null, zip: p.zip || null, phone: p.phone || null, contact_name: p.contact_name || null, created_by: user.id })
       .select("id").single();
     if (error) throw new Error(`Couldn't add ${kind}: ${error.message}`);
     return data.id;
   };
 
-  const reset = () => { setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); };
+  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); };
 
   const save = async () => {
     if (!f.origin_city || !f.origin_state || !f.dest_city || !f.dest_state) return toast.error("Origin and destination are required.");
@@ -126,8 +157,8 @@ export function LoadBuilderDialog({
       ]);
       const added = (["customer", "shipper", "consignee"] as Kind[]).filter((k) => !parties[k].id && parties[k].name.trim());
       const num = (k: string) => (f[k] ? Number(f[k]) : null);
-      const { data, error } = await supabase.from("loads").insert({
-        broker_id: user.id, customer_id: customer_id ?? null, shipper_id: shipper_id ?? null, consignee_id: consignee_id ?? null,
+      const row = {
+        customer_id: customer_id ?? null, shipper_id: shipper_id ?? null, consignee_id: consignee_id ?? null,
         origin_city: f.origin_city, origin_state: f.origin_state.toUpperCase(),
         dest_city: f.dest_city, dest_state: f.dest_state.toUpperCase(),
         pickup_at: f.pickup_at ? new Date(f.pickup_at).toISOString() : null,
@@ -137,7 +168,18 @@ export function LoadBuilderDialog({
         temperature: f.temperature || null,
         pickup_notes: f.pickup_notes || null, delivery_notes: f.delivery_notes || null,
         customer_rate: num("customer_rate") ?? 0, carrier_rate: num("carrier_rate") ?? 0,
-      }).select("id").single();
+        ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null,
+      };
+      if (editLoad) {
+        const { error } = await supabase.from("loads").update(row).eq("id", editLoad.id);
+        if (error) throw new Error(error.message);
+        toast.success(added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated");
+        qc.invalidateQueries({ queryKey: ["loads"] });
+        qc.invalidateQueries({ queryKey: ["companies"] });
+        onOpenChange(false);
+        return;
+      }
+      const { data, error } = await supabase.from("loads").insert({ ...row, broker_id: user.id }).select("id").single();
       if (error) throw new Error(error.message);
       toast.success(added.length ? `Load created · added new ${added.join(", ")} to the Directory` : "Load created");
       qc.invalidateQueries({ queryKey: ["loads"] });
@@ -170,14 +212,11 @@ export function LoadBuilderDialog({
       }}
     />
   );
-  const L = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <label className="block text-xs text-muted-foreground">{label}<div className="mt-1">{children}</div></label>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto">
-        <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Load builder</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{editLoad ? `Edit load ${editLoad.load_number}` : "Load builder"}</DialogTitle></DialogHeader>
         <div className="flex flex-wrap items-center gap-3 rounded border border-dashed border-gold/50 bg-gold/5 p-3">
           <Button variant="secondary" disabled={reading} asChild>
             <label className="cursor-pointer">
@@ -198,6 +237,7 @@ export function LoadBuilderDialog({
               ))}
             </div>
           )}
+          {hint && <div className="w-full rounded bg-muted p-2 text-xs">{hint}</div>}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <L label="Customer (bill-to)">{combo("customer")}</L>
@@ -214,15 +254,16 @@ export function LoadBuilderDialog({
               <SelectContent>{EQUIPMENT.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
             </Select>
           </L>
-          <L label="Pickup appointment"><Input type="datetime-local" value={f.pickup_at ?? ""} onChange={set("pickup_at")} /></L>
-          <L label="Delivery appointment"><Input type="datetime-local" value={f.delivery_at ?? ""} onChange={set("delivery_at")} /></L>
+          <L label="Pickup appointment"><DatePicker withTime value={f.pickup_at ?? ""} onChange={(v) => setF((p) => ({ ...p, pickup_at: v }))} /></L>
+          <L label="Delivery appointment"><DatePicker withTime value={f.delivery_at ?? ""} onChange={(v) => setF((p) => ({ ...p, delivery_at: v }))} /></L>
           <L label="Temperature"><Input placeholder="e.g. 34°F" value={f.temperature ?? ""} onChange={set("temperature")} /></L>
           <L label="Commodity"><Input value={f.commodity ?? ""} onChange={set("commodity")} /></L>
           <L label="Weight (lbs)"><Input type="number" value={f.weight_lbs ?? ""} onChange={set("weight_lbs")} /></L>
           <L label="Pieces"><Input type="number" value={f.pieces ?? ""} onChange={set("pieces")} /></L>
           <L label="Customer rate ($)"><Input type="number" value={f.customer_rate ?? ""} onChange={set("customer_rate")} /></L>
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
-          <div className="hidden lg:block" />
+          <L label="Shipper ref / BOL #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
+          <L label="Delivery ref / appt #"><Input value={f.dest_ref ?? ""} onChange={set("dest_ref")} /></L>
           <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-3">
             <L label="Pickup facility notes"><Textarea value={f.pickup_notes ?? ""} onChange={set("pickup_notes")} /></L>
             <L label="Delivery facility notes"><Textarea value={f.delivery_notes ?? ""} onChange={set("delivery_notes")} /></L>
@@ -230,7 +271,7 @@ export function LoadBuilderDialog({
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
     </Dialog>

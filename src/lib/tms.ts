@@ -54,8 +54,14 @@ export function carrierCompliance(c: Carrier) {
   if (!c.agreement_signed) issues.push("Broker agreement unsigned");
   const conditional = c.status === "pending" && !!c.conditional_until && c.conditional_until >= new Date().toISOString().slice(0, 10)
     && c.authority_status === "Authorized";
-  if (conditional) return { ok: true, conditional: true, issues };
-  return { ok: issues.length === 0 && c.status === "vetted", conditional: false, issues };
+  // Mirrors the enforce_carrier_compliance DB trigger: what actually blocks booking.
+  const hardBlock = c.status === "dnu" || c.authority_status !== "Authorized";
+  const insured = !!c.insurance_expires && new Date(c.insurance_expires) >= new Date(new Date().toDateString());
+  const bookable = !hardBlock && (conditional || (c.status === "vetted" && insured));
+  const blockReason = c.status === "dnu" ? `Do Not Use: ${c.dnu_reason ?? "no reason"}` : c.authority_status !== "Authorized" ? `Authority ${c.authority_status}`
+    : c.status !== "vetted" && !conditional ? "Not vetted yet" : !insured && !conditional ? "Auto liability insurance missing/expired" : null;
+  if (conditional) return { ok: true, conditional: true, issues, hardBlock, bookable, blockReason };
+  return { ok: issues.length === 0 && c.status === "vetted", conditional: false, issues, hardBlock, bookable, blockReason };
 }
 
 export const CHECK_CALL_HOURS = 4;
