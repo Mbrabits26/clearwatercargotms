@@ -9,9 +9,11 @@ import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
 import { draftInviteEmail } from "@/components/CarrierOnboarding";
 
 /** Type-to-search carrier assignment; unknown carriers get added as pending and sent a packet invite. */
-export function CarrierPicker({ carriers, currentId, onPick, onAdded }: {
-  carriers: Carrier[]; currentId: string | null; onPick: (id: string | null) => void; onAdded: () => void;
+export function CarrierPicker({ carriers, currentId, onPick, onAdded, isAdmin }: {
+  carriers: Carrier[]; currentId: string | null; onPick: (id: string | null, overrideReason?: string) => void; onAdded: () => void; isAdmin?: boolean;
 }) {
+  const [pending, setPending] = useState<Carrier | null>(null);
+  const [reason, setReason] = useState("");
   const cur = carriers.find((c) => c.id === currentId);
   const [v, setV] = useState<ComboValue>({ id: cur?.id ?? null, name: cur?.legal_name ?? "" });
   const [mc, setMc] = useState("");
@@ -40,15 +42,37 @@ export function CarrierPicker({ carriers, currentId, onPick, onAdded }: {
             placeholder="Type carrier name or MC#"
             newLabel="new carrier (pending)"
             options={carriers.map((c) => {
-              const cc = carrierCompliance(c); const ok = cc.ok;
-              return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, disabled: !ok,
-                sub: `MC ${c.mc_number ?? "—"} · ${c.status === "dnu" ? "⛔ Do not use" : cc.conditional ? `◐ Conditional until ${c.conditional_until} — docs pending` : ok ? "✓ Compliant" : "⚠ Not compliant — finish vetting"}` };
+              const cc = carrierCompliance(c);
+              const disabled = cc.hardBlock || (!cc.bookable && !isAdmin);
+              const status = c.status === "dnu" ? "⛔ Do not use" : cc.hardBlock ? `⛔ ${cc.blockReason}`
+                : cc.conditional ? `◐ Conditional until ${c.conditional_until} — docs pending`
+                : cc.bookable ? (cc.issues.length ? `✓ Bookable · missing: ${cc.issues.join(", ")}` : "✓ Compliant")
+                : isAdmin ? `⚠ ${cc.blockReason} — admin override available` : `⚠ ${cc.blockReason} — ask an admin to override`;
+              return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, disabled, sub: `MC ${c.mc_number ?? "—"} · ${status}` };
             })}
-            onChange={(nv) => { setV(nv); if (nv.id) onPick(nv.id); }}
+            onChange={(nv) => {
+              setV(nv);
+              if (!nv.id) return;
+              const c = carriers.find((x) => x.id === nv.id);
+              if (c && !carrierCompliance(c).bookable) { setPending(c); setReason(""); return; }
+              onPick(nv.id);
+            }}
           />
         </div>
         {currentId && <Button size="sm" variant="ghost" onClick={() => { setV({ id: null, name: "" }); onPick(null); }}>Clear</Button>}
       </div>
+      {pending && (
+        <div className="space-y-2 rounded border border-warning/50 bg-warning/5 p-2">
+          <div className="text-xs">
+            <span className="font-semibold text-warning">Admin override:</span> {pending.legal_name} — {carrierCompliance(pending).blockReason}. Enter the reason to book anyway. It's recorded on the load.
+          </div>
+          <Input placeholder="Reason, e.g. COI verified by phone with agent" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <div className="flex gap-2">
+            <Button size="sm" disabled={reason.trim().length < 3} onClick={() => { onPick(pending.id, reason.trim()); setPending(null); }}>Assign with override</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setPending(null); setV({ id: cur?.id ?? null, name: cur?.legal_name ?? "" }); }}>Cancel</Button>
+          </div>
+        </div>
+      )}
       {isNew && (
         <div className="space-y-2 rounded border border-warning/50 bg-warning/5 p-2">
           <div className="text-xs text-muted-foreground">Not in the system. Add them and send the onboarding packet:</div>
