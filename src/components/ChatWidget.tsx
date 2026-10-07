@@ -112,7 +112,7 @@ export function ChatWidget({ userId }: { userId: string }) {
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg md:bottom-5 md:right-5"
+        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg lg:bottom-5 lg:right-5"
         aria-label="Team chat"
       >
         {open ? <X className="h-5 w-5" /> : <MessagesSquare className="h-5 w-5" />}
@@ -121,7 +121,7 @@ export function ChatWidget({ userId }: { userId: string }) {
         )}
       </button>
       {open && (
-        <div className="fixed inset-x-2 bottom-[calc(8.25rem+env(safe-area-inset-bottom))] top-16 z-40 flex overflow-hidden rounded-lg border bg-card shadow-2xl md:inset-auto md:bottom-20 md:right-5 md:h-[480px] md:w-[420px]">
+        <div className="fixed inset-x-2 bottom-[calc(8.25rem+env(safe-area-inset-bottom))] top-16 z-40 flex overflow-hidden rounded-lg border bg-card shadow-2xl lg:inset-auto lg:bottom-20 lg:right-5 lg:h-[480px] lg:w-[420px]">
           <aside className="w-24 shrink-0 overflow-auto border-r bg-sidebar p-1 text-sm sm:w-32">
             <Chan active={channel === "team"} onClick={() => setChannel("team")} n={unread.team}>
               <Users className="mr-1 inline h-3 w-3" />Team

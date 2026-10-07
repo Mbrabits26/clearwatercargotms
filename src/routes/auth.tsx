@@ -16,6 +16,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Broker and admin sign-in for the Clearwater Cargo TMS." },
       { property: "og:title", content: "Sign in — Clearwater Cargo TMS" },
       { property: "og:description", content: "Broker and admin sign-in for the Clearwater Cargo TMS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
