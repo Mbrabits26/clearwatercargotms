@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => ({ access: search.access === "pending" ? "pending" : undefined }),
+  validateSearch: (search: Record<string, unknown>): { access?: "pending" } => ({ access: search.access === "pending" ? "pending" : undefined }),
   head: () => ({
     meta: [
       { title: "Sign in — Clearwater Cargo TMS" },
