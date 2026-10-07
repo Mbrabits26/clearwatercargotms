@@ -2,7 +2,7 @@
 
 ## Goal
 
-Create a dedicated responsive interface while preserving the current desktop workflow and all existing permissions, data, and features.
+Create a dedicated responsive interface while preserving the current desktop workflow and data, and restrict account access to people approved by an admin.
 
 ## Navigation
 
@@ -30,15 +30,27 @@ Create a dedicated responsive interface while preserving the current desktop wor
 
 ## Accessibility and usability
 
+## Approval-only account access
+
+- Change Google and email access from open signup to an admin-managed allowlist.
+- Let an admin pre-approve an email, choose Admin or Broker, and set the broker's area permissions before first sign-in.
+- Allow Google sign-in only when the verified Google email matches an approved email; sign out unapproved people and show a clear request-access message.
+- Remove public account creation from the sign-in page while retaining sign-in for approved users.
+- Preserve all current team members and roles during the change so nobody already approved is locked out.
+- Enforce approval and roles in the backend, not only by hiding screens.
+
+## Accessibility and usability
+
 - Use at least 44px touch targets for primary mobile controls.
 - Respect device safe areas so the bottom navigation and actions are not covered by phone UI.
 - Keep focus states, keyboard use, labels, status colors, and role-based visibility unchanged.
-- Do not change business rules, database policies, calculations, email behavior, or integrations.
+- Do not change load, carrier, financial, email, or integration behavior; the only access-policy change is approval-only sign-in.
 
 ## Verification
 
 - Test the authenticated app at representative phone, tablet, and desktop sizes.
 - Check navigation, dispatch list-to-details, load creation, carrier details, dialogs, chat, tables, and sign out.
+- Verify approved Google users enter with the assigned role, unapproved Google users are denied, and current users retain access.
 - Confirm there is no unintended page-level horizontal scrolling, clipped text, overlapping controls, or content hidden behind the bottom bar.
 - Confirm all content pages retain unique Clearwater Cargo page metadata and the app builds cleanly.
 
@@ -48,3 +60,7 @@ Create a dedicated responsive interface while preserving the current desktop wor
 - Use the existing mobile-width hook plus responsive Tailwind utilities; keep desktop rendering unchanged above the chosen breakpoint.
 - Track mobile list/detail state locally in Dispatch, Carriers, and Directory; selecting a row opens details and Back returns to the preserved list/filter state.
 - Update shared dialogs and targeted page layouts rather than adding a separate mobile application or duplicating business logic.
+- Add an admin-only approved-user record with explicit access grants and row-level security; use it as the source of truth for new account admission.
+- Update account creation so a new identity receives a role only when its verified email is approved, retaining the separate role records.
+- Add a protected-area approval check so an authenticated but unapproved identity cannot enter TMS screens.
+- Extend Users & Permissions to approve, revoke, and configure people without requiring a temporary password for Google-only users.
