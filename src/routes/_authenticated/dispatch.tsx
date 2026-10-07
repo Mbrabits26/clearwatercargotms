@@ -319,6 +319,7 @@ function Cockpit({
           <div className="font-mono text-sm text-gold">{load.load_number}</div>
           <h2 className="text-2xl font-bold sm:text-3xl">{load.origin_city}, {load.origin_state} → {load.dest_city}, {load.dest_state}</h2>
           <div className="text-sm text-muted-foreground">{customer?.name ?? "No customer"} · {load.miles ?? "—"} mi</div>
+          {load.status === "cancelled" && <div className="mt-1 text-xs text-destructive">Cancelled{load.cancel_reason ? ` — ${load.cancel_reason}` : ""}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusSelect load={load} />
