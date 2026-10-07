@@ -31,7 +31,11 @@ Not built yet — here's what I'd add:
 3. **POD / BOL photo upload** — the same page lets the driver snap a photo of the signed POD or BOL; it attaches straight to the load's documents and flips "POD received," which queues the carrier bill for QuickBooks.
 4. **Replies by text** — drivers can also just reply to the text with a photo; it lands on the load automatically.
 
-**What it costs:** texting needs a phone-number service (Twilio is the standard — roughly $1/month for the number plus about a penny per text). You'll create a free Twilio account and paste two keys; I'll wire the rest. Until then, the tracking link can be sent by email or copied and texted from your own phone.
+**What it costs:** the tracking page itself is free — you copy the link and text it from your own phone, or the app emails it. Automatic two-way texting (drivers replying by text, photos auto-attaching) needs a service later:
+- **WhatsApp Business** — cheapest: free replies within 24h of the driver messaging; needs a WhatsApp Business number and Meta approval (templates can take up to 48h).
+- **Twilio SMS** — the standard: ~$1/month for the number + ~1¢ per text.
+
+We'll build the free version now; WhatsApp or Twilio can be added later without changing the driver page.
 
 ## Technical details (QuickBooks)
 
