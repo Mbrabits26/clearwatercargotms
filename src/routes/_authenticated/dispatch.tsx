@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FleetPanel } from "@/components/FleetPanel";
 import { TrackingPanel } from "@/components/TrackingPanel";
 import { LoadNotes } from "@/components/LoadNotes";
@@ -125,12 +127,19 @@ function Dispatch() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-4 py-2 text-xs">
-        <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />
-        <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />
-        <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />
+        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />}
+        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />}
+        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />}
         <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => exportCsv(loads, "dat")}><Download className="mr-1 h-3.5 w-3.5" />DAT One CSV</Button>
-          <Button size="sm" variant="outline" onClick={() => exportCsv(loads, "truckstop")}><Download className="mr-1 h-3.5 w-3.5" />Truckstop CSV</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline"><Download className="mr-1 h-3.5 w-3.5" />Export</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportCsv(loads, "dat")}>DAT One CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
       </div>
