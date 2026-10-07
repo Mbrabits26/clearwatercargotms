@@ -39,3 +39,9 @@ Not built yet — here's what I'd add:
 - Server functions create Customer Invoice / Vendor Bill via the QuickBooks REST API and write the returned doc number into `qb_sync` (existing table, admin-only).
 - Sends trigger from the load status flow (delivered → invoice, POD signed → bill) and from a manual "Send now" per queued row.
 - No per-user QuickBooks accounts needed — one company connection, admin-managed.
+
+## Technical details (driver texting)
+
+- Twilio SMS: inbound webhook at `/api/public/webhooks/twilio` (signature-verified) matches the driver's phone to the active load; MMS photos download into the private load-docs bucket and set `pod_received`.
+- Tracking page at `/track/$token` (public, tokenized like the rate con signing page): status buttons, note field, browser GPS, photo upload — all via token-validated server functions.
+- New `load_tracking_tokens` table (token, load_id, driver phone, expires); status taps update `loads.last_check_call` and insert a `load_notes` row.
