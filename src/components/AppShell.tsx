@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/leads", label: "Leads", icon: Users, p: "leads" },
     { to: "/quotes", label: "Quotes", icon: Calculator, p: "quotes" },
     { to: "/reports", label: "Reports", icon: BarChart3, p: "reports" },
-    ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen, p: "" }, { to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
+    ...(isAdmin ? [{ to: "/quickbooks", label: "Accounting", icon: BookOpen, p: "" }, { to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
   ].filter((n) => !n.p || isAdmin || (perms ?? DEFAULT_PERMS).includes(n.p));
   return (
     <div className="flex h-dvh flex-col">
