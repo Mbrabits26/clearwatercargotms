@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
       { property: "og:description", content: "Active load queue and load cockpit." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({ load: typeof s.load === "string" ? (s.load as string) : undefined }),
+  validateSearch: (s: Record<string, unknown>): { load?: string } => (typeof s.load === "string" ? { load: s.load } : {}),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(loadsQuery),
