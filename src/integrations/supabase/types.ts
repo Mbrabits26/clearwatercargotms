@@ -817,6 +817,9 @@ export type Database = {
           miles: number | null
           origin_city: string
           origin_state: string
+          override_at: string | null
+          override_by: string | null
+          override_reason: string | null
           pickup_at: string | null
           pickup_notes: string | null
           pieces: number | null
@@ -854,6 +857,9 @@ export type Database = {
           miles?: number | null
           origin_city: string
           origin_state: string
+          override_at?: string | null
+          override_by?: string | null
+          override_reason?: string | null
           pickup_at?: string | null
           pickup_notes?: string | null
           pieces?: number | null
@@ -891,6 +897,9 @@ export type Database = {
           miles?: number | null
           origin_city?: string
           origin_state?: string
+          override_at?: string | null
+          override_by?: string | null
+          override_reason?: string | null
           pickup_at?: string | null
           pickup_notes?: string | null
           pieces?: number | null
