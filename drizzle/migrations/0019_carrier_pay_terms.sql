@@ -1,0 +1,3 @@
+ALTER TABLE public.carriers ADD COLUMN IF NOT EXISTS pay_terms text NOT NULL DEFAULT 'net30' CHECK (pay_terms IN ('net30','quickpay','factored_quickpay'));
+ALTER TABLE public.loads ADD COLUMN IF NOT EXISTS pay_terms text CHECK (pay_terms IN ('net30','quickpay','factored_quickpay'));
+UPDATE public.carriers SET pay_terms = 'factored_quickpay' WHERE factoring_company IS NOT NULL AND factoring_company <> '' AND pay_terms = 'net30' AND false;

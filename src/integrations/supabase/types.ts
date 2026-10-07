@@ -204,6 +204,7 @@ export type Database = {
           legal_name: string
           mc_number: string | null
           noa_received: boolean
+          pay_terms: string
           phone: string | null
           safety_rating: string | null
           state: string | null
@@ -238,6 +239,7 @@ export type Database = {
           legal_name: string
           mc_number?: string | null
           noa_received?: boolean
+          pay_terms?: string
           phone?: string | null
           safety_rating?: string | null
           state?: string | null
@@ -272,6 +274,7 @@ export type Database = {
           legal_name?: string
           mc_number?: string | null
           noa_received?: boolean
+          pay_terms?: string
           phone?: string | null
           safety_rating?: string | null
           state?: string | null
@@ -820,6 +823,7 @@ export type Database = {
           override_at: string | null
           override_by: string | null
           override_reason: string | null
+          pay_terms: string | null
           pickup_at: string | null
           pickup_notes: string | null
           pieces: number | null
@@ -860,6 +864,7 @@ export type Database = {
           override_at?: string | null
           override_by?: string | null
           override_reason?: string | null
+          pay_terms?: string | null
           pickup_at?: string | null
           pickup_notes?: string | null
           pieces?: number | null
@@ -900,6 +905,7 @@ export type Database = {
           override_at?: string | null
           override_by?: string | null
           override_reason?: string | null
+          pay_terms?: string | null
           pickup_at?: string | null
           pickup_notes?: string | null
           pieces?: number | null
