@@ -37,21 +37,21 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     await supabase.from("loads").update({ ship_ref: shipRef || null, dest_ref: destRef || null }).eq("id", load.id);
     onSaved();
   };
-  const data = () => {
+  const rcData = () => {
     const base = buildRateConData({ load: current(), carrier: carrier!, shipper, consignee, customer });
     return draft ? { ...draft, rc: base.rc, date: base.date, shipRef: shipRef, destRef: destRef } : base;
   };
   const preview = () => {
     if (!carrier) return;
-    buildRateConPdf(data()).save(`RateCon-${load.load_number}.pdf`);
+    buildRateConPdf(rcData()).save(`RateCon-${load.load_number}.pdf`);
   };
-  const openEdit = () => { if (!carrier) return; setWork(structuredClone(data())); setEditOpen(true); };
+  const openEdit = () => { if (!carrier) return; setWork(structuredClone(rcData())); setEditOpen(true); };
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
   const send = async () => {
     if (!carrier) return;
     await saveRefs();
     await supabase.from("ratecon_requests").update({ status: "void" }).eq("load_id", load.id).eq("status", "sent");
-    const snapshot = data();
+    const snapshot = rcData();
     const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: email || null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);
     const url = link(data.token);
