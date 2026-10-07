@@ -304,7 +304,15 @@ function Cockpit({
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <Tabs defaultValue="load">
+        <TabsList>
+          <TabsTrigger value="load">Load</TabsTrigger>
+          <TabsTrigger value="carrier">Carrier</TabsTrigger>
+          <TabsTrigger value="money">Money</TabsTrigger>
+          <TabsTrigger value="docs">Docs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="load" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Freight">
           <KV k="Equipment" v={load.equipment} />
           <KV k="Commodity" v={load.commodity ?? "—"} />
