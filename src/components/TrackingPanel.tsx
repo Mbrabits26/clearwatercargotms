@@ -40,11 +40,11 @@ export function TrackingPanel({ load }: { load: Load }) {
   const copy = () => { if (link) { navigator.clipboard.writeText(link); toast.success("Link copied — text it to the driver"); } };
   const email = () => {
     if (!link) return;
-    composeEmail({
-      to: "",
-      subject: `Clearwater Cargo — tracking for load ${load.load_number}`,
-      body: `Hello${active?.driver_name ? ` ${active.driver_name}` : ""},\n\nPlease use this private link to send status updates, your location, and photos of the signed POD/BOL for load ${load.load_number} (${load.origin_city}, ${load.origin_state} → ${load.dest_city}, ${load.dest_state}):\n\n${link}\n\nNo app or login needed — just open it on your phone.\n\nThank you,\nClearwater Cargo`,
-    });
+    composeEmail(
+      "",
+      `Clearwater Cargo — tracking for load ${load.load_number}`,
+      `Hello${active?.driver_name ? ` ${active.driver_name}` : ""},\n\nPlease use this private link to send status updates, your location, and photos of the signed POD/BOL for load ${load.load_number} (${load.origin_city}, ${load.origin_state} → ${load.dest_city}, ${load.dest_state}):\n\n${link}\n\nNo app or login needed — just open it on your phone.\n\nThank you,\nClearwater Cargo`,
+    );
   };
   const revoke = async (id: string) => {
     await supabase.from("load_tracking_tokens").update({ status: "void" }).eq("id", id);

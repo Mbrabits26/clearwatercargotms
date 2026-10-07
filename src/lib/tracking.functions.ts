@@ -56,7 +56,7 @@ export const postPing = createServerFn({ method: "POST" })
       const who = tk.driver_name ? `${tk.driver_name}: ` : "";
       await supabaseAdmin.from("load_notes").insert({
         load_id: tk.load_id,
-        author_id: tk.created_by,
+        author_id: tk.created_by ?? undefined,
         body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${data.lat != null ? ` (${data.lat.toFixed(4)}, ${data.lng?.toFixed(4)})` : ""}`,
       });
     }
@@ -85,7 +85,7 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
     }
     await supabaseAdmin.from("load_notes").insert({
       load_id: tk.load_id,
-      author_id: tk.created_by,
+      author_id: tk.created_by ?? undefined,
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
     return { ok: true as const };
