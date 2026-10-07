@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { loadsQuery, profilesQuery } from "@/lib/queries";
 import { loadTotals, usd } from "@/lib/tms";
 import { Input } from "@/components/ui/input";
+import { UserManagement } from "@/components/UserManagement";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -28,6 +29,7 @@ function Admin() {
   const { data: loads } = useSuspenseQuery(loadsQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
   const qc = useQueryClient();
+  const { user } = Route.useRouteContext();
   const { data: roles = [] } = useQuery({ queryKey: ["roles"], queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [] });
   const { data: comm = [] } = useQuery({ queryKey: ["commissions"], queryFn: async () => (await supabase.from("broker_commissions").select("*")).data ?? [] });
 
@@ -36,6 +38,7 @@ function Admin() {
   const ap = loads.filter((l) => ["delivered", "invoiced"].includes(l.status) && l.pod_received).reduce((s, l) => s + loadTotals(l).cost, 0);
 
   const setRole = async (userId: string, role: "admin" | "broker") => {
+    if (userId === user.id && role !== "admin") return toast.error("You can't remove your own admin role.");
     await supabase.from("user_roles").delete().eq("user_id", userId);
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
     if (error) toast.error(error.message); else toast.success("Role updated");
@@ -86,6 +89,7 @@ function Admin() {
           </TableBody>
         </Table>
       </div>
+      <UserManagement profiles={profiles} roles={roles} selfId={user.id} />
     </div>
   );
 }

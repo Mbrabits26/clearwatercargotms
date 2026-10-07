@@ -26,3 +26,4 @@
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - Public market rates: getMarketRates (staff-only) searches public pages via Firecrawl, Lovable AI summarizes to strict JSON, cached 24h in market_rate_cache.
 - Lane pricing math lives in laneStats/RateView (src/components/RateView.tsx), reused by the dispatch cockpit, quotes and RFP tool.
+- User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).

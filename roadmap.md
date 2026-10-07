@@ -36,4 +36,4 @@
 - [x] Public market rates (FreightWaves etc. via web search)
 - [ ] Automatic sending from dispatch@ (blocked: email domain setup)
 - [x] Quotes tab + RFP mode
-- [ ] Admin user management: add/delete users, roles, permissions
+- [x] Admin user management: add/delete users, roles, permissions
