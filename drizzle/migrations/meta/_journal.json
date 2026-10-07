@@ -85,6 +85,13 @@
       "when": 1791331550508,
       "tag": "0011_user_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791332553013,
+      "tag": "0012_leads",
+      "breakpoints": true
     }
   ]
 }

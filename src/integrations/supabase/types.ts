@@ -431,6 +431,112 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_activities: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          follow_up: string | null
+          id: string
+          lead_id: string
+          method: string
+          notes: string | null
+          occurred_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          follow_up?: string | null
+          id?: string
+          lead_id: string
+          method?: string
+          notes?: string | null
+          occurred_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          follow_up?: string | null
+          id?: string
+          lead_id?: string
+          method?: string
+          notes?: string | null
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          city: string | null
+          company_id: string | null
+          company_name: string
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          est_monthly_loads: number | null
+          id: string
+          lanes: string | null
+          lost_reason: string | null
+          next_follow_up: string | null
+          owner_id: string | null
+          phone: string | null
+          source: string | null
+          stage: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          company_id?: string | null
+          company_name: string
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          est_monthly_loads?: number | null
+          id?: string
+          lanes?: string | null
+          lost_reason?: string | null
+          next_follow_up?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          stage?: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          company_id?: string | null
+          company_name?: string
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          est_monthly_loads?: number | null
+          id?: string
+          lanes?: string | null
+          lost_reason?: string | null
+          next_follow_up?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          stage?: string
+          state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       load_notes: {
         Row: {
           author_id: string
