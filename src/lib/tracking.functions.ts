@@ -114,3 +114,15 @@ export const backfillPingPlaces = createServerFn({ method: "POST" })
     }
     return { updated };
   });
+
+/** Staff-only: coordinates for the pickup and delivery cities, for the tracking map. */
+export const getLanePoints = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ origin: z.string().max(120), dest: z.string().max(120) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
+    if (!staff) throw new Error("Forbidden");
+    const { geocodeCity } = await import("./geocode.server");
+    const [o, d] = await Promise.all([geocodeCity(data.origin), geocodeCity(data.dest)]);
+    return { origin: o, dest: d };
+  });

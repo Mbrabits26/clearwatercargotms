@@ -19,3 +19,18 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     return `Near ${[city, st].filter(Boolean).join(", ")}${route ? ` · ${route}` : ""}`;
   } catch (e) { console.error(e); return null; }
 }
+
+/** Forward geocode a "City, ST" string to coordinates. */
+export async function geocodeCity(addr: string): Promise<{ lat: number; lng: number } | null> {
+  const lov = process.env["LOVABLE_API_KEY"];
+  const key = process.env["GOOGLE_MAPS_API_KEY"];
+  if (!lov || !key || !addr.trim()) return null;
+  try {
+    const r = await fetch(`https://connector-gateway.lovable.dev/google_maps/maps/api/geocode/json?address=${encodeURIComponent(addr)}&components=country:US`, {
+      headers: { Authorization: `Bearer ${lov}`, "X-Connection-Api-Key": key },
+    });
+    if (!r.ok) { console.error("geocode", r.status, await r.text()); return null; }
+    const j = (await r.json()) as { status: string; results?: { geometry: { location: { lat: number; lng: number } } }[] };
+    return j.status === "OK" && j.results?.[0] ? j.results[0].geometry.location : null;
+  } catch (e) { console.error(e); return null; }
+}

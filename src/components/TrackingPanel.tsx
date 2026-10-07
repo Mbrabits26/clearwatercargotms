@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { backfillPingPlaces } from "@/lib/tracking.functions";
+import { backfillPingPlaces, getLanePoints } from "@/lib/tracking.functions";
 import { TrackingMap } from "@/components/TrackingMap";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,6 +24,12 @@ export function TrackingPanel({ load }: { load: Load }) {
     queryKey: ["tracking_pings", load.id],
     queryFn: async () =>
       (await supabase.from("load_tracking_pings").select("*").eq("load_id", load.id).order("created_at", { ascending: false }).limit(20)).data ?? [],
+  });
+  const lanePts = useServerFn(getLanePoints);
+  const { data: lane } = useQuery({
+    queryKey: ["lane_points", load.origin_city, load.origin_state, load.dest_city, load.dest_state],
+    queryFn: () => lanePts({ data: { origin: `${load.origin_city}, ${load.origin_state}`, dest: `${load.dest_city}, ${load.dest_state}` } }),
+    staleTime: Infinity, gcTime: Infinity, retry: false,
   });
   const [focus, setFocus] = useState<string | null>(null);
   const backfill = useServerFn(backfillPingPlaces);
@@ -83,8 +89,8 @@ export function TrackingPanel({ load }: { load: Load }) {
           {active.driver_name && <div className="text-xs text-muted-foreground">Driver: {active.driver_name}{active.driver_phone ? ` · ${active.driver_phone}` : ""}</div>}
         </div>
       )}
-      {(pts.length > 0 || pings.length > 0) && (
-        <TrackingMap pts={pts} focus={focus} origin={`${load.origin_city}, ${load.origin_state}`} dest={`${load.dest_city}, ${load.dest_state}`} />
+      {(pts.length > 0 || lane?.origin) && (
+        <TrackingMap pts={pts} focus={focus} origin={lane?.origin ?? null} dest={lane?.dest ?? null} />
       )}
       {pings.length > 0 && (
         <div className="space-y-1 border-t pt-2">

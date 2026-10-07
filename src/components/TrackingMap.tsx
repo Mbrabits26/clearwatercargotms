@@ -21,7 +21,7 @@ function loadMaps(): Promise<void> {
 }
 
 /** pts: newest first. focus: id to pan to. */
-export function TrackingMap({ pts, focus, origin, dest }: { pts: Pt[]; focus: string | null; origin: string; dest: string }) {
+export function TrackingMap({ pts, focus, origin, dest }: { pts: Pt[]; focus: string | null; origin: { lat: number; lng: number } | null; dest: { lat: number; lng: number } | null }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const layers = useRef<any[]>([]);
@@ -50,13 +50,12 @@ export function TrackingMap({ pts, focus, origin, dest }: { pts: Pt[]; focus: st
         icon: { path: g.SymbolPath.CIRCLE, scale: i === 0 ? 9 : 5, fillColor: i === 0 ? "#d4a017" : "#2a8c8c", fillOpacity: 1, strokeColor: "#000", strokeWeight: 1 },
       }));
     });
-    const geocoder = new g.Geocoder();
-    [origin, dest].forEach((addr, i) => geocoder.geocode({ address: addr }, (r: any, st: string) => {
-      if (st !== "OK" || !r?.[0]) return;
-      const loc = r[0].geometry.location;
-      layers.current.push(new g.Marker({ map: m, position: loc, label: { text: i === 0 ? "P" : "D", color: "#000", fontWeight: "700" }, title: `${i === 0 ? "Pickup" : "Delivery"}: ${addr}` }));
-      if (!pts.length) { bounds.extend(loc); m.fitBounds(bounds); }
-    }));
+    const ends = [origin, dest].filter(Boolean) as { lat: number; lng: number }[];
+    [origin, dest].forEach((loc, i) => {
+      if (!loc) return;
+      layers.current.push(new g.Marker({ map: m, position: loc, label: { text: i === 0 ? "P" : "D", color: "#000", fontWeight: "700" }, title: i === 0 ? "Pickup" : "Delivery" }));
+    });
+    if (!pts.length && ends.length) { ends.forEach((e) => bounds.extend(e)); if (ends.length > 1) m.fitBounds(bounds); else { m.setCenter(ends[0]); m.setZoom(7); } }
     if (pts.length === 1) { m.setCenter(pts[0]); m.setZoom(9); } else if (pts.length > 1) m.fitBounds(bounds);
   }, [state, pts, origin, dest]);
 
