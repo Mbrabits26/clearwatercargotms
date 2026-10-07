@@ -126,7 +126,7 @@ export const PAY_TERMS: { value: PayTerms; label: string; fee: number; terms: st
   { value: "quickpay", label: "Quick Pay – 5% fee, paid in 3 days", fee: 0.05, terms: "Quick Pay: 5% fee, paid in 3 days" },
   { value: "factored_quickpay", label: "Factored Quick Pay – 2.5% fee", fee: 0.025, terms: "Factored Quick Pay: 2.5% fee" },
 ];
-export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) => p.value === v) ?? PAY_TERMS[0];
+export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) => p.value === v) ?? PAY_TERMS[0]!;
 /** Load override wins, else the carrier's chosen option. */
 export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?: { pay_terms?: string | null } | null) =>
   payTermsOf(load.pay_terms ?? carrier?.pay_terms);
