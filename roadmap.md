@@ -55,3 +55,5 @@
 - [x] Rate con: multiple recipient emails + copy to myself
 - [x] Load number quick-look panel + Open load jump (Reports, Fleet, Accounting)
 - [x] Accounting tab: AR/AP with aging, edit/delete/retry queued items (admin only)
+- [x] Weekly carrier safety/authority auto re-check (FMCSA/SAFER, free) + team-chat change notices
+- [ ] MOTUS DOT lookup (dropped: no free public MOTUS endpoint; FMCSA QCMobile + SAFER cover it)
