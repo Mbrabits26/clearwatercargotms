@@ -800,6 +800,9 @@ export type Database = {
         Row: {
           accessorials: Json
           broker_id: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           carrier_id: string | null
           carrier_rate: number
           commodity: string | null
@@ -841,6 +844,9 @@ export type Database = {
         Insert: {
           accessorials?: Json
           broker_id?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           carrier_id?: string | null
           carrier_rate?: number
           commodity?: string | null
@@ -882,6 +888,9 @@ export type Database = {
         Update: {
           accessorials?: Json
           broker_id?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           carrier_id?: string | null
           carrier_rate?: number
           commodity?: string | null
@@ -1296,6 +1305,7 @@ export type Database = {
         | "invoiced"
         | "paid"
         | "issue"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1435,6 +1445,7 @@ export const Constants = {
         "invoiced",
         "paid",
         "issue",
+        "cancelled",
       ],
     },
   },
