@@ -22,20 +22,14 @@ A free Intuit developer app so the TMS is allowed to talk to your QuickBooks:
 
 I'll handle the rest, including the sign-in redirect setup.
 
-## Driver texting (check calls + POD/BOL by text)
+## Driver tracking link (location, status, POD/BOL upload) — free, no texting service
 
-Not built yet — here's what I'd add:
+1. **Tracking link per load** — from the dispatch cockpit, generate a private link for that load and copy it (text it from your own phone) or email it to the driver. No app download, no login, works in any phone browser.
+2. **Driver's page** — one-tap status updates (Arrived at shipper, Loaded / rolling, Arrived at receiver, Delivered) with an optional note. Each tap stamps the load's check-call time and posts to the load's notes.
+3. **Location updates** — the page asks the driver to share their phone's GPS; each status tap (and an optional "Send location" button) records their position with a timestamp, shown on the load in the cockpit.
+4. **POD / BOL photo upload** — the driver snaps a photo of the signed POD or BOL; it attaches straight to the load's documents and flips "POD received," which queues the carrier bill for QuickBooks.
 
-1. **Text a tracking link** — from the dispatch cockpit, send the driver a text with a private link for that load. No app download, no login.
-2. **Driver's page** — one-tap status updates (Arrived at shipper, Loaded / rolling, Arrived at receiver, Delivered) with optional note and GPS location. Each tap stamps the load's check-call time and posts to the load's notes.
-3. **POD / BOL photo upload** — the same page lets the driver snap a photo of the signed POD or BOL; it attaches straight to the load's documents and flips "POD received," which queues the carrier bill for QuickBooks.
-4. **Replies by text** — drivers can also just reply to the text with a photo; it lands on the load automatically.
-
-**What it costs:** the tracking page itself is free — you copy the link and text it from your own phone, or the app emails it. Automatic two-way texting (drivers replying by text, photos auto-attaching) needs a service later:
-- **WhatsApp Business** — cheapest: free replies within 24h of the driver messaging; needs a WhatsApp Business number and Meta approval (templates can take up to 48h).
-- **Twilio SMS** — the standard: ~$1/month for the number + ~1¢ per text.
-
-We'll build the free version now; WhatsApp or Twilio can be added later without changing the driver page.
+**Cost: $0.** One-way only — drivers use the page; no texting service, no per-message fees. If you ever want drivers to reply by plain text instead, WhatsApp Business or Twilio can be added later without changing this page.
 
 ## Technical details (QuickBooks)
 
@@ -49,4 +43,4 @@ We'll build the free version now; WhatsApp or Twilio can be added later without 
 - Tracking page at `/track/$token` (public, tokenized like the rate con signing page): status buttons, note field, browser GPS, photo upload — all via token-validated server functions.
 - New `load_tracking_tokens` table (token, load_id, driver phone, expires); status taps update `loads.last_check_call` and insert a `load_notes` row; POD photos go to the load-docs bucket and set `pod_received`.
 - Dispatch cockpit gets a "Send tracking link" action (copy link / email / Gmail).
-- Later, optionally: WhatsApp Business connector (`/api/public/whatsapp/webhook` receiver + `whatsapp_webhook_events` inbox) or Twilio SMS webhook for text-in photos and replies.
+- Location pings stored on a `load_tracking_pings` table (load_id, lat, lng, note, created_at) shown in the cockpit.
