@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const tokenSchema = z.object({ token: z.string().uuid() });
 
@@ -40,7 +41,10 @@ export const postPing = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, tk, problem } = await loadToken(data.token);
     if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
+    const { reverseGeocode } = await import("./geocode.server");
+    const place = data.lat != null && data.lng != null ? await reverseGeocode(data.lat, data.lng) : null;
     const { error } = await supabaseAdmin.from("load_tracking_pings").insert({
+      place,
       load_id: tk.load_id,
       token_id: tk.id,
       kind: data.kind,
@@ -57,7 +61,7 @@ export const postPing = createServerFn({ method: "POST" })
       await supabaseAdmin.from("load_notes").insert({
         load_id: tk.load_id,
         author_id: tk.created_by ?? undefined,
-        body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${data.lat != null ? ` (${data.lat.toFixed(4)}, ${data.lng?.toFixed(4)})` : ""}`,
+        body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${place ? ` — ${place}` : ""}`,
       });
     }
     return { ok: true as const };
@@ -89,4 +93,24 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
     return { ok: true as const };
+  });
+
+/** Staff-only: fill in place names for older pings that only have coordinates (max 50 per call). */
+export const backfillPingPlaces = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ loadId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
+    if (!staff) throw new Error("Forbidden");
+    const { data: rows } = await context.supabase.from("load_tracking_pings").select("id, lat, lng")
+      .eq("load_id", data.loadId).is("place", null).not("lat", "is", null).limit(50);
+    if (!rows?.length) return { updated: 0 };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { reverseGeocode } = await import("./geocode.server");
+    let updated = 0;
+    for (const r of rows) {
+      const place = await reverseGeocode(Number(r.lat), Number(r.lng));
+      if (place) { await supabaseAdmin.from("load_tracking_pings").update({ place }).eq("id", r.id); updated++; }
+    }
+    return { updated };
   });
