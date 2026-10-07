@@ -431,24 +431,6 @@ function Cockpit({
           </div>
         </Panel>
 
-        <Panel title="Clearwater fleet assignment">
-          <FleetPanel load={load} />
-        </Panel>
-
-        <Panel title="Driver tracking">
-          <TrackingPanel load={load} />
-        </Panel>
-
-        <Panel title="Team notes">
-          <LoadNotes loadId={load.id} />
-        </Panel>
-
-        {["available", "vetting"].includes(load.status) && (
-          <Panel title="Offer to carriers">
-            <OffersPanel load={load} carriers={carriers} />
-          </Panel>
-        )}
-
         <Panel title="Rate view & pricing">
           <RateView
             loads={loads.filter((l) => l.id !== load.id)}
@@ -459,7 +441,22 @@ function Cockpit({
             }}
           />
         </Panel>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="docs" className="mt-4 grid gap-4 xl:grid-cols-2">
+        <Panel title="Rate confirmation">
+          <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
+        </Panel>
+
+        <Panel title="Driver tracking">
+          <TrackingPanel load={load} />
+        </Panel>
+
+        <Panel title="Team notes">
+          <LoadNotes loadId={load.id} />
+        </Panel>
+        </TabsContent>
+      </Tabs>
       {carrier?.status === "dnu" && (
         <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" /> Assigned carrier is now on the Do Not Use list ({carrier.dnu_reason}). Reassign immediately.
