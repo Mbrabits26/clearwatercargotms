@@ -2,7 +2,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlarmClock, Download, FileText, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert } from "lucide-react";
+import { AlarmClock, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import {
@@ -106,6 +106,7 @@ function Dispatch() {
   const [status, setStatus] = useState<string>("active");
   const [broker, setBroker] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(loads[0]?.id ?? null);
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [builder, setBuilder] = useState(false);
 
   const filtered = useMemo(
@@ -130,7 +131,7 @@ function Dispatch() {
         {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />}
         {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />}
         {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 max-sm:w-full max-sm:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline"><Download className="mr-1 h-3.5 w-3.5" />Export</Button>
@@ -143,8 +144,8 @@ function Dispatch() {
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(380px,40%)_1fr]">
-        <section className="flex min-h-0 flex-col border-r">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(340px,40%)_1fr] xl:grid-cols-[minmax(380px,40%)_1fr]">
+        <section className={cn("min-h-0 flex-col border-r", mobileDetail ? "hidden md:flex" : "flex")}>
           <div className="space-y-2 border-b p-3">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -175,7 +176,7 @@ function Dispatch() {
               return (
                 <li
                   key={l.id}
-                  onClick={() => setSelectedId(l.id)}
+                  onClick={() => { setSelectedId(l.id); setMobileDetail(true); }}
                   className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", selectedId === l.id && "border-l-2 border-l-gold bg-muted")}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -198,9 +199,9 @@ function Dispatch() {
             {!filtered.length && <li className="p-6 text-center text-sm text-muted-foreground">No loads match.</li>}
           </ul>
         </section>
-        <section className="min-h-0 overflow-auto">
+        <section className={cn("min-h-0 overflow-auto", mobileDetail ? "block" : "hidden md:block")}>
           {selected ? (
-            <Cockpit key={selected.id} load={selected} loads={loads} carriers={carriers} companies={companies} profiles={profiles} isAdmin={isAdmin} />
+            <><Button variant="ghost" className="m-2 min-h-11 md:hidden" onClick={() => setMobileDetail(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to loads</Button><Cockpit key={selected.id} load={selected} loads={loads} carriers={carriers} companies={companies} profiles={profiles} isAdmin={isAdmin} /></>
           ) : (
             <div className="p-10 text-center text-muted-foreground">Select a load.</div>
           )}
@@ -289,14 +290,14 @@ function Cockpit({
   const netCarrier = t.cost - qpFee - adv - advFee;
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-4 p-3 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="font-mono text-sm text-gold">{load.load_number}</div>
-          <h2 className="text-3xl font-bold">{load.origin_city}, {load.origin_state} → {load.dest_city}, {load.dest_state}</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">{load.origin_city}, {load.origin_state} → {load.dest_city}, {load.dest_state}</h2>
           <div className="text-sm text-muted-foreground">{customer?.name ?? "No customer"} · {load.miles ?? "—"} mi</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusSelect load={load} />
           <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
             <Phone className="mr-1 h-3.5 w-3.5" />Log check call
@@ -305,7 +306,7 @@ function Cockpit({
       </div>
 
       <Tabs defaultValue="load">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="load">Load</TabsTrigger>
           <TabsTrigger value="carrier">Carrier</TabsTrigger>
           <TabsTrigger value="money">Money</TabsTrigger>

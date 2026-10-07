@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Ban, Plus, Search } from "lucide-react";
+import { ArrowLeft, Ban, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, type Carrier } from "@/lib/tms";
@@ -36,6 +36,7 @@ function Carriers() {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<string | null>(data[0]?.id ?? null);
   const [adding, setAdding] = useState(false);
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [flt, setFlt] = useState<"all" | "expired" | "soon" | "docs">("all");
   const missingDocs = (c: Carrier) => !c.w9_received || !c.coi_received || !c.agreement_signed || (!!c.factoring_company && !c.noa_received);
   const test = {
@@ -51,8 +52,8 @@ function Carriers() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["carriers"] });
 
   return (
-    <div className="grid h-full grid-cols-[380px_1fr]">
-      <aside className="flex min-h-0 flex-col border-r">
+    <div className="grid h-full md:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
+      <aside className={cn("min-h-0 flex-col border-r", mobileDetail ? "hidden md:flex" : "flex")}>
         <div className="flex gap-2 border-b p-3">
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -71,7 +72,7 @@ function Carriers() {
         </div>
         <ul className="min-h-0 flex-1 overflow-auto">
           {rows.map((r) => (
-            <li key={r.id} onClick={() => setSel(r.id)} className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", sel === r.id && "bg-muted")}>
+            <li key={r.id} onClick={() => { setSel(r.id); setMobileDetail(true); }} className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", sel === r.id && "bg-muted")}>
               <div className="flex items-center justify-between">
                 <span className="font-medium">{r.legal_name}</span>
                 <span className="flex gap-1">{r.status !== "dnu" && <ExpiryBadge s={carrierExpiry(r)} />}<StatusPill c={r} /></span>
@@ -85,7 +86,7 @@ function Carriers() {
           {!rows.length && <li className="p-4 text-sm text-muted-foreground">No carriers match this filter.</li>}
         </ul>
       </aside>
-      <section className="overflow-auto p-6">{c ? <CarrierDetail key={c.id} c={c} refresh={refresh} /> : <p className="text-muted-foreground">Select a carrier.</p>}</section>
+      <section className={cn("overflow-auto p-3 sm:p-6", mobileDetail ? "block" : "hidden md:block")}><Button variant="ghost" className="mb-2 min-h-11 md:hidden" onClick={() => setMobileDetail(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to carriers</Button>{c ? <CarrierDetail key={c.id} c={c} refresh={refresh} /> : <p className="text-muted-foreground">Select a carrier.</p>}</section>
       <AddCarrier open={adding} onOpenChange={setAdding} onDone={(id) => { refresh(); setSel(id); }} />
     </div>
   );
@@ -123,7 +124,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           On the Do Not Use list: <b>{c.dnu_reason}</b>. Assignment is locked for every broker.
         </div>
       )}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded border bg-card p-4">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-gold">Authority & safety</h3>
@@ -152,7 +153,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       <div className="rounded border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Factoring / notice of assignment</h3>
         {c.factoring_company && !c.noa_received && <p className="mb-2 text-xs text-destructive">NOA not on file — upload it in the packet above before paying the factor.</p>}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input placeholder="Factoring company (blank = pay carrier direct)" value={factor} onChange={(e) => setFactor(e.target.value)} />
           <Button variant="secondary" onClick={() => update({ factoring_company: factor || null }, "Pay-to updated")}>Save NOA</Button>
         </div>
@@ -168,9 +169,9 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
         {c.status === "dnu" ? (
           <Button variant="outline" onClick={() => update({ status: "pending", dnu_reason: null }, "Removed from DNU — re-vet required")}>Remove from DNU</Button>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Select value={reason} onValueChange={setReason}>
-              <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
               <SelectContent>{DNU_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
             </Select>
             <Button variant="destructive" onClick={() => update({ status: "dnu", dnu_reason: reason }, "Carrier locked on DNU list")}>
@@ -227,7 +228,7 @@ function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
           <FmcsaButton mc={f.mc_number} dot={f.dot_number} onResult={fill} />
         </div>
         {fm && <FmcsaSummary r={fm} />}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(([k, l]) => (
             <label key={k} className="text-xs text-muted-foreground">{l}
               <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />

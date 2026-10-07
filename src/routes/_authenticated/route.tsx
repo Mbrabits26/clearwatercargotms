@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_authenticated")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
+    if (!roles?.length) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth", search: { access: "pending" } });
+    }
     const isAdmin = !!roles?.some((r) => r.role === "admin");
     const { data: pr } = await supabase.from("user_permissions").select("perms").eq("user_id", data.user.id).maybeSingle();
     const perms: string[] = isAdmin ? DEFAULT_PERMS : pr?.perms ?? DEFAULT_PERMS;

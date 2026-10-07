@@ -56,21 +56,21 @@ function Directory() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="p-3 sm:p-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold uppercase">Directory</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <BulkImportButton target="company" onDone={() => qc.invalidateQueries({ queryKey: ["companies"] })} />
           <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {label.toLowerCase()}</Button>
         </div>
       </div>
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <Tabs value={kind} onValueChange={setKind}>
           <TabsList>{KINDS.map((k) => <TabsTrigger key={k.v} value={k.v}>{k.l}</TabsTrigger>)}</TabsList>
         </Tabs>
-        <Input className="max-w-xs" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="sm:max-w-xs" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <div className="rounded-md border bg-card">
+      <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
           <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead></TableRow></TableHeader>
           <TableBody>
@@ -89,9 +89,9 @@ function Directory() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add {label.toLowerCase()}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {FIELDS.map(([k, l]) => (
-              <label key={k} className={`text-xs text-muted-foreground ${k === "name" || k === "address" ? "col-span-2" : ""}`}>{l}
+              <label key={k} className={`text-xs text-muted-foreground ${k === "name" || k === "address" ? "sm:col-span-2" : ""}`}>{l}
                 <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
               </label>
             ))}
