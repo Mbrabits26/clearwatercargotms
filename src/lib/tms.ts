@@ -97,3 +97,14 @@ export const DOC_KINDS = [
   { value: "noa", label: "Factoring NOA" },
   { value: "voided_check", label: "Voided check" },
 ] as const;
+
+export const PERMISSIONS = [
+  { key: "dispatch", label: "Dispatch Board" },
+  { key: "directory", label: "Directory" },
+  { key: "carriers", label: "Carriers" },
+  { key: "fleet", label: "Fleet" },
+  { key: "quotes", label: "Quotes & RFPs" },
+  { key: "reports", label: "Reports" },
+  { key: "export", label: "CSV / load board export" },
+] as const;
+export const DEFAULT_PERMS = PERMISSIONS.map((p) => p.key) as string[];

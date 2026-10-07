@@ -26,10 +26,10 @@ const SCHEMA = {
   },
 };
 
-async function firecrawlSearch(query: string, key: string) {
-  const r = await fetch("https://api.firecrawl.dev/v2/search", {
+async function firecrawlSearch(query: string, key: string, aiKey: string) {
+  const r = await fetch("https://connector-gateway.lovable.dev/firecrawl/v2/search", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiKey}`, "X-Connection-Api-Key": key },
     body: JSON.stringify({ query, limit: 4, tbs: "qdr:m", scrapeOptions: { formats: ["markdown"], onlyMainContent: true } }),
   });
   if (!r.ok) throw new Error(`Market search failed (${r.status}): ${(await r.text()).slice(0, 200)}`);
@@ -45,7 +45,10 @@ export async function fetchMarketRates(lane: { origin_state: string; dest_state:
     `DAT trendlines ${eq} spot and contract rate per mile`,
     `Freightview ${eq} truckload rate report ${lane.origin_state} ${lane.dest_state}`,
   ];
-  const pages = (await Promise.all(queries.map((q) => firecrawlSearch(q, fcKey).catch(() => [])))).flat();
+  const results = await Promise.allSettled(queries.map((q) => firecrawlSearch(q, fcKey, aiKey)));
+  const pages = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const failed = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+  if (!pages.length && failed) throw failed.reason;
   const seen = new Set<string>();
   const uniq = pages.filter((p) => p.text && !seen.has(p.url) && seen.add(p.url)).slice(0, 8);
   if (!uniq.length) throw new Error("No public market rate pages were found right now.");

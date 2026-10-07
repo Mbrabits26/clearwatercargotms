@@ -925,6 +925,24 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          perms: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          perms?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          perms?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

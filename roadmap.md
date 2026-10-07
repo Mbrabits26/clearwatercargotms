@@ -33,6 +33,7 @@
 - [x] Mass load offers to carriers (accept/reject/counter, send from my Gmail or dispatch)
 - [x] Carrier lane history
 - [x] Rate View + price a load
-- [ ] Public market rates (blocked: web search connection)
+- [x] Public market rates (FreightWaves etc. via web search)
 - [ ] Automatic sending from dispatch@ (blocked: email domain setup)
 - [x] Quotes tab + RFP mode
+- [x] Admin user management: add/delete users, roles, permissions
