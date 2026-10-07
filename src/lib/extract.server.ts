@@ -12,8 +12,12 @@ const FIELDS = {
   pieces: nullable("number"), temperature: nullable("string"), miles: nullable("number"),
   customer_rate: nullable("number"), carrier_rate: nullable("number"),
   carrier_name: nullable("string"), carrier_mc: nullable("string"),
+  ship_ref: nullable("string"), dest_ref: nullable("string"), po_number: nullable("string"),
+  shipper_phone: nullable("string"), shipper_contact: nullable("string"),
+  consignee_phone: nullable("string"), consignee_contact: nullable("string"),
+  hazmat: nullable("boolean"), handwritten_notes: nullable("string"),
 } as const;
-export type Extracted = { [K in keyof typeof FIELDS]: (typeof FIELDS)[K]["type"][0] extends "number" ? number | null : string | null };
+export type Extracted = { [K in keyof typeof FIELDS]: (typeof FIELDS)[K]["type"][0] extends "number" ? number | null : (typeof FIELDS)[K]["type"][0] extends "boolean" ? boolean | null : string | null };
 
 const SCHEMA = {
   type: "object",
@@ -33,7 +37,15 @@ Extract every load in the document. Use null when a value is not present — nev
 - States are 2-letter US codes. Dates are local ISO "YYYY-MM-DDTHH:mm" (use 08:00 if only a date).
 - equipment: one of Dry Van, Reefer, Flatbed, Step Deck, Power Only, Box Truck, Hotshot, Conestoga when possible.
 - customer_rate is the total the customer pays; carrier_rate is carrier pay if stated. Numbers only, no $ or commas.
-- Facility notes: appointment numbers, PO/pickup #, hours, instructions.`;
+- customer_name: ONLY when a bill-to/broker/customer is explicitly named. A shipper's own letterhead on a BOL or shipping order is the SHIPPER (pickup facility), not the customer — leave customer_name null then.
+- Shipper/BOL/shipping orders: the letterhead company and its address is the shipper/origin; "Ship To" is the consignee/destination. Due Date or Ship Date is the pickup date.
+- ship_ref: shipper/BOL/sales order/pickup number. dest_ref: delivery/appointment/confirmation #. po_number: customer PO. Put trip #, load # or other refs in reference.
+- shipper_contact/phone and consignee_contact/phone: names and phone numbers for each facility (e.g. "Attn: Arturo 719-459-3360").
+- commodity: product description (e.g. "#9 Rebar Grade 60, 40'"). pieces: total ship quantity. weight_lbs: total weight.
+- equipment hints: "FLAT", "flatbed", "no conestoga" → Flatbed; "reefer"/temps → Reefer; "van" → Dry Van.
+- handwritten_notes: transcribe any handwriting or stamps verbatim (carrier names, dates, amounts like "4000/FLAT").
+- Handwritten amounts written as "<amount>/<equipment>" next to a carrier name are the carrier pay: set carrier_rate and carrier_name from them. Do not set customer_rate from handwriting.
+- Facility notes: appointment requirements, hours, directions, instructions (e.g. "No appointment required", "Call Arturo for jobsite directions").`;
 
 export async function extractLoads(parts: Record<string, unknown>[], apiKey: string): Promise<Extracted[]> {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
