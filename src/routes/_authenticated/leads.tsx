@@ -26,7 +26,7 @@ const METHODS = ["call", "email", "visit", "text"];
 type Lead = { id: string; company_name: string; contact_name: string | null; phone: string | null; email: string | null; city: string | null; state: string | null; lanes: string | null; source: string | null; est_monthly_loads: number | null; stage: string; lost_reason: string | null; next_follow_up: string | null; owner_id: string | null; company_id: string | null; created_at: string };
 type Act = { id: string; lead_id: string; method: string; notes: string | null; occurred_at: string; follow_up: string | null };
 const today = () => new Date().toISOString().slice(0, 10);
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function LeadsPage() {
   const qc = useQueryClient();
