@@ -26,6 +26,7 @@ import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
+import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -111,6 +112,12 @@ const OauthGoogle_mailReturnRoute = OauthGoogle_mailReturnRouteImport.update({
   path: '/oauth/google_mail/return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksCarrierRecheckRoute =
+  ApiPublicHooksCarrierRecheckRouteImport.update({
+    id: '/api/public/hooks/carrier-recheck',
+    path: '/api/public/hooks/carrier-recheck',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -147,6 +155,7 @@ export interface FileRoutesByTo {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -167,6 +176,7 @@ export interface FileRoutesById {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/api/public/hooks/carrier-recheck'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/api/public/hooks/carrier-recheck'
   id:
     | '__root__'
     | '/'
@@ -224,6 +236,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/api/public/hooks/carrier-recheck'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -235,6 +248,7 @@ export interface RootRouteChildren {
   SignTokenRoute: typeof SignTokenRoute
   TrackTokenRoute: typeof TrackTokenRoute
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
+  ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -358,6 +372,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthGoogle_mailReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/carrier-recheck': {
+      id: '/api/public/hooks/carrier-recheck'
+      path: '/api/public/hooks/carrier-recheck'
+      fullPath: '/api/public/hooks/carrier-recheck'
+      preLoaderRoute: typeof ApiPublicHooksCarrierRecheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -397,6 +418,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignTokenRoute: SignTokenRoute,
   TrackTokenRoute: TrackTokenRoute,
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
+  ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
