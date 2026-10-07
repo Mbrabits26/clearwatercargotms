@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DOC_KINDS, expiryState, fmtDate, type Carrier, type ExpiryState } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,7 @@ export function InsurancePanel({ c, update }: { c: Carrier; update: (p: Partial<
         <Input className="mt-1" type="number" value={f[amt]} onChange={(e) => setF((p) => ({ ...p, [amt]: e.target.value }))} />
       </label>
       <label className="text-xs text-muted-foreground">Expires
-        <Input className="mt-1" type="date" value={f[exp]} onChange={(e) => setF((p) => ({ ...p, [exp]: e.target.value }))} />
+        <DatePicker className="mt-1" value={f[exp] ?? ""} onChange={(v) => setF((p) => ({ ...p, [exp]: v }))} />
       </label>
       <div className="flex h-9 items-center gap-1">
         <ExpiryBadge s={expiryState(f[exp] || null)} />

@@ -6,6 +6,7 @@ import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/
 import { STATUSES, fmtDate, loadTotals, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -157,8 +158,8 @@ function Reports() {
       </div>
       <div className="space-y-3 rounded-md border bg-card p-4 print:hidden">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="text-xs text-muted-foreground">Pickup from<Input type="date" className="mt-1" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-          <label className="text-xs text-muted-foreground">Pickup to<Input type="date" className="mt-1" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <label className="text-xs text-muted-foreground">Pickup from<DatePicker className="mt-1" value={from} onChange={setFrom} /></label>
+          <label className="text-xs text-muted-foreground">Pickup to<DatePicker className="mt-1" value={to} onChange={setTo} /></label>
           <Filter label="Broker" value={broker} set={setBroker} opts={profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""])} />
           <Filter label="Customer" value={customer} set={setCustomer} opts={companies.filter((c) => c.kind === "customer").map((c) => [c.id, c.name])} />
           <Filter label="Carrier" value={carrier} set={setCarrier} opts={carriers.map((c) => [c.id, c.legal_name])} />

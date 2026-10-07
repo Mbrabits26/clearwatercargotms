@@ -6,6 +6,7 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/DatePicker";
 
 export const Route = createFileRoute("/_authenticated/leads")({
   head: () => ({
@@ -157,9 +158,9 @@ function LeadDetail({ lead, onChange }: { lead: Lead; onChange: () => void }) {
       <div className="rounded border p-3">
         <div className="mb-2 font-semibold">Log a conversation</div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <label className="text-xs">When<Input type="datetime-local" value={a.occurred_at} onChange={(e) => setA({ ...a, occurred_at: e.target.value })} /></label>
+          <label className="text-xs">When<DatePicker withTime value={a.occurred_at} onChange={(v) => setA({ ...a, occurred_at: v })} /></label>
           <label className="text-xs">How<select value={a.method} onChange={(e) => setA({ ...a, method: e.target.value })} className="block h-9 w-full rounded border bg-background px-2 text-sm">{METHODS.map((m) => <option key={m} value={m}>{cap(m)}</option>)}</select></label>
-          <label className="text-xs">Next follow-up<Input type="date" value={a.follow_up} onChange={(e) => setA({ ...a, follow_up: e.target.value })} /></label>
+          <label className="text-xs">Next follow-up<DatePicker value={a.follow_up} onChange={(v) => setA({ ...a, follow_up: v })} /></label>
         </div>
         <textarea value={a.notes} onChange={(e) => setA({ ...a, notes: e.target.value })} placeholder="What did you talk about?" className="mt-2 h-20 w-full rounded border bg-background p-2 text-sm" />
         <Button size="sm" onClick={logContact}>Save</Button>
