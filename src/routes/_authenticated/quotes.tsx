@@ -131,7 +131,7 @@ function QuoteBuilder() {
           <Input placeholder="ST" maxLength={2} value={f.dest_state} onChange={set("dest_state")} />
           <select value={f.equipment} onChange={set("equipment")} className="h-9 rounded border bg-background px-2 text-sm">{EQUIPMENT.map((e) => <option key={e}>{e}</option>)}</select>
           <Input type="number" placeholder="Miles" value={f.miles} onChange={set("miles")} />
-          <DatePicker placeholder="Pickup date" value={f.pickup_date ?? ""} onChange={(v) => set("pickup_date")({ target: { value: v } } as never)} />
+          <DatePicker placeholder="Pickup date" value={f.pickup_date ?? ""} onChange={(v) => set("pickup_date")({ target: { value: v } })} />
           <Input type="number" placeholder="Quote rate $ (all-in)" value={f.rate} onChange={set("rate")} />
           <Input type="number" placeholder="Target carrier pay $" value={f.target_carrier_rate} onChange={set("target_carrier_rate")} />
           <Input placeholder="Notes" value={f.notes} onChange={set("notes")} />
