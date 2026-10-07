@@ -8,6 +8,7 @@ import { DOC_KINDS, expiryState, fmtDate, type Carrier, type ExpiryState } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
+import { PacketImport } from "@/components/PacketImport";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -104,13 +105,14 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
             <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => upload(e.target.files?.[0])} />
           </label>
         </Button>
+        <PacketImport c={c} onDone={() => qc.invalidateQueries({ queryKey: key })} />
       </div>
       <ul className="divide-y text-sm">
         {docs.map((d) => (
           <li key={d.id} className="flex items-center justify-between py-1.5">
             <span className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              <b className="text-xs uppercase text-gold">{DOC_KINDS.find((k) => k.value === d.kind)?.label}</b>
+              <b className="text-xs uppercase text-gold">{d.kind === "packet" ? "Full carrier packet" : DOC_KINDS.find((k) => k.value === d.kind)?.label}</b>
               {d.file_path ? <button className="underline" onClick={() => open(d.file_path)}>{d.file_name}</button> : <span>{d.file_name}</span>}
             </span>
             <span className="text-xs text-muted-foreground">{d.source} · {fmtDate(d.uploaded_at)}</span>
