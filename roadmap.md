@@ -52,3 +52,4 @@
 - [x] Carrier assignment matches DB rules + admin compliance override (recorded on load)
 - [x] Load sheet reader: refs, PO, contacts, handwritten carrier/rate, no guessed customer
 - [x] Full carrier packet upload → review → fills carrier fields and checklist
+- [x] Rate con: multiple recipient emails + copy to myself
