@@ -1,3 +1,4 @@
+import { DEFAULT_PERMS } from "@/lib/tms";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator } from "lucide-react";
@@ -27,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/quotes", label: "Quotes", icon: Calculator, p: "quotes" },
     { to: "/reports", label: "Reports", icon: BarChart3, p: "reports" },
     ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen, p: "" }, { to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
-  ].filter((n) => !n.p || perms.includes(n.p));
+  ].filter((n) => !n.p || isAdmin || (perms ?? DEFAULT_PERMS).includes(n.p));
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center gap-6 border-b bg-sidebar px-4">
