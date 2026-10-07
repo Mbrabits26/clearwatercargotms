@@ -2,7 +2,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlarmClock, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
+import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import {
@@ -12,6 +12,7 @@ import {
 import { RateConPanel } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
@@ -229,6 +230,24 @@ function Panel({ title, children, className }: { title: string; children: React.
     </div>
   );
 }
+function NoteEdit({ value, placeholder, onSave }: { value: string | null; placeholder: string; onSave: (v: string | null) => void }) {
+  const [v, setV] = useState(value ?? "");
+  const [open, setOpen] = useState(false);
+  if (!open) return (
+    <button className="mt-1 block w-full rounded bg-muted p-2 text-left text-xs whitespace-pre-wrap hover:ring-1 hover:ring-gold" onClick={() => { setV(value ?? ""); setOpen(true); }}>
+      {value || <span className="text-muted-foreground">+ Add {placeholder.toLowerCase()}</span>}
+    </button>
+  );
+  return (
+    <div className="mt-1 space-y-1">
+      <Textarea autoFocus value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => { onSave(v.trim() || null); setOpen(false); }}>Save</Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
 function KV({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-4 py-1 text-sm">
@@ -261,6 +280,7 @@ function Cockpit({
   const [accAmt, setAccAmt] = useState("");
   const [quickPay, setQuickPay] = useState(false);
   const [advance, setAdvance] = useState("");
+  const [editing, setEditing] = useState(false);
 
   const update = async (patch: Partial<Load>, msg?: string) => {
     const { error } = await supabase.from("loads").update(patch).eq("id", load.id);
@@ -299,6 +319,7 @@ function Cockpit({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusSelect load={load} />
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit load</Button>
           <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
             <Phone className="mr-1 h-3.5 w-3.5" />Log check call
           </Button>
@@ -336,11 +357,11 @@ function Cockpit({
             <div className="text-xs uppercase text-muted-foreground">Pickup · {fmtDate(load.pickup_at)}</div>
             <div className="font-medium">{shipper?.name ?? `${load.origin_city}, ${load.origin_state}`}</div>
             <div className="text-muted-foreground">{shipper?.address} {shipper?.phone}</div>
-            {load.pickup_notes && <div className="mt-1 rounded bg-muted p-2 text-xs">{load.pickup_notes}</div>}
+            <NoteEdit value={load.pickup_notes} placeholder="Pickup instructions" onSave={(v) => update({ pickup_notes: v }, "Pickup notes saved")} />
             <div className="mt-3 text-xs uppercase text-muted-foreground">Delivery · {fmtDate(load.delivery_at)}</div>
             <div className="font-medium">{consignee?.name ?? `${load.dest_city}, ${load.dest_state}`}</div>
             <div className="text-muted-foreground">{consignee?.address} {consignee?.phone}</div>
-            {load.delivery_notes && <div className="mt-1 rounded bg-muted p-2 text-xs">{load.delivery_notes}</div>}
+            <NoteEdit value={load.delivery_notes} placeholder="Delivery instructions" onSave={(v) => update({ delivery_notes: v }, "Delivery notes saved")} />
           </div>
         </Panel>
         </TabsContent>
@@ -352,10 +373,20 @@ function Cockpit({
               key={load.id + (load.carrier_id ?? "")}
               carriers={carriers}
               currentId={load.carrier_id}
-              onPick={(id) => update({ carrier_id: id, status: id && load.status === "available" ? "booked" : load.status }, id ? "Carrier assigned" : "Carrier removed")}
+              isAdmin={isAdmin}
+              onPick={(id, reason) => update({
+                carrier_id: id, status: id && load.status === "available" ? "booked" : load.status,
+                ...(reason ? { override_reason: reason } : isAdmin && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
+              }, id ? (reason ? "Carrier assigned with admin override" : "Carrier assigned") : "Carrier removed")}
               onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
             />
           </div>
+          {carrier && load.override_reason && (
+            <div className="mb-2 rounded border border-warning/60 bg-warning/10 px-2 py-1 text-xs">
+              <span className="font-semibold uppercase text-warning">Compliance override</span> · {load.override_reason}
+              {" · "}{profiles.find((p) => p.id === load.override_by)?.full_name ?? "admin"} {fmtDate(load.override_at)}
+            </div>
+          )}
           {carrier && compliance && (
             <ul className="space-y-1 text-sm">
               <Check ok={carrier.authority_status === "Authorized"} label={`Operating authority: ${carrier.authority_status}`} />
@@ -393,10 +424,10 @@ function Cockpit({
         <Panel title="Financials">
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-muted-foreground">Customer rate
-              <Input value={custRate} onChange={(e) => setCustRate(e.target.value)} onBlur={() => update({ customer_rate: Number(custRate) || 0 })} />
+              <Input inputMode="decimal" value={custRate} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} onChange={(e) => setCustRate(e.target.value.replace(/[^0-9.]/g, ""))} onBlur={() => update({ customer_rate: Number(custRate) || 0 })} />
             </label>
             <label className="text-xs text-muted-foreground">Carrier pay
-              <Input value={carrierRate} onChange={(e) => setCarrierRate(e.target.value)} onBlur={() => update({ carrier_rate: Number(carrierRate) || 0 })} />
+              <Input inputMode="decimal" value={carrierRate} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} onChange={(e) => setCarrierRate(e.target.value.replace(/[^0-9.]/g, ""))} onBlur={() => update({ carrier_rate: Number(carrierRate) || 0 })} />
             </label>
           </div>
           <div className="mt-3 space-y-1">
@@ -404,6 +435,11 @@ function Cockpit({
               <div key={i} className="flex items-center justify-between text-sm">
                 <span>{a.type}</span>
                 <span className="flex items-center gap-2">{usd(a.amount)}
+                  <button className="text-xs text-teal" onClick={() => {
+                    const v = window.prompt(`New amount for ${a.type}`, String(a.amount));
+                    if (v == null || isNaN(Number(v))) return;
+                    update({ accessorials: acc.map((x, j) => (j === i ? { ...x, amount: Number(v) } : x)) }, "Accessorial updated");
+                  }}>edit</button>
                   <button className="text-xs text-destructive" onClick={() => update({ accessorials: acc.filter((_, j) => j !== i) })}>remove</button>
                 </span>
               </div>
@@ -458,6 +494,7 @@ function Cockpit({
         </Panel>
         </TabsContent>
       </Tabs>
+      <LoadBuilderDialog open={editing} onOpenChange={setEditing} companies={companies} editLoad={load} onCreated={() => {}} />
       {carrier?.status === "dnu" && (
         <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" /> Assigned carrier is now on the Do Not Use list ({carrier.dnu_reason}). Reassign immediately.
