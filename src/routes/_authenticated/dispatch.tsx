@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FleetPanel } from "@/components/FleetPanel";
 import { TrackingPanel } from "@/components/TrackingPanel";
 import { LoadNotes } from "@/components/LoadNotes";
@@ -125,12 +127,19 @@ function Dispatch() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-4 py-2 text-xs">
-        <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />
-        <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />
-        <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />
+        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />}
+        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />}
+        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />}
         <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => exportCsv(loads, "dat")}><Download className="mr-1 h-3.5 w-3.5" />DAT One CSV</Button>
-          <Button size="sm" variant="outline" onClick={() => exportCsv(loads, "truckstop")}><Download className="mr-1 h-3.5 w-3.5" />Truckstop CSV</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline"><Download className="mr-1 h-3.5 w-3.5" />Export</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportCsv(loads, "dat")}>DAT One CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
       </div>
@@ -295,7 +304,15 @@ function Cockpit({
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <Tabs defaultValue="load">
+        <TabsList>
+          <TabsTrigger value="load">Load</TabsTrigger>
+          <TabsTrigger value="carrier">Carrier</TabsTrigger>
+          <TabsTrigger value="money">Money</TabsTrigger>
+          <TabsTrigger value="docs">Docs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="load" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Freight">
           <KV k="Equipment" v={load.equipment} />
           <KV k="Commodity" v={load.commodity ?? "—"} />
@@ -325,7 +342,9 @@ function Cockpit({
             {load.delivery_notes && <div className="mt-1 rounded bg-muted p-2 text-xs">{load.delivery_notes}</div>}
           </div>
         </Panel>
+        </TabsContent>
 
+        <TabsContent value="carrier" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Carrier & compliance">
           <div className="mb-3">
             <CarrierPicker
@@ -356,9 +375,20 @@ function Cockpit({
               {load.pod_received ? "Unmark POD" : "POD received"}
             </Button>
           </div>
-          <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
         </Panel>
 
+        <Panel title="Clearwater fleet assignment">
+          <FleetPanel load={load} />
+        </Panel>
+
+        {["available", "vetting"].includes(load.status) && (
+          <Panel title="Offer to carriers">
+            <OffersPanel load={load} carriers={carriers} />
+          </Panel>
+        )}
+        </TabsContent>
+
+        <TabsContent value="money" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Financials">
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-muted-foreground">Customer rate
@@ -401,24 +431,6 @@ function Cockpit({
           </div>
         </Panel>
 
-        <Panel title="Clearwater fleet assignment">
-          <FleetPanel load={load} />
-        </Panel>
-
-        <Panel title="Driver tracking">
-          <TrackingPanel load={load} />
-        </Panel>
-
-        <Panel title="Team notes">
-          <LoadNotes loadId={load.id} />
-        </Panel>
-
-        {["available", "vetting"].includes(load.status) && (
-          <Panel title="Offer to carriers">
-            <OffersPanel load={load} carriers={carriers} />
-          </Panel>
-        )}
-
         <Panel title="Rate view & pricing">
           <RateView
             loads={loads.filter((l) => l.id !== load.id)}
@@ -429,7 +441,22 @@ function Cockpit({
             }}
           />
         </Panel>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="docs" className="mt-4 grid gap-4 xl:grid-cols-2">
+        <Panel title="Rate confirmation">
+          <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
+        </Panel>
+
+        <Panel title="Driver tracking">
+          <TrackingPanel load={load} />
+        </Panel>
+
+        <Panel title="Team notes">
+          <LoadNotes loadId={load.id} />
+        </Panel>
+        </TabsContent>
+      </Tabs>
       {carrier?.status === "dnu" && (
         <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" /> Assigned carrier is now on the Do Not Use list ({carrier.dnu_reason}). Reassign immediately.
