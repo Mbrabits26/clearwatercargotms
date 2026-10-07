@@ -208,7 +208,7 @@ function GroupRows({ title, loads, cols, cell, money, sum }: { title: string | n
   return (
     <>
       {title && <TableRow className="bg-muted/60"><TableCell colSpan={cols.length} className="font-display text-base font-semibold text-gold">{title} · {loads.length} load{loads.length === 1 ? "" : "s"}</TableCell></TableRow>}
-      {loads.map((l) => <TableRow key={l.id}>{cols.map((c) => <TableCell key={c} className={c === "load" ? "font-mono text-gold" : ""}>{cell(l, c)}</TableCell>)}</TableRow>)}
+      {loads.map((l) => <TableRow key={l.id}>{cols.map((c) => <TableCell key={c} className={c === "load" ? "font-mono text-gold" : ""}>{c === "load" ? <LoadQuickLook load={l} /> : cell(l, c)}</TableCell>)}</TableRow>)}
       {title && <TableRow>{cols.map((c, i) => <TableCell key={c} className="text-xs font-semibold text-muted-foreground">{i === 0 ? "Subtotal" : money.includes(c) ? usd(sum(loads, c)) : ""}</TableCell>)}</TableRow>}
     </>
   );
