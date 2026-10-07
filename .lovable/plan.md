@@ -1,22 +1,29 @@
-# Show driver locations as places on a map
+# QuickBooks Online — connect once, then auto-sync
 
-## What you'll get
-- When a driver sends a status update or location from their tracking link, the app turns the GPS point into a readable place, for example "Near Salina, KS · I-70". The raw latitude and longitude numbers are no longer shown.
-- That place name appears in:
-  - the "Driver updates" list in the load's Driver tracking panel
-  - the automatic load note ("Driver update — Rolling — Near Salina, KS")
-  - the team chat mention
-- A map in the Driver tracking panel shows the latest location as a gold pin. Earlier updates appear as smaller dots with a line connecting the route so far. The pickup and delivery cities are marked too.
-- Clicking any update in the list moves the map to that spot. "Open in Google Maps" is still available.
-- If a driver doesn't share GPS, the update shows the status and note only, as it does today.
+## How it will work
 
-## What you need to do
-- Approve the Google Maps connection when the prompt appears. Choose "Managed by Lovable" so you don't need a Google account or API key.
-- Cost: each location is looked up only once, when the driver sends it, then saved. At about 20 loads a day with a few check-ins each, that stays in the low hundreds of lookups a day, well under Google's free monthly allowance. The map itself does not count against those lookups.
+1. **One-time connection** — the QuickBooks tab gets a "Connect QuickBooks" button. Admin clicks it, signs into their Intuit account, picks the Clearwater company file. Done — the connection renews itself silently after that.
+2. **Automatic sending** — the existing queue stays, but now it delivers:
+   - **Customer invoice** goes to QuickBooks automatically when a load is marked **Delivered** (AR).
+   - **Carrier bill** goes automatically when a **signed POD** is received (AP) — routed to the factoring company as payee when one is on file.
+3. **QuickBooks tab becomes a dashboard** — shows each invoice/bill with its real QuickBooks number, status (sent / failed), and a Retry button for anything that errored. Nothing is ever lost — failures stay queued with the reason.
+4. **Safety** — duplicates are prevented (one invoice and one bill per load, ever). Amounts include linehaul + accessorials, matching the rate con.
+
+## What you provide (one time)
+
+A free Intuit developer app so the TMS is allowed to talk to your QuickBooks:
+
+1. Sign in at **developer.intuit.com** with your QuickBooks login.
+2. Click **My Apps → Create an app**, choose **QuickBooks Online and Payments**.
+3. Name it "Clearwater Cargo TMS", select the **Accounting** scope.
+4. Open **Keys & credentials**, copy the **Client ID** and **Client Secret**.
+5. Add both in **Project Settings → Secrets**, then tell me it's done.
+
+It starts in free Development mode, which works fully with your own company file — no paid upgrade or app review required. I'll handle the rest, including the sign-in redirect setup.
 
 ## Technical details
-- Link the `google_maps` connector, using the managed browser key for the map and the gateway for reverse geocoding.
-- Migration: add a nullable `load_tracking_pings.place` text column.
-- In `postPing` (`tracking.functions.ts`), after token validation, reverse geocode through the gateway (`/maps/api/geocode/json?latlng=`) to get "City, ST" with the route if one is available. Store the result in `place` and use it in the note and mention text. Lookup failures fall back silently to no place name.
-- In `TrackingPanel.tsx`, load Maps JS async with a callback, using `clickableIcons: false` and `google.maps.Marker` plus a Polyline. Show the place in the list. On the preview hostname the map shows a placeholder; it renders on the published site.
-- Existing pings with coordinates get backfilled once on first view through a staff-only server function, capped at 50.
+
+- Intuit OAuth 2.0 with refresh tokens stored encrypted; token refresh handled server-side.
+- Server functions create Customer Invoice / Vendor Bill via the QuickBooks REST API and write the returned doc number into `qb_sync` (existing table, admin-only).
+- Sends trigger from the load status flow (delivered → invoice, POD signed → bill) and from a manual "Send now" per queued row.
+- No per-user QuickBooks accounts needed — one company connection, admin-managed.
