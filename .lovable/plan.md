@@ -21,6 +21,20 @@ A free Intuit developer app so the TMS is allowed to talk to your QuickBooks:
 
 It starts in free Development mode, which works fully with your own company file — no paid upgrade or app review required. I'll handle the rest, including the sign-in redirect setup.
 
+## New: click any load number anywhere → quick look
+
+Everywhere a load number appears (Dispatch, Reports, Quotes, Fleet, QuickBooks/Accounting, offers, tracking), clicking it opens a **quick-look panel**: lane, status, customer, carrier, dates, revenue/cost totals, and a big **Open load** button that jumps to the full load in the dispatch cockpit. Built as one shared component so every screen behaves the same.
+
+## New: QuickBooks tab becomes the Accounting tab (admin only)
+
+The QuickBooks tab grows into a full accounting home, still admin-only:
+
+1. **AR (customer invoices)** — every delivered/invoiced load with amount, age, and status; admin can edit the amount, mark sent/paid, or remove it from the queue.
+2. **AP (carrier bills)** — every POD-signed load awaiting carrier payment, with factoring payee routing; same edit/remove controls.
+3. **Edit & delete** — admin-only buttons on each queued invoice/bill: change amount or payee, delete a mistaken entry, retry a failed send.
+4. **Sync log** — unchanged: what went to QuickBooks, when, and the result.
+5. **Connect & auto-sync** — the QuickBooks connection described above lives here too.
+
 ## Technical details
 
 - Intuit OAuth 2.0 with refresh tokens stored encrypted; token refresh handled server-side.
