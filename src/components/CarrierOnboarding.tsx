@@ -23,7 +23,7 @@ export function InsurancePanel({ c, update }: { c: Carrier; update: (p: Partial<
     cargo_insurance: String(c.cargo_insurance ?? ""), cargo_expires: c.cargo_expires ?? "",
   });
   const row = (amt: "auto_liability" | "cargo_insurance", exp: "insurance_expires" | "cargo_expires", label: string, min: number) => (
-    <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+    <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
       <label className="text-xs text-muted-foreground">{label} limit ($)
         <Input className="mt-1" type="number" value={f[amt]} onChange={(e) => setF((p) => ({ ...p, [amt]: e.target.value }))} />
       </label>
@@ -80,7 +80,7 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
   return (
     <div className="space-y-3 rounded border bg-card p-4">
       <h3 className="text-sm font-semibold uppercase tracking-widest text-gold">Onboarding packet</h3>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {DOC_KINDS.map((d) => {
           const have = Boolean(c[flag[d.value]!]);
           const needed = d.value === "noa" ? !!c.factoring_company : d.value === "voided_check" ? false : true;
@@ -93,9 +93,9 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
           );
         })}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Select value={kind} onValueChange={setKind}>
-          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
           <SelectContent>{DOC_KINDS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
         </Select>
         <Button variant="secondary" disabled={busy} asChild>

@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/auth", search: {}, replace: true });
   };
   const nav = [
     { to: "/dispatch", label: "Dispatch Board", icon: Truck, p: "dispatch" },

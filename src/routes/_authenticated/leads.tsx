@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ function LeadsPage() {
   const [sel, setSel] = useState<string | null>(null);
   const [stage, setStage] = useState<string>("all");
   const [adding, setAdding] = useState(false);
+  const [mobileDetail, setMobileDetail] = useState(false);
   const due = leads.filter((l) => l.next_follow_up && l.next_follow_up <= today() && !["won", "lost"].includes(l.stage));
   const shown = leads.filter((l) => stage === "all" || l.stage === stage);
   const lead = leads.find((l) => l.id === sel) ?? null;
@@ -42,8 +43,8 @@ function LeadsPage() {
   const name = (id: string | null) => team.find((t) => t.id === id)?.full_name ?? "—";
 
   return (
-    <div className="grid h-full grid-cols-[minmax(380px,1fr)_1.3fr] gap-0">
-      <div className="flex flex-col overflow-hidden border-r">
+    <div className="grid h-full gap-0 md:grid-cols-[minmax(340px,1fr)_1.3fr] xl:grid-cols-[minmax(380px,1fr)_1.3fr]">
+      <div className={`${mobileDetail ? "hidden md:flex" : "flex"} flex-col overflow-hidden border-r`}>
         <div className="flex items-center gap-2 border-b p-3">
           <h1 className="font-display text-xl font-bold uppercase tracking-wide text-gold">Sales Leads</h1>
           <Button size="sm" className="ml-auto" onClick={() => { setAdding(true); setSel(null); }}><Plus className="mr-1 h-4 w-4" />New lead</Button>
@@ -51,7 +52,7 @@ function LeadsPage() {
         {due.length > 0 && (
           <div className="border-b bg-warning/10 p-3 text-sm">
             <div className="mb-1 font-semibold">Follow-ups due ({due.length})</div>
-            {due.map((l) => <button key={l.id} onClick={() => setSel(l.id)} className="block text-left hover:underline">{l.company_name} · {l.next_follow_up}{l.next_follow_up! < today() && " (overdue)"}</button>)}
+            {due.map((l) => <button key={l.id} onClick={() => { setSel(l.id); setMobileDetail(true); }} className="block min-h-11 text-left hover:underline">{l.company_name} · {l.next_follow_up}{l.next_follow_up! < today() && " (overdue)"}</button>)}
           </div>
         )}
         <div className="flex flex-wrap gap-1 border-b p-2">
@@ -63,7 +64,7 @@ function LeadsPage() {
         </div>
         <div className="flex-1 overflow-auto">
           {shown.map((l) => (
-            <button key={l.id} onClick={() => { setSel(l.id); setAdding(false); }} className={`block w-full border-b p-3 text-left text-sm hover:bg-muted/50 ${sel === l.id ? "bg-muted" : ""}`}>
+            <button key={l.id} onClick={() => { setSel(l.id); setAdding(false); setMobileDetail(true); }} className={`block min-h-11 w-full border-b p-3 text-left text-sm hover:bg-muted/50 ${sel === l.id ? "bg-muted" : ""}`}>
               <div className="flex justify-between"><span className="font-semibold">{l.company_name}</span><span className="text-xs uppercase text-gold">{l.stage}</span></div>
               <div className="text-xs text-muted-foreground">{[l.contact_name, l.city && `${l.city}, ${l.state ?? ""}`, l.lanes].filter(Boolean).join(" · ")}</div>
               <div className="text-xs text-muted-foreground">Owner: {name(l.owner_id)}{l.next_follow_up && ` · Follow up ${l.next_follow_up}`}</div>
@@ -72,7 +73,8 @@ function LeadsPage() {
           {!shown.length && <div className="p-6 text-center text-sm text-muted-foreground">No leads yet.</div>}
         </div>
       </div>
-      <div className="overflow-auto p-4">
+      <div className={`${mobileDetail ? "block" : "hidden md:block"} overflow-auto p-3 sm:p-4`}>
+        <Button variant="ghost" className="mb-2 min-h-11 md:hidden" onClick={() => { setMobileDetail(false); setAdding(false); }}><ArrowLeft className="mr-2 h-4 w-4" />Back to leads</Button>
         {adding ? <LeadForm onDone={(id) => { setAdding(false); refresh(); setSel(id); }} /> : lead ? <LeadDetail lead={lead} onChange={refresh} /> : <div className="text-sm text-muted-foreground">Pick a lead, or add a new one.</div>}
       </div>
     </div>
@@ -94,7 +96,7 @@ function LeadForm({ onDone }: { onDone: (id: string) => void }) {
   return (
     <div className="max-w-xl space-y-3">
       <h2 className="font-display text-lg font-bold uppercase">New lead</h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {F.map(([k, l]) => <label key={k} className="text-xs">{l}<Input value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>)}
       </div>
       <Button onClick={save}>Save lead</Button>
@@ -138,14 +140,14 @@ function LeadDetail({ lead, onChange }: { lead: Lead; onChange: () => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row">
         <div>
           <h2 className="font-display text-2xl font-bold uppercase text-gold">{lead.company_name}</h2>
           <div className="text-sm text-muted-foreground">{[lead.contact_name, lead.phone, lead.email].filter(Boolean).join(" · ")}</div>
           <div className="text-sm text-muted-foreground">{[lead.city && `${lead.city}, ${lead.state ?? ""}`, lead.lanes, lead.source && `Source: ${lead.source}`, lead.est_monthly_loads && `~${lead.est_monthly_loads} loads/mo`].filter(Boolean).join(" · ")}</div>
           {lead.stage === "lost" && lead.lost_reason && <div className="text-sm text-destructive">Lost: {lead.lost_reason}</div>}
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
           <select value={lead.stage} onChange={(e) => setStage(e.target.value)} className="rounded border bg-background px-2 py-1 text-sm">
             {STAGES.map((s) => <option key={s} value={s}>{cap(s)}</option>)}
           </select>
@@ -154,7 +156,7 @@ function LeadDetail({ lead, onChange }: { lead: Lead; onChange: () => void }) {
       </div>
       <div className="rounded border p-3">
         <div className="mb-2 font-semibold">Log a conversation</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <label className="text-xs">When<Input type="datetime-local" value={a.occurred_at} onChange={(e) => setA({ ...a, occurred_at: e.target.value })} /></label>
           <label className="text-xs">How<select value={a.method} onChange={(e) => setA({ ...a, method: e.target.value })} className="block h-9 w-full rounded border bg-background px-2 text-sm">{METHODS.map((m) => <option key={m} value={m}>{cap(m)}</option>)}</select></label>
           <label className="text-xs">Next follow-up<Input type="date" value={a.follow_up} onChange={(e) => setA({ ...a, follow_up: e.target.value })} /></label>
