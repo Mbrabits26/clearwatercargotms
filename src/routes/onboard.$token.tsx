@@ -71,6 +71,7 @@ function Portal() {
           },
           insurance: { auto_liability: Number(f.auto_liability) || 0, auto_expires: f.auto_expires, cargo_insurance: Number(f.cargo_insurance) || 0, cargo_expires: f.cargo_expires },
           factoring_company: f.factoring_company,
+          pay_terms: (f.pay_terms || "net30") as "net30" | "quickpay" | "factored_quickpay",
           agreement_accepted: true,
           signer_name: f.signer_name,
           files: payload,
@@ -142,6 +143,13 @@ function Portal() {
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">3. Tax & payment</h2>
         {fileIn("w9", "W-9", true)}
         {field("factoring_company", "Factoring company (leave blank if we pay you directly)")}
+        <label className="block text-sm">How would you like to be paid?
+          <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => setF((p) => ({ ...p, pay_terms: e.target.value }))}>
+            <option value="net30">Net 30 (no fee)</option>
+            <option value="quickpay">Quick Pay – 5% fee, paid in 3 days</option>
+            <option value="factored_quickpay">Factored Quick Pay – 2.5% fee</option>
+          </select>
+        </label>
         {f.factoring_company ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
       </section>
       <section className="rounded border bg-card p-5 space-y-3">

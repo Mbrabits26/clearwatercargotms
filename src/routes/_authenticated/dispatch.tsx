@@ -6,6 +6,7 @@ import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, Dolla
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import {
+  PAY_TERMS, effectivePayTerms,
   STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
@@ -279,7 +280,6 @@ function Cockpit({
   useEffect(() => { setCustRate(String(load.customer_rate)); setCarrierRate(String(load.carrier_rate)); }, [load.customer_rate, load.carrier_rate]);
   const [accType, setAccType] = useState<string>("Detention");
   const [accAmt, setAccAmt] = useState("");
-  const [quickPay, setQuickPay] = useState(false);
   const [advance, setAdvance] = useState("");
   const [editing, setEditing] = useState(false);
 
@@ -305,7 +305,8 @@ function Cockpit({
 
   const acc = (load.accessorials as Accessorial[]) ?? [];
   const compliance = carrier ? carrierCompliance(carrier) : null;
-  const qpFee = quickPay ? t.cost * 0.03 : 0;
+  const pay = effectivePayTerms(load, carrier);
+  const qpFee = t.cost * pay.fee;
   const adv = Number(advance || 0);
   const advFee = adv ? Math.max(15, adv * 0.02) : 0;
   const netCarrier = t.cost - qpFee - adv - advFee;
@@ -461,7 +462,12 @@ function Cockpit({
           </div>
           <div className="mt-3 rounded bg-muted p-3 text-sm">
             <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Carrier AP · QuickPay & advance</div>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={quickPay} onChange={(e) => setQuickPay(e.target.checked)} />QuickPay (3% fee)</label>
+            <label className="flex flex-col gap-1">Pay terms {load.pay_terms ? <span className="text-xs text-gold">Changed for this load</span> : <span className="text-xs text-muted-foreground">Carrier's choice</span>}
+              <Select value={pay.value} onValueChange={(v) => update({ pay_terms: v === (carrier?.pay_terms ?? "net30") ? null : v }, "Pay terms updated")}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>{PAY_TERMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </label>
             <label className="mt-2 flex items-center gap-2">Fuel advance <Input className="h-7 w-24" value={advance} onChange={(e) => setAdvance(e.target.value)} placeholder="$0" /></label>
             <KV k="QuickPay fee (finance revenue)" v={usd(qpFee)} />
             <KV k="Advance fee (2%, min $15)" v={usd(advFee)} />

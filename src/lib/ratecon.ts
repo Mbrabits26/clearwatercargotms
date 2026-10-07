@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { type Accessorial, type Carrier, type Company, type Load } from "./tms";
+import { effectivePayTerms, type Accessorial, type Carrier, type Company, type Load } from "./tms";
 
 export const CW = { name: "Clearwater Cargo LLC", addr1: "P.O Box 100", addr2: "Staley, NC 27355", phone: "252-497-7916" };
 
@@ -38,7 +38,7 @@ export function buildRateConData(o: { load: Load; carrier: Carrier; shipper?: Co
     pickup: d10(load.pickup_at), delivery: d10(load.delivery_at),
     carrier: carrier.legal_name, carrierMc: carrier.mc_number ? `MC ${carrier.mc_number}` : carrier.dot_number ? `DOT ${carrier.dot_number}` : "",
     equipment: load.equipment, customer: o.customer?.name ?? "",
-    terms: "Net 30 · Quick Pay: 5% fee, paid in 3 days · Factored Quick Pay: 2.5% fee",
+    terms: effectivePayTerms(load, carrier).terms,
     remitTo: carrier.factoring_company ? `${carrier.factoring_company} (NOA on file)` : carrier.legal_name,
     lines, total: lines.reduce((s, l) => s + l.amount, 0),
     shipper: party(o.shipper, load.origin_city, load.origin_state),
