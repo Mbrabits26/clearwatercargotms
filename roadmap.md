@@ -53,3 +53,5 @@
 - [x] Load sheet reader: refs, PO, contacts, handwritten carrier/rate, no guessed customer
 - [x] Full carrier packet upload → review → fills carrier fields and checklist
 - [x] Rate con: multiple recipient emails + copy to myself
+- [x] Load number quick-look panel + Open load jump (Reports, Fleet, Accounting)
+- [x] Accounting tab: AR/AP with aging, edit/delete/retry queued items (admin only)
