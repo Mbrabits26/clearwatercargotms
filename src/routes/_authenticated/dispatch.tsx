@@ -375,9 +375,20 @@ function Cockpit({
               {load.pod_received ? "Unmark POD" : "POD received"}
             </Button>
           </div>
-          <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
         </Panel>
 
+        <Panel title="Clearwater fleet assignment">
+          <FleetPanel load={load} />
+        </Panel>
+
+        {["available", "vetting"].includes(load.status) && (
+          <Panel title="Offer to carriers">
+            <OffersPanel load={load} carriers={carriers} />
+          </Panel>
+        )}
+        </TabsContent>
+
+        <TabsContent value="money" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Financials">
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-muted-foreground">Customer rate
