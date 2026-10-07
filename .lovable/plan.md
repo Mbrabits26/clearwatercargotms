@@ -22,7 +22,18 @@ A free Intuit developer app so the TMS is allowed to talk to your QuickBooks:
 
 I'll handle the rest, including the sign-in redirect setup.
 
-## Technical details
+## Driver texting (check calls + POD/BOL by text)
+
+Not built yet — here's what I'd add:
+
+1. **Text a tracking link** — from the dispatch cockpit, send the driver a text with a private link for that load. No app download, no login.
+2. **Driver's page** — one-tap status updates (Arrived at shipper, Loaded / rolling, Arrived at receiver, Delivered) with optional note and GPS location. Each tap stamps the load's check-call time and posts to the load's notes.
+3. **POD / BOL photo upload** — the same page lets the driver snap a photo of the signed POD or BOL; it attaches straight to the load's documents and flips "POD received," which queues the carrier bill for QuickBooks.
+4. **Replies by text** — drivers can also just reply to the text with a photo; it lands on the load automatically.
+
+**What it costs:** texting needs a phone-number service (Twilio is the standard — roughly $1/month for the number plus about a penny per text). You'll create a free Twilio account and paste two keys; I'll wire the rest. Until then, the tracking link can be sent by email or copied and texted from your own phone.
+
+## Technical details (QuickBooks)
 
 - Intuit OAuth 2.0 with refresh tokens stored encrypted; token refresh handled server-side.
 - Server functions create Customer Invoice / Vendor Bill via the QuickBooks REST API and write the returned doc number into `qb_sync` (existing table, admin-only).
