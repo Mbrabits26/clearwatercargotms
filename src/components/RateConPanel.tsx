@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Copy, Download, FileSignature, FileText, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRateConData, buildRateConPdf, type RateConData } from "@/lib/ratecon";
-import { composeEmail } from "@/lib/email";
+import { composeEmail, getMailClient } from "@/lib/email";
 import { fmtDate, type Carrier, type Company, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,10 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [editOpen, setEditOpen] = useState(false);
   const [work, setWork] = useState<RateConData | null>(null);
   useEffect(() => { setDraft(null); }, [load.id, carrier?.id]);
+  const [ccMe, setCcMe] = useState(true);
+  const [myEmail, setMyEmail] = useState("");
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyEmail(data.user?.email ?? "")); }, []);
+  const recipients = () => email.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
   const link = (t: string) => `${window.location.origin}/sign/${t}`;
   const current = () => ({ ...load, ship_ref: shipRef || null, dest_ref: destRef || null });
 
@@ -52,15 +56,18 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     await saveRefs();
     await supabase.from("ratecon_requests").update({ status: "void" }).eq("load_id", load.id).eq("status", "sent");
     const snapshot = rcData();
-    const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: email || null, snapshot }).select("token").single();
+    const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: recipients().join(", ") || null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);
     const url = link(data.token);
     await navigator.clipboard.writeText(url).catch(() => {});
-    if (email) {
+    const to = recipients();
+    let direct = false;
+    if (to.length) {
       const body = `Please review and sign rate confirmation ${load.load_number} (${snapshot.lane}):\n\n${url}\n\nClearwater Cargo LLC · 252-497-7916`;
-      composeEmail(email, `Rate Confirmation ${load.load_number} — Clearwater Cargo`, body);
+      const cc = ccMe && myEmail && !to.includes(myEmail) ? myEmail : undefined;
+      direct = await composeEmail(to.join(", "), `Rate Confirmation ${load.load_number} — Clearwater Cargo`, body, getMailClient(), cc);
     }
-    toast.success("Signing link copied" + (email ? " and email drafted" : ""));
+    toast.success("Signing link copied" + (to.length ? (direct ? ` and emailed to ${to.length} recipient${to.length > 1 ? "s" : ""}${ccMe ? " (copy to you)" : ""}` : " and email drafted") : ""));
     qc.invalidateQueries({ queryKey: key });
   };
   const openSigned = async (path: string) => {
@@ -76,7 +83,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Input placeholder="Ship ref" value={shipRef} onChange={(e) => setShipRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Dest ref" value={destRef} onChange={(e) => setDestRef(e.target.value)} onBlur={saveRefs} />
-        <Input placeholder="Carrier email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input placeholder="Carrier emails (separate with commas)" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1"><input type="checkbox" checked={ccMe} onChange={(e) => setCcMe(e.target.checked)} />Send a copy to me{myEmail && ` (${myEmail})`}</label>
+        {recipients().length > 1 && <span>{recipients().length} recipients</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" disabled={!carrier || load.ratecon_signed} onClick={openEdit}><Pencil className="mr-1 h-3.5 w-3.5" />Edit rate con</Button>

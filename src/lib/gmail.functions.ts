@@ -86,7 +86,8 @@ export const sendGmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      to: z.string().trim().min(3).max(500),
+      to: z.string().trim().min(3).max(1000).refine((v) => !/[\r\n]/.test(v)),
+      cc: z.string().trim().max(1000).refine((v) => !/[\r\n]/.test(v)).optional(),
       subject: z.string().trim().min(1).max(500),
       body: z.string().min(1).max(50000),
     }).parse(d),
@@ -96,6 +97,7 @@ export const sendGmail = createServerFn({ method: "POST" })
     if (!connectionAPIKey) return { sent: false as const, reason: "not_connected" as const };
     const raw = [
       `To: ${data.to}`,
+      ...(data.cc ? [`Cc: ${data.cc}`] : []),
       `Subject: ${mimeHeader(data.subject)}`,
       "MIME-Version: 1.0",
       'Content-Type: text/plain; charset="UTF-8"',
