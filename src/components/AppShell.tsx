@@ -8,7 +8,7 @@ import { ChatWidget } from "@/components/ChatWidget";
 import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { user, isAdmin, perms } = useRouteContext({ from: "/_authenticated" });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [mail, setMail] = useState<MailClient>("gmail");
@@ -20,14 +20,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   };
   const nav = [
-    { to: "/dispatch", label: "Dispatch Board", icon: Truck },
-    { to: "/directory", label: "Directory", icon: Building2 },
-    { to: "/carriers", label: "Carriers", icon: ShieldCheck },
-    { to: "/fleet", label: "Fleet", icon: Container },
-    { to: "/quotes", label: "Quotes", icon: Calculator },
-    { to: "/reports", label: "Reports", icon: BarChart3 },
-    ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen }, { to: "/admin", label: "Admin", icon: Settings }] : []),
-  ] as const;
+    { to: "/dispatch", label: "Dispatch Board", icon: Truck, p: "dispatch" },
+    { to: "/directory", label: "Directory", icon: Building2, p: "directory" },
+    { to: "/carriers", label: "Carriers", icon: ShieldCheck, p: "carriers" },
+    { to: "/fleet", label: "Fleet", icon: Container, p: "fleet" },
+    { to: "/quotes", label: "Quotes", icon: Calculator, p: "quotes" },
+    { to: "/reports", label: "Reports", icon: BarChart3, p: "reports" },
+    ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen, p: "" }, { to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
+  ].filter((n) => !n.p || perms.includes(n.p));
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center gap-6 border-b bg-sidebar px-4">

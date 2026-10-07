@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
+import { DEFAULT_PERMS } from "@/lib/tms";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -9,7 +10,9 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
     const isAdmin = !!roles?.some((r) => r.role === "admin");
-    return { user: data.user, isAdmin };
+    const { data: pr } = await supabase.from("user_permissions").select("perms").eq("user_id", data.user.id).maybeSingle();
+    const perms: string[] = isAdmin ? DEFAULT_PERMS : pr?.perms ?? DEFAULT_PERMS;
+    return { user: data.user, isAdmin, perms };
   },
   component: () => (
     <AppShell>
