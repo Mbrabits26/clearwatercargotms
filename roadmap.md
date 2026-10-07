@@ -29,3 +29,10 @@
 - [x] FMCSA live lookup (Add carrier + Re-check FMCSA)
 - [x] Gmail/Workspace email option for invites + rate cons
 - [x] Team chat pop-up + per-load notes
+- [x] @mentions in chat + notes
+- [x] Mass load offers to carriers (accept/reject/counter, send from my Gmail or dispatch)
+- [x] Carrier lane history
+- [x] Rate View + price a load
+- [ ] Public market rates (blocked: web search connection)
+- [ ] Automatic sending from dispatch@ (blocked: email domain setup)
+- [x] Quotes tab + RFP mode

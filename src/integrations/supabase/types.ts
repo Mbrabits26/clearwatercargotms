@@ -213,6 +213,50 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_mentions: {
+        Row: {
+          author_id: string
+          body: string
+          channel: string | null
+          created_at: string
+          id: string
+          load_id: string | null
+          read: boolean
+          source: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string
+          body: string
+          channel?: string | null
+          created_at?: string
+          id?: string
+          load_id?: string | null
+          read?: boolean
+          source: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          channel?: string | null
+          created_at?: string
+          id?: string
+          load_id?: string | null
+          read?: boolean
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_mentions_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           author_id: string
@@ -419,6 +463,66 @@ export type Database = {
           },
         ]
       }
+      load_offers: {
+        Row: {
+          carrier_id: string
+          counter_rate: number | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          load_id: string
+          note: string | null
+          offered_rate: number
+          responded_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          carrier_id: string
+          counter_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          load_id: string
+          note?: string | null
+          offered_rate?: number
+          responded_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          carrier_id?: string
+          counter_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          load_id?: string
+          note?: string | null
+          offered_rate?: number
+          responded_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_offers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_offers_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loads: {
         Row: {
           accessorials: Json
@@ -583,6 +687,24 @@ export type Database = {
           },
         ]
       }
+      market_rate_cache: {
+        Row: {
+          fetched_at: string
+          key: string
+          result: Json
+        }
+        Insert: {
+          fetched_at?: string
+          key: string
+          result: Json
+        }
+        Update: {
+          fetched_at?: string
+          key?: string
+          result?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -647,6 +769,99 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "qb_sync_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          accessorials: Json
+          broker_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          dest_city: string
+          dest_state: string
+          equipment: string
+          expires_at: string
+          id: string
+          kind: string
+          load_id: string | null
+          lost_reason: string | null
+          miles: number | null
+          notes: string | null
+          origin_city: string
+          origin_state: string
+          pickup_date: string | null
+          quote_number: string
+          rate: number
+          status: string
+          target_carrier_rate: number | null
+        }
+        Insert: {
+          accessorials?: Json
+          broker_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          dest_city: string
+          dest_state: string
+          equipment?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          load_id?: string | null
+          lost_reason?: string | null
+          miles?: number | null
+          notes?: string | null
+          origin_city: string
+          origin_state: string
+          pickup_date?: string | null
+          quote_number?: string
+          rate?: number
+          status?: string
+          target_carrier_rate?: number | null
+        }
+        Update: {
+          accessorials?: Json
+          broker_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          dest_city?: string
+          dest_state?: string
+          equipment?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          load_id?: string | null
+          lost_reason?: string | null
+          miles?: number | null
+          notes?: string | null
+          origin_city?: string
+          origin_state?: string
+          pickup_date?: string | null
+          quote_number?: string
+          rate?: number
+          status?: string
+          target_carrier_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_load_id_fkey"
             columns: ["load_id"]
             isOneToOne: false
             referencedRelation: "loads"
@@ -730,7 +945,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      carrier_lane_history: {
+        Row: {
+          avg_rate: number | null
+          avg_rpm: number | null
+          carrier_id: string | null
+          dest_city: string | null
+          dest_state: string | null
+          equipment: string | null
+          last_run: string | null
+          origin_city: string | null
+          origin_state: string | null
+          runs: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loads_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {

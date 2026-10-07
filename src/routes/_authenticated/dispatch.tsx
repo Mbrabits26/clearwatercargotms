@@ -18,6 +18,8 @@ import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
 import { FleetPanel } from "@/components/FleetPanel";
 import { LoadNotes } from "@/components/LoadNotes";
+import { OffersPanel } from "@/components/OffersPanel";
+import { RateView } from "@/components/RateView";
 import { fleetQuery, driversQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
@@ -406,26 +408,21 @@ function Cockpit({
           <LoadNotes loadId={load.id} />
         </Panel>
 
-        <Panel title="Lane intelligence">
-          <div className="grid grid-cols-2 gap-4">
-            {(["d30", "d90"] as const).map((k) => {
-              const w = lane[k];
-              return (
-                <div key={k} className="rounded border p-3">
-                  <div className="text-xs uppercase text-muted-foreground">{k === "d30" ? "Last 30 days" : "Last 90 days"} · {load.origin_state} → {load.dest_city}, {load.dest_state}</div>
-                  {w ? (
-                    <div className="mt-2 grid grid-cols-3 text-center">
-                      <div><div className="font-display text-xl">{usd(w.rev)}</div><div className="text-xs text-muted-foreground">Shipper rate</div></div>
-                      <div><div className="font-display text-xl">{usd(w.cost)}</div><div className="text-xs text-muted-foreground">Carrier pay</div></div>
-                      <div><div className="font-display text-xl text-gold">{w.pct.toFixed(1)}%</div><div className="text-xs text-muted-foreground">Margin ({w.n} loads)</div></div>
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-sm text-muted-foreground">No Clearwater history on this lane yet.</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {["available", "vetting"].includes(load.status) && (
+          <Panel title="Offer to carriers">
+            <OffersPanel load={load} carriers={carriers} />
+          </Panel>
+        )}
+
+        <Panel title="Rate view & pricing">
+          <RateView
+            loads={loads.filter((l) => l.id !== load.id)}
+            lane={load}
+            onApply={(c, k) => {
+              setCustRate(String(c)); setCarrierRate(String(k));
+              update({ customer_rate: c, carrier_rate: k }, "Rates applied");
+            }}
+          />
         </Panel>
       </div>
       {carrier?.status === "dnu" && (

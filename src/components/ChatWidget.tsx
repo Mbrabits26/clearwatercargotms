@@ -4,7 +4,7 @@ import { MessagesSquare, X, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { MentionInput, findMentions, saveMentions } from "@/components/MentionInput";
 
 type Msg = { id: string; channel: string; author_id: string; body: string; created_at: string };
 const dmKey = (a: string, b: string) => `dm:${[a, b].sort().join(":")}`;
@@ -30,6 +30,27 @@ export function ChatWidget({ userId }: { userId: string }) {
     queryFn: async () => (await supabase.from("chat_reads").select("*").eq("user_id", userId)).data ?? [],
   });
 
+  const { data: mentions = [] } = useQuery({
+    queryKey: ["chat-mentions"],
+    queryFn: async () => (await supabase.from("chat_mentions").select("*").eq("user_id", userId).eq("read", false).order("created_at", { ascending: false })).data ?? [],
+  });
+  useEffect(() => {
+    const ch = supabase
+      .channel("mentions-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, (p) => {
+        const m = p.new as { author_id: string; body: string; source: string };
+        toast(`${name(m.author_id)} tagged you${m.source === "note" ? " on a load note" : ""}`, { description: m.body.slice(0, 120) });
+        qc.invalidateQueries({ queryKey: ["chat-mentions"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId, people]);
+  const clearMentions = async () => {
+    if (!mentions.length) return;
+    await supabase.from("chat_mentions").update({ read: true }).eq("user_id", userId).eq("read", false);
+    qc.invalidateQueries({ queryKey: ["chat-mentions"] });
+  };
+
   const name = (id: string) => {
     const p = people.find((x) => x.id === id);
     return p?.full_name || p?.email?.split("@")[0] || "Teammate";
@@ -40,7 +61,7 @@ export function ChatWidget({ userId }: { userId: string }) {
     for (const x of msgs) if (x.author_id !== userId && x.created_at > readAt(x.channel)) m[x.channel] = (m[x.channel] ?? 0) + 1;
     return m;
   }, [msgs, reads, userId]);
-  const total = Object.values(unread).reduce((a, b) => a + b, 0);
+  const total = Object.values(unread).reduce((a, b) => a + b, 0) + mentions.length;
 
   // Pop open on login when there are unread messages
   useEffect(() => {
@@ -80,6 +101,7 @@ export function ChatWidget({ userId }: { userId: string }) {
     const { data, error } = await supabase.from("chat_messages").insert({ channel, body }).select().single();
     if (error) return toast.error(error.message);
     qc.setQueryData<Msg[]>(["chat-msgs"], (old = []) => (old.some((o) => o.id === data.id) ? old : [...old, data as Msg]));
+    await saveMentions(findMentions(body, people), body, { source: "chat", channel }, userId);
   };
 
   const others = people.filter((p) => p.id !== userId);
@@ -112,6 +134,12 @@ export function ChatWidget({ userId }: { userId: string }) {
           </aside>
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="border-b px-3 py-2 font-display text-sm font-bold uppercase tracking-wider text-gold">{title}</div>
+            {mentions.length > 0 && (
+              <div className="max-h-28 space-y-1 overflow-auto border-b bg-gold/10 p-2 text-xs">
+                <div className="flex justify-between font-semibold text-gold"><span>You were tagged ({mentions.length})</span><button onClick={clearMentions} className="underline">Mark read</button></div>
+                {mentions.map((m) => <div key={m.id}><b>{name(m.author_id)}</b>{m.source === "note" ? " (load note)" : ""}: {m.body}</div>)}
+              </div>
+            )}
             <div className="flex-1 space-y-2 overflow-auto p-3 text-sm">
               {list.length === 0 && <div className="text-muted-foreground">No messages yet.</div>}
               {list.map((m) => {
@@ -128,14 +156,7 @@ export function ChatWidget({ userId }: { userId: string }) {
               <div ref={bottom} />
             </div>
             <div className="flex gap-2 border-t p-2">
-              <Textarea
-                rows={2}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Message…"
-                className="min-h-0 resize-none"
-              />
+              <MentionInput value={text} onChange={setText} people={people} onEnter={send} placeholder="Message… (@ to tag)" />
               <Button size="icon" onClick={send} aria-label="Send"><Send className="h-4 w-4" /></Button>
             </div>
           </div>

@@ -71,6 +71,13 @@
       "when": 1791330188518,
       "tag": "0009_team_chat_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791330991737,
+      "tag": "0010_offers_quotes_mentions",
+      "breakpoints": true
     }
   ]
 }
