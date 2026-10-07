@@ -28,8 +28,6 @@ Create a dedicated responsive interface while preserving the current desktop wor
 - Make wide Reports, QuickBooks, Fleet, Leads, Quotes, and Admin content responsive using compact summary cards or deliberate horizontal table scrolling where tabular comparison must remain intact.
 - Remove fixed widths that overflow on phones while preserving dense desktop layouts.
 
-## Accessibility and usability
-
 ## Approval-only account access
 
 - Change Google and email access from open signup to an admin-managed allowlist.
