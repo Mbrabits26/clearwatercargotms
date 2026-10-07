@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,7 @@ function StatusSelect({ load }: { load: Load }) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {STATUSES.map((s) => (
+        {STATUSES.filter((s) => s.value !== "cancelled" || load.status === "cancelled").map((s) => (
           <SelectItem key={s.value} value={s.value}>
             <span className={cn("rounded border px-1.5 py-0.5 text-xs", s.cls)}>{s.label}</span>
           </SelectItem>
@@ -114,7 +115,7 @@ function Dispatch() {
   const filtered = useMemo(
     () =>
       loads.filter((l) => {
-        if (status === "active" && ["paid"].includes(l.status)) return false;
+        if (status === "active" && ["paid", "cancelled"].includes(l.status)) return false;
         if (status !== "active" && status !== "all" && l.status !== status) return false;
         if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
         const hay = `${l.load_number} ${l.origin_city} ${l.origin_state} ${l.dest_city} ${l.dest_state} ${l.commodity ?? ""}`.toLowerCase();
@@ -318,6 +319,7 @@ function Cockpit({
           <div className="font-mono text-sm text-gold">{load.load_number}</div>
           <h2 className="text-2xl font-bold sm:text-3xl">{load.origin_city}, {load.origin_state} → {load.dest_city}, {load.dest_state}</h2>
           <div className="text-sm text-muted-foreground">{customer?.name ?? "No customer"} · {load.miles ?? "—"} mi</div>
+          {load.status === "cancelled" && <div className="mt-1 text-xs text-destructive">Cancelled{load.cancel_reason ? ` — ${load.cancel_reason}` : ""}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusSelect load={load} />
@@ -325,6 +327,7 @@ function Cockpit({
           <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
             <Phone className="mr-1 h-3.5 w-3.5" />Log check call
           </Button>
+          <LoadCancelDelete load={load} canDelete={isAdmin || load.broker_id === user.id} onDeleted={() => {}} />
         </div>
       </div>
 
