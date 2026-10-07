@@ -184,7 +184,7 @@ function RfpTool() {
 
   const onFile = async (file: File) => {
     const wb = XLSX.read(await file.arrayBuffer());
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]]);
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]!]!);
     const parsed = rows.map((r) => {
       const l = {
         origin_city: pick(r, ["origincity", "origin", "fromcity", "shipcity"]),
@@ -209,7 +209,7 @@ function RfpTool() {
     const m = 1 / (1 - (Number(margin) || 0) / 100);
     const out = [...lanes];
     for (let i = 0; i < out.length; i++) {
-      const l = out[i];
+      const l = out[i]!;
       try {
         const r = await market({ data: { origin_state: l.origin_state, dest_state: l.dest_state, equipment: l.equipment } });
         if (r.error) { toast.error(r.error); break; }

@@ -21,7 +21,7 @@ export function MentionInput({ value, onChange, people, onEnter, placeholder, ro
 }) {
   const [hi, setHi] = useState(0);
   const m = value.match(/@([\w.-]*)$/);
-  const q = m?.[1].toLowerCase() ?? null;
+  const q = m ? (m[1] ?? "").toLowerCase() : null;
   const list = q === null ? [] : people.filter((p) => handle(p).toLowerCase().startsWith(q) || (p.email ?? "").toLowerCase().startsWith(q)).slice(0, 6);
   const pick = (p: Person) => onChange(value.replace(/@([\w.-]*)$/, `@${handle(p)} `));
   return (
@@ -46,7 +46,7 @@ export function MentionInput({ value, onChange, people, onEnter, placeholder, ro
           if (list.length) {
             if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => (h + 1) % list.length); return; }
             if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => (h - 1 + list.length) % list.length); return; }
-            if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(list[hi]); return; }
+            if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(list[hi]!); return; }
           }
           if (onEnter && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnter(); }
         }}

@@ -45,7 +45,7 @@ export function OffersPanel({ load, carriers }: { load: Load; carriers: Carrier[
         const h = history.filter((x) => x.carrier_id === c.id);
         const runs = h.reduce((a, x) => a + (x.runs ?? 0), 0);
         const exact = h.some((x) => x.dest_city === load.dest_city && x.origin_city === load.origin_city);
-        const equip = !!c.equipment && c.equipment.toLowerCase().includes(load.equipment.toLowerCase().split(" ")[0]);
+        const equip = !!c.equipment && c.equipment.toLowerCase().includes(load.equipment.toLowerCase().split(" ")[0] ?? "");
         const region = c.state === load.origin_state;
         const score = (exact ? 100 : 0) + runs * 10 + (equip ? 5 : 0) + (region ? 3 : 0);
         return { c, runs, exact, equip, region, score };
