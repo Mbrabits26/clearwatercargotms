@@ -46,6 +46,7 @@ We'll build the free version now; WhatsApp or Twilio can be added later without 
 
 ## Technical details (driver texting)
 
-- Twilio SMS: inbound webhook at `/api/public/webhooks/twilio` (signature-verified) matches the driver's phone to the active load; MMS photos download into the private load-docs bucket and set `pod_received`.
 - Tracking page at `/track/$token` (public, tokenized like the rate con signing page): status buttons, note field, browser GPS, photo upload — all via token-validated server functions.
-- New `load_tracking_tokens` table (token, load_id, driver phone, expires); status taps update `loads.last_check_call` and insert a `load_notes` row.
+- New `load_tracking_tokens` table (token, load_id, driver phone, expires); status taps update `loads.last_check_call` and insert a `load_notes` row; POD photos go to the load-docs bucket and set `pod_received`.
+- Dispatch cockpit gets a "Send tracking link" action (copy link / email / Gmail).
+- Later, optionally: WhatsApp Business connector (`/api/public/whatsapp/webhook` receiver + `whatsapp_webhook_events` inbox) or Twilio SMS webhook for text-in photos and replies.
