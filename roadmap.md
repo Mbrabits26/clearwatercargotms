@@ -40,3 +40,5 @@
 - [x] FMCSA free SAFER fallback + 24h cache + Open in SAFER (no paid searches)
 - [x] Sales Leads tab with contact log + follow-ups
 - [x] Direct Gmail sending per user (google_mail App User Connector, Connect Gmail button in header)
+- [ ] Driver tracking link: one-tap status, GPS location, POD/BOL photo upload auto-attaching to the load (free, no texting service)
+- [ ] QuickBooks Online live connection + auto-sync (blocked: Intuit developer app Client ID/Secret)

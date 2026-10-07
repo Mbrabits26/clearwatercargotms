@@ -656,6 +656,101 @@ export type Database = {
           },
         ]
       }
+      load_tracking_pings: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          lat: number | null
+          lng: number | null
+          load_id: string
+          note: string | null
+          status: string | null
+          token_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lat?: number | null
+          lng?: number | null
+          load_id: string
+          note?: string | null
+          status?: string | null
+          token_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lat?: number | null
+          lng?: number | null
+          load_id?: string
+          note?: string | null
+          status?: string | null
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_tracking_pings_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_tracking_pings_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "load_tracking_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_tracking_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_name: string | null
+          driver_phone: string | null
+          expires_at: string
+          id: string
+          load_id: string
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          expires_at?: string
+          id?: string
+          load_id: string
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          expires_at?: string
+          id?: string
+          load_id?: string
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_tracking_tokens_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loads: {
         Row: {
           accessorials: Json
