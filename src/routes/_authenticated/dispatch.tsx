@@ -1,6 +1,6 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -276,6 +276,7 @@ function Cockpit({
   const t = loadTotals(load);
   const [carrierRate, setCarrierRate] = useState(String(load.carrier_rate));
   const [custRate, setCustRate] = useState(String(load.customer_rate));
+  useEffect(() => { setCustRate(String(load.customer_rate)); setCarrierRate(String(load.carrier_rate)); }, [load.customer_rate, load.carrier_rate]);
   const [accType, setAccType] = useState<string>("Detention");
   const [accAmt, setAccAmt] = useState("");
   const [quickPay, setQuickPay] = useState(false);
