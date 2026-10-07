@@ -25,7 +25,7 @@
 - [x] Document/spreadsheet import → load builder (AI extraction, multi-load docs)
 - [x] Type-to-search customer/shipper/consignee/carrier with add-new
 - [x] Carrier packet invite email drafts (Carriers tab, carrier detail, dispatch)
-- [ ] QuickBooks Online live connection (blocked: Intuit developer app Client ID/Secret)
+- [ ] QuickBooks Online live connection + auto-sync (blocked: user adds Intuit Client ID/Secret in Project Settings → Secrets, then tells me)
 - [x] FMCSA live lookup (Add carrier + Re-check FMCSA)
 - [x] Gmail/Workspace email option for invites + rate cons
 - [x] Team chat pop-up + per-load notes
@@ -40,5 +40,5 @@
 - [x] FMCSA free SAFER fallback + 24h cache + Open in SAFER (no paid searches)
 - [x] Sales Leads tab with contact log + follow-ups
 - [x] Direct Gmail sending per user (google_mail App User Connector, Connect Gmail button in header)
-- [ ] Driver tracking link: one-tap status, GPS location, POD/BOL photo upload auto-attaching to the load (free, no texting service)
-- [ ] QuickBooks Online live connection + auto-sync (blocked: Intuit developer app Client ID/Secret)
+- [x] Driver tracking link: status, GPS, POD/BOL upload auto-attaching to the load
+- [ ] QuickBooks Online live connection + auto-sync (blocked: user adds Intuit Client ID/Secret in Project Settings → Secrets, then tells me)
