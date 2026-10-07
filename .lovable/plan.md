@@ -1,24 +1,27 @@
-# Fix FMCSA carrier lookup
+# Fix FMCSA carrier lookup (free sources only)
 
 ## What's happening
-FMCSA's QCMobile service sends back a plain "403 Forbidden" web page instead of carrier data. That page is how FMCSA blocks traffic coming from cloud servers. It doesn't look like a problem with your key. In the app this shows up as "FMCSA rejected the web key" or as nothing happening.
+FMCSA's data service sends back a plain "403 Forbidden" page instead of carrier data. That's how FMCSA blocks some cloud servers. It doesn't look like a problem with your key.
 
-## Plan
-1. **Clearer errors.** The lookup will tell you whether FMCSA blocked the request, couldn't find the carrier, or rejected the key, so it never just fails silently.
-2. **Backup source: SAFER Company Snapshot.** If the main FMCSA service blocks us, the app will read the carrier's public SAFER snapshot page (safer.fmcsa.dot.gov) by MC # or DOT #. It uses the web-reading service we already connected for market rates. The snapshot fills in:
+## Plan (every lookup is free)
+1. **Clearer errors.** The lookup will say whether FMCSA blocked the request, couldn't find the carrier, or rejected the key, so it never just fails silently.
+2. **Free backup.** If the main FMCSA service is blocked, the app reads FMCSA's free public SAFER Company Snapshot directly. It fills in:
    - Legal name and DBA
    - DOT # and MC #
    - Address and phone
-   - Operating status (Authorized, Not Authorized or Out of Service)
+   - Operating status
    - Out-of-service date
    - Power units and drivers
    - Safety rating
-3. **Source label.** Each result shows where it came from ("FMCSA QCMobile" or "SAFER snapshot") and keeps the same warnings and compliance checks as today.
-4. **Test.** Look up a few real MC # and DOT # values and confirm the Add Carrier and Re-check FMCSA buttons fill in the details.
+3. **Save repeat lookups.** Each result is kept for 24 hours, so checking the same carrier again the same day doesn't make a new request.
+4. **"Open in SAFER" button.** If both FMCSA sources block the request, the button opens the carrier's SAFER page in a new tab, already searched, so you can check it by hand in a few seconds. It costs nothing.
+5. **Source label.** Each result shows where it came from ("FMCSA" or "SAFER") and runs the same compliance warnings as today.
+6. **Test on the live app.** After you publish, I'll run a lookup on the live app. Our test environment is blocked by FMCSA, so it can't be tested here.
 
 ## Note
 SAFER doesn't show insurance amounts on file. If a result comes from the backup source, the insurance fields keep your manually entered values.
 
 ## Technical details
-- `src/lib/fmcsa.functions.ts`: tell an HTML 403 apart from a JSON auth error. On a block, call a new `fetchSaferSnapshot(mc|dot)` in `src/lib/fmcsa.server.ts`. That function uses Firecrawl scrape (markdown) of `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT|MC_MX&query_string=…` and parses the fields with regex.
-- Add `source` to `FmcsaCarrier` and show it in `FmcsaSummary`.
+- `fmcsa.functions.ts`: detect an HTML 403 versus a JSON auth error; fall back to a plain `fetch` of `safer.fmcsa.dot.gov/query.asp` (by USDOT or MC_MX), parsed by regex in `fmcsa.server.ts`. Never use Firecrawl or AI.
+- Cache in the existing `market_rate_cache` table with the key `fmcsa:<dot|mc>`, valid for 24h.
+- `FmcsaSummary` gains a `source` label plus a SAFER link button.
