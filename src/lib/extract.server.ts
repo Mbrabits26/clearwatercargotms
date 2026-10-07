@@ -48,17 +48,26 @@ Extract every load in the document. Use null when a value is not present — nev
 - Facility notes: appointment requirements, hours, directions, instructions (e.g. "No appointment required", "Call Arturo for jobsite directions").`;
 
 export async function extractLoads(parts: Record<string, unknown>[], apiKey: string): Promise<Extracted[]> {
+  const out = await readDocJson({ instructions: PROMPT, ask: "Extract the loads from this document.", name: "loads", schema: SCHEMA }, parts, apiKey);
+  return ((out as { loads?: Extracted[] }).loads ?? []);
+}
+
+/** Sends document parts to Lovable AI and returns JSON matching the strict schema. */
+export async function readDocJson(
+  cfg: { instructions: string; ask: string; name: string; schema: Record<string, unknown> },
+  parts: Record<string, unknown>[], apiKey: string,
+): Promise<unknown> {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
       model: "openai/gpt-6-astra",
-      instructions: PROMPT,
-      input: [{ role: "user", content: [{ type: "input_text", text: "Extract the loads from this document." }, ...parts] }],
+      instructions: cfg.instructions,
+      input: [{ role: "user", content: [{ type: "input_text", text: cfg.ask }, ...parts] }],
       stream: true,
       store: false,
       reasoning: { effort: "low" },
-      text: { format: { type: "json_schema", name: "loads", strict: true, schema: SCHEMA } },
+      text: { format: { type: "json_schema", name: cfg.name, strict: true, schema: cfg.schema } },
     }),
   });
   if (!res.ok || !res.body) {
@@ -96,6 +105,6 @@ export async function extractLoads(parts: Record<string, unknown>[], apiKey: str
       }
     }
   }
-  if (!text) throw new Error("No load details were found in that document.");
-  return (JSON.parse(text).loads ?? []) as Extracted[];
+  if (!text) throw new Error("Nothing could be read from that document.");
+  return JSON.parse(text);
 }
