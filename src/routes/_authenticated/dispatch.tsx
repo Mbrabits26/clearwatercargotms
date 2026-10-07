@@ -37,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
       { property: "og:description", content: "Active load queue and load cockpit." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>) => ({ load: typeof s.load === "string" ? (s.load as string) : undefined }),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(loadsQuery),
@@ -111,6 +112,14 @@ function Dispatch() {
   const [selectedId, setSelectedId] = useState<string | null>(loads[0]?.id ?? null);
   const [mobileDetail, setMobileDetail] = useState(false);
   const [builder, setBuilder] = useState(false);
+  const search = Route.useSearch();
+  useEffect(() => {
+    if (search.load && loads.some((l) => l.id === search.load)) {
+      setSelectedId(search.load);
+      setMobileDetail(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.load]);
 
   const filtered = useMemo(
     () =>
