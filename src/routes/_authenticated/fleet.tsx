@@ -4,7 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
+import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { ACTIVE_STATUSES, DRIVER_STATUSES, UNIT_STATUSES, fmtDate, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ export const Route = createFileRoute("/_authenticated/fleet")({
       context.queryClient.ensureQueryData(fleetQuery),
       context.queryClient.ensureQueryData(driversQuery),
       context.queryClient.ensureQueryData(loadsQuery),
+      context.queryClient.ensureQueryData(companiesQuery),
+      context.queryClient.ensureQueryData(carriersQuery),
     ]),
   component: Fleet,
 });
@@ -54,7 +57,12 @@ function Fleet() {
 
   const active = loads.filter((l) => ACTIVE_STATUSES.includes(l.status));
   const loadFor = (key: "truck_id" | "trailer_id" | "driver_id", id: string) => active.find((l) => l[key] === id);
-  const lane = (l?: Load) => (l ? `${l.load_number} · ${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}` : null);
+  const lane = (l?: Load) =>
+    l ? (
+      <span>
+        <LoadQuickLook load={l} /> · {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}
+      </span>
+    ) : null;
 
   const setUnit = async (id: string, status: string) => {
     const { error } = await supabase.from("fleet_units").update({ status }).eq("id", id);
