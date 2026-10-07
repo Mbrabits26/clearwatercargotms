@@ -127,7 +127,7 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
         if (m) {
           const patch = mergeFill(m, o);
           if (!Object.keys(patch).length) { same++; continue; }
-          const { error } = await supabase.from("carriers").update(patch).eq("id", m.id);
+          const { error } = await supabase.from("carriers").update(patch as never).eq("id", m.id);
           if (error) { setBusy(false); return toast.error(`Stopped on ${o.legal_name}: ${error.message}`); }
           Object.assign(m, patch); merged++;
         } else {

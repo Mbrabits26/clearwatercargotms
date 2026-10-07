@@ -293,7 +293,7 @@ function AddCarrier({ carriers, open, onOpenChange, onDone }: { carriers: Carrie
     if (dup) {
       const patch = mergeFill(dup as unknown as Record<string, unknown>, row);
       if (Object.keys(patch).length) {
-        const { error } = await supabase.from("carriers").update(patch).eq("id", dup.id);
+        const { error } = await supabase.from("carriers").update(patch as never).eq("id", dup.id);
         if (error) return toast.error(error.message);
       }
       toast.info(`${dup.legal_name} is already in the system — ${Object.keys(patch).length ? "added the new details to it" : "nothing new to add"}.`);
