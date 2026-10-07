@@ -24,6 +24,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
+import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -99,6 +100,11 @@ const SignTokenRoute = SignTokenRouteImport.update({
   path: '/sign/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthGoogle_mailReturnRoute = OauthGoogle_mailReturnRouteImport.update({
+  id: '/oauth/google_mail/return',
+  path: '/oauth/google_mail/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
+  '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/oauth/google_mail/return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/oauth/google_mail/return'
   id:
     | '__root__'
     | '/'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
+    | '/oauth/google_mail/return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   OfferTokenRoute: typeof OfferTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
+  OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/oauth/google_mail/return': {
+      id: '/oauth/google_mail/return'
+      path: '/oauth/google_mail/return'
+      fullPath: '/oauth/google_mail/return'
+      preLoaderRoute: typeof OauthGoogle_mailReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -355,6 +375,7 @@ const rootRouteChildren: RootRouteChildren = {
   OfferTokenRoute: OfferTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
+  OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
