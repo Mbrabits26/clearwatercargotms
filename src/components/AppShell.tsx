@@ -33,20 +33,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   ].filter((n) => !n.p || isAdmin || (perms ?? DEFAULT_PERMS).includes(n.p));
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-6 border-b bg-sidebar px-4">
-        <Link to="/dispatch" className="flex items-center gap-2">
-          <img src={logo.url} alt="Clearwater Cargo" className="h-10 w-10 rounded-sm bg-foreground object-contain" />
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-sidebar px-4">
+        <Link to="/dispatch" className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <img src={logo.url} alt="Clearwater Cargo" className="h-10 w-10 shrink-0 rounded-sm bg-foreground object-contain" />
           <div className="leading-none">
             <div className="font-display text-lg font-bold uppercase tracking-wider text-gold">Clearwater Cargo</div>
             <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Staley, NC · TMS</div>
           </div>
         </Link>
-        <nav className="flex gap-1">
+        <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {nav.map((n) => (
             <Link
               key={n.to}
               to={n.to}
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
             >
               <n.icon className="h-4 w-4" />
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3 text-sm">
+        <div className="flex shrink-0 items-center gap-3 text-sm">
           <ConnectGmail />
           <select
             value={mail}
@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="rounded border border-gold/40 px-2 py-0.5 text-xs uppercase tracking-wider text-gold">
             {isAdmin ? "Admin" : "Broker"}
           </span>
-          <span className="text-muted-foreground">{user.email}</span>
+          <span className="hidden text-muted-foreground xl:inline">{user.email}</span>
           <button onClick={signOut} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Sign out">
             <LogOut className="h-4 w-4" />
           </button>
