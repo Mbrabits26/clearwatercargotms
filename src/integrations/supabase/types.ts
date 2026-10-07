@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      approved_users: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          perms: string[]
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          perms?: string[]
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          perms?: string[]
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       broker_commissions: {
         Row: {
           commission_pct: number
@@ -1223,6 +1256,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_approved: { Args: { _uid: string }; Returns: boolean }
       is_staff: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
