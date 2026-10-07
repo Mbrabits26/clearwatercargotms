@@ -112,11 +112,11 @@ function QuoteBuilder() {
       <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-display text-lg font-bold uppercase tracking-wider text-gold">New quote</h2>
         <EntityCombobox
-          items={customers.map((c) => ({ id: c.id, label: c.name }))}
-          value={{ id: f.customer_id, label: f.customer_name }}
-          onChange={(v: { id: string | null; label: string }) => {
+          options={customers.map((c) => ({ id: c.id, label: c.name, sub: [c.city, c.state].filter(Boolean).join(", ") }))}
+          value={{ id: f.customer_id, name: f.customer_name }}
+          onChange={(v) => {
             const c = customers.find((x) => x.id === v.id);
-            setF((s) => ({ ...s, customer_id: v.id, customer_name: v.label, customer_email: c?.email ?? s.customer_email }));
+            setF((s) => ({ ...s, customer_id: v.id, customer_name: v.name, customer_email: c?.email ?? s.customer_email }));
           }}
           placeholder="Customer (type to search or add new)"
           newLabel="new customer"
