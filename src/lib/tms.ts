@@ -103,6 +103,7 @@ export const PERMISSIONS = [
   { key: "directory", label: "Directory" },
   { key: "carriers", label: "Carriers" },
   { key: "fleet", label: "Fleet" },
+  { key: "leads", label: "Sales leads" },
   { key: "quotes", label: "Quotes & RFPs" },
   { key: "reports", label: "Reports" },
   { key: "export", label: "CSV / load board export" },
