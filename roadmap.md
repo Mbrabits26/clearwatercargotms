@@ -10,6 +10,8 @@
 - [x] Admin financials and commissions
 
 ## Next
+- [x] Mobile/tablet interface: bottom navigation, list-to-details screens, touch-safe forms and responsive tables
+- [x] Approval-only sign-in managed by admins while preserving current users
 - [ ] Sales CRM pipeline + spot quote PDFs with 24h expiry
 - [x] Internal fleet: trucks, trailers, drivers, availability, dispatch assignment
 - [ ] Outside-broker loads hauled by our trucks (MC#, external rate con, billing)

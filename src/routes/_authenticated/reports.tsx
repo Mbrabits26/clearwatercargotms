@@ -142,8 +142,8 @@ function Reports() {
   const toggleCol = (col: Col) => { setPreset("custom"); setCfg((c) => ({ ...c, cols: c.cols.includes(col) ? c.cols.filter((x) => x !== col) : COLS.map((x) => x.id).filter((x) => x === col || c.cols.includes(x)) })); };
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between print:hidden">
+    <div className="space-y-4 p-3 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <h1 className="text-3xl font-bold uppercase">Reports</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
@@ -156,7 +156,7 @@ function Reports() {
         ))}
       </div>
       <div className="space-y-3 rounded-md border bg-card p-4 print:hidden">
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <label className="text-xs text-muted-foreground">Pickup from<Input type="date" className="mt-1" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
           <label className="text-xs text-muted-foreground">Pickup to<Input type="date" className="mt-1" value={to} onChange={(e) => setTo(e.target.value)} /></label>
           <Filter label="Broker" value={broker} set={setBroker} opts={profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""])} />
@@ -174,7 +174,7 @@ function Reports() {
         <Chips title="Columns" items={COLS.map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[["Loads", String(rows.length)], ["Customer amount", usd(sum(rows, "revenue"))], ["Carrier amount", usd(sum(rows, "cost"))], ["Margin", usd(sum(rows, "margin"))]].map(([k, v]) => (
           <div key={k} className="rounded border bg-card p-4">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
@@ -183,7 +183,7 @@ function Reports() {
         ))}
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
           <TableHeader><TableRow>{cfg.cols.map((c) => <TableHead key={c}>{COLS.find((x) => x.id === c)!.label}</TableHead>)}</TableRow></TableHeader>
           <TableBody>

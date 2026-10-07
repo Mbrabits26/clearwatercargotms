@@ -37,10 +37,10 @@ const blank = { customer_name: "", customer_email: "", customer_id: null as stri
 
 function QuotesPage() {
   return (
-    <div className="p-5">
+    <div className="p-3 sm:p-5">
       <h1 className="mb-3 font-display text-3xl font-bold uppercase tracking-wider text-gold">Quotes & RFPs</h1>
       <Tabs defaultValue="quotes">
-        <TabsList><TabsTrigger value="quotes">Spot / contract quotes</TabsTrigger><TabsTrigger value="rfp">RFP lanes</TabsTrigger></TabsList>
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto"><TabsTrigger value="quotes">Spot / contract quotes</TabsTrigger><TabsTrigger value="rfp">RFP lanes</TabsTrigger></TabsList>
         <TabsContent value="quotes"><QuoteBuilder /></TabsContent>
         <TabsContent value="rfp"><RfpTool /></TabsContent>
       </Tabs>
@@ -121,7 +121,7 @@ function QuoteBuilder() {
           placeholder="Customer (type to search or add new)"
           newLabel="new customer"
         />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Input placeholder="Customer email" value={f.customer_email} onChange={set("customer_email")} />
           <select value={f.kind} onChange={set("kind")} className="h-9 rounded border bg-background px-2 text-sm"><option value="spot">Spot</option><option value="contract">Contract</option></select>
           <Input placeholder="Origin city" value={f.origin_city} onChange={set("origin_city")} />
@@ -248,7 +248,7 @@ function RfpTool() {
       </div>
       <p className="text-xs text-muted-foreground">Columns are matched by heading (origin city/state, destination city/state, equipment, miles, volume). Market numbers are public estimates, not live paid data.</p>
       {lanes.length > 0 && (
-        <table className="w-full text-sm">
+        <table className="min-w-[760px] text-sm">
           <thead className="text-left text-xs uppercase text-muted-foreground">
             <tr><th>Lane</th><th>Equip</th><th>Miles</th><th>Vol</th><th className="text-right">Our history</th><th className="text-right">Market</th><th className="text-right">Bid rate</th><th className="text-right">$/mi</th></tr>
           </thead>

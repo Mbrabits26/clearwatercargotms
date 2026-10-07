@@ -81,8 +81,8 @@ function QuickBooks() {
   };
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 p-3 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">QuickBooks Online</h1>
         {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
       </div>
@@ -90,7 +90,7 @@ function QuickBooks() {
         <PlugZap className="h-4 w-4 text-warning" />
         <span>QuickBooks isn't connected yet. Items you send wait in the queue and go out automatically once your QuickBooks account is linked.</span>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat k="Invoices ready (AR)" v={usd(ar.filter((l) => !synced(l.id, "invoice")).reduce((s, l) => s + loadTotals(l).revenue, 0))} />
         <Stat k="Carrier bills ready (AP)" v={usd(ap.filter((l) => !synced(l.id, "bill")).reduce((s, l) => s + loadTotals(l).cost, 0))} />
         <Stat k="Waiting in queue" v={String(sync.filter((s) => s.status === "queued").length)} />
@@ -102,7 +102,7 @@ function QuickBooks() {
           <TabsTrigger value="log">Sync log</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="rounded-md border bg-card">
+      <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
           <Table>
             <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead></TableRow></TableHeader>

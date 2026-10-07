@@ -41,6 +41,7 @@ function Admin() {
     if (userId === user.id && role !== "admin") return toast.error("You can't remove your own admin role.");
     await supabase.from("user_roles").delete().eq("user_id", userId);
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
+    await supabase.from("approved_users").update({ role }).eq("user_id", userId);
     if (error) toast.error(error.message); else toast.success("Role updated");
     qc.invalidateQueries({ queryKey: ["roles"] });
   };
@@ -51,9 +52,9 @@ function Admin() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-3 sm:p-6">
       <h1 className="text-3xl font-bold uppercase">Admin</h1>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[["Gross revenue", totals.rev], ["Gross margin", totals.margin], ["Open AR (invoiced)", ar], ["Carrier AP due", ap]].map(([k, v]) => (
           <div key={k as string} className="rounded border bg-card p-4">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
@@ -61,7 +62,7 @@ function Admin() {
           </div>
         ))}
       </div>
-      <div className="rounded border bg-card">
+      <div className="overflow-x-auto rounded border bg-card">
         <Table>
           <TableHeader><TableRow><TableHead>Team member</TableHead><TableHead>Role</TableHead><TableHead>Loads</TableHead><TableHead>Margin</TableHead><TableHead>Commission %</TableHead><TableHead>Commission earned</TableHead></TableRow></TableHeader>
           <TableBody>
