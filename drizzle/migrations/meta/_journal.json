@@ -148,6 +148,13 @@
       "when": 1791382739538,
       "tag": "0020_load_cancel_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791383637154,
+      "tag": "0021_ping_place",
+      "breakpoints": true
     }
   ]
 }

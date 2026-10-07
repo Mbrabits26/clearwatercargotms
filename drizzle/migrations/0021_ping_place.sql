@@ -1,0 +1,1 @@
+ALTER TABLE public.load_tracking_pings ADD COLUMN IF NOT EXISTS place text;

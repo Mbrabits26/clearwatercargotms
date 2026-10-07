@@ -710,6 +710,7 @@ export type Database = {
           lng: number | null
           load_id: string
           note: string | null
+          place: string | null
           status: string | null
           token_id: string | null
         }
@@ -721,6 +722,7 @@ export type Database = {
           lng?: number | null
           load_id: string
           note?: string | null
+          place?: string | null
           status?: string | null
           token_id?: string | null
         }
@@ -732,6 +734,7 @@ export type Database = {
           lng?: number | null
           load_id?: string
           note?: string | null
+          place?: string | null
           status?: string | null
           token_id?: string | null
         }
