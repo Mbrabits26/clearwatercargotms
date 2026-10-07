@@ -43,4 +43,4 @@ I'll handle the rest, including the sign-in redirect setup.
 - Tracking page at `/track/$token` (public, tokenized like the rate con signing page): status buttons, note field, browser GPS, photo upload — all via token-validated server functions.
 - New `load_tracking_tokens` table (token, load_id, driver phone, expires); status taps update `loads.last_check_call` and insert a `load_notes` row; POD photos go to the load-docs bucket and set `pod_received`.
 - Dispatch cockpit gets a "Send tracking link" action (copy link / email / Gmail).
-- Later, optionally: WhatsApp Business connector (`/api/public/whatsapp/webhook` receiver + `whatsapp_webhook_events` inbox) or Twilio SMS webhook for text-in photos and replies.
+- Location pings stored on a `load_tracking_pings` table (load_id, lat, lng, note, created_at) shown in the cockpit.
