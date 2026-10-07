@@ -9,6 +9,7 @@ export type FmcsaCarrier = {
   safety_rating: string; power_units: number | null; drivers: number | null;
   bipd_on_file: number | null; bipd_required: number | null; cargo_on_file: number | null;
   out_of_service: boolean; warnings: string[];
+  source: "FMCSA" | "SAFER" | "blocked"; safer_url: string;
 };
 
 const BASE = "https://mobile.fmcsa.dot.gov/qc/services";
@@ -16,7 +17,10 @@ const RATING: Record<string, string> = { S: "Satisfactory", C: "Conditional", U:
 
 async function get(path: string, key: string) {
   const r = await fetch(`${BASE}${path}${path.includes("?") ? "&" : "?"}webKey=${key}`, { headers: { Accept: "application/json" } });
-  if (r.status === 403 || r.status === 401) throw new Error("FMCSA rejected the web key.");
+  if (r.status === 403 || r.status === 401) {
+    const ct = r.headers.get("content-type") ?? "";
+    throw new Error(ct.includes("json") ? "FMCSA rejected the web key." : "BLOCKED");
+  }
   if (!r.ok) throw new Error(`FMCSA lookup failed (${r.status}).`);
   return r.json() as Promise<{ content: unknown }>;
 }
@@ -27,11 +31,49 @@ export const lookupFmcsa = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<FmcsaCarrier> => {
     const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
     if (!staff) throw new Error("Forbidden");
-    const key = process.env["FMCSA_WEBKEY"];
-    if (!key) throw new Error("FMCSA lookup isn't configured.");
     const mc = data.mc?.replace(/\D/g, "") || null;
-    let dot = data.dot?.replace(/\D/g, "") || null;
+    const dot = data.dot?.replace(/\D/g, "") || null;
     if (!mc && !dot) throw new Error("Enter an MC # or DOT #.");
+    const { saferUrl, fetchSafer } = await import("./fmcsa.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const ck = `fmcsa:${dot ? "dot" + dot : "mc" + mc}`;
+    const { data: hit } = await supabaseAdmin.from("market_rate_cache").select("result, fetched_at").eq("key", ck).maybeSingle();
+    if (hit && Date.now() - new Date(hit.fetched_at).getTime() < 86400000) return hit.result as unknown as FmcsaCarrier;
+    const url = dot ? saferUrl("dot", dot) : saferUrl("mc", mc!);
+    let out: FmcsaCarrier | null = null;
+    const key = process.env["FMCSA_WEBKEY"];
+    if (key) {
+      try { out = { ...(await qcLookup(mc, dot, key)), source: "FMCSA", safer_url: url }; }
+      catch (e) { if (!(e instanceof Error) || (e.message !== "BLOCKED" && !e.message.startsWith("FMCSA lookup failed"))) throw e; }
+    }
+    if (!out) {
+      const s = await fetchSafer(dot ? "dot" : "mc", (dot ?? mc)!);
+      if (s === null) throw new Error(`No carrier found for ${dot ? "DOT " + dot : "MC " + mc}.`);
+      if (s === "blocked") {
+        return { legal_name: "", dba: null, dot_number: dot ?? "", mc_number: mc, address: null, city: null, state: null, zip: null, phone: null,
+          authority_status: "Inactive", allowed_to_operate: false, safety_rating: "Not Rated", power_units: null, drivers: null,
+          bipd_on_file: null, bipd_required: null, cargo_on_file: null, out_of_service: false,
+          warnings: ["FMCSA blocked the automatic lookup — use Open in SAFER to check by hand."], source: "blocked", safer_url: url };
+      }
+      const st = s.operating_status.toUpperCase();
+      const authorized = st.includes("AUTHORIZED") && !st.includes("NOT AUTHORIZED");
+      const warnings: string[] = [];
+      if (!authorized) warnings.push(`Operating status: ${s.operating_status}`);
+      if (s.oos_date) warnings.push(`Out-of-service order (${s.oos_date})`);
+      if (s.safety_rating?.toUpperCase().startsWith("UNSAT")) warnings.push("Unsatisfactory safety rating");
+      out = { legal_name: s.legal_name, dba: s.dba, dot_number: s.dot_number ?? dot ?? "", mc_number: s.mc_number ?? mc,
+        address: s.address, city: s.city, state: s.state, zip: s.zip, phone: s.phone,
+        authority_status: authorized ? "Authorized" : st.includes("REVOKED") ? "Revoked" : "Inactive", allowed_to_operate: authorized,
+        safety_rating: s.safety_rating && s.safety_rating !== "" ? s.safety_rating : "Not Rated",
+        power_units: s.power_units, drivers: s.drivers, bipd_on_file: null, bipd_required: null, cargo_on_file: null,
+        out_of_service: !!s.oos_date, warnings, source: "SAFER", safer_url: url };
+    }
+    await supabaseAdmin.from("market_rate_cache").upsert({ key: ck, result: out as never, fetched_at: new Date().toISOString() });
+    return out;
+  });
+
+async function qcLookup(mc: string | null, dotIn: string | null, key: string): Promise<Omit<FmcsaCarrier, "source" | "safer_url">> {
+    let dot = dotIn;
 
     if (!dot && mc) {
       const res = await get(`/carriers/docket-number/${mc}`, key);
@@ -78,4 +120,4 @@ export const lookupFmcsa = createServerFn({ method: "POST" })
       cargo_on_file: n("cargoInsuranceOnFile") != null ? n("cargoInsuranceOnFile")! * 1000 : null,
       out_of_service: oos, warnings,
     };
-  });
+}

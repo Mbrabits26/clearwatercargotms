@@ -1,7 +1,7 @@
 import { DEFAULT_PERMS } from "@/lib/tms";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/directory", label: "Directory", icon: Building2, p: "directory" },
     { to: "/carriers", label: "Carriers", icon: ShieldCheck, p: "carriers" },
     { to: "/fleet", label: "Fleet", icon: Container, p: "fleet" },
+    { to: "/leads", label: "Leads", icon: Users, p: "leads" },
     { to: "/quotes", label: "Quotes", icon: Calculator, p: "quotes" },
     { to: "/reports", label: "Reports", icon: BarChart3, p: "reports" },
     ...(isAdmin ? [{ to: "/quickbooks", label: "QuickBooks", icon: BookOpen, p: "" }, { to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),

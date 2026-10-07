@@ -37,3 +37,6 @@
 - [ ] Automatic sending from dispatch@ (blocked: email domain setup)
 - [x] Quotes tab + RFP mode
 - [x] Admin user management: add/delete users, roles, permissions
+- [x] FMCSA free SAFER fallback + 24h cache + Open in SAFER (no paid searches)
+- [x] Sales Leads tab with contact log + follow-ups
+- [ ] Direct Gmail sending per user (blocked: Google OAuth client setup in workspace App User Connectors)
