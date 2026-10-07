@@ -118,3 +118,15 @@ export const PERMISSIONS = [
   { key: "export", label: "CSV / load board export" },
 ] as const;
 export const DEFAULT_PERMS = PERMISSIONS.map((p) => p.key) as string[];
+
+/** Carrier pay options: carrier picks one at onboarding; staff can change it per carrier or per load. */
+export type PayTerms = "net30" | "quickpay" | "factored_quickpay";
+export const PAY_TERMS: { value: PayTerms; label: string; fee: number; terms: string }[] = [
+  { value: "net30", label: "Net 30 (no fee)", fee: 0, terms: "Net 30" },
+  { value: "quickpay", label: "Quick Pay – 5% fee, paid in 3 days", fee: 0.05, terms: "Quick Pay: 5% fee, paid in 3 days" },
+  { value: "factored_quickpay", label: "Factored Quick Pay – 2.5% fee", fee: 0.025, terms: "Factored Quick Pay: 2.5% fee" },
+];
+export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) => p.value === v) ?? PAY_TERMS[0]!;
+/** Load override wins, else the carrier's chosen option. */
+export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?: { pay_terms?: string | null } | null) =>
+  payTermsOf(load.pay_terms ?? carrier?.pay_terms);

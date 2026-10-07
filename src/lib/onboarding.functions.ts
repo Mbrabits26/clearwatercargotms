@@ -56,6 +56,7 @@ const submitSchema = tokenSchema.extend({
     cargo_expires: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
   factoring_company: z.string().max(200).optional(),
+  pay_terms: z.enum(["net30", "quickpay", "factored_quickpay"]).default("net30"),
   agreement_accepted: z.literal(true),
   signer_name: z.string().trim().min(2).max(120),
   files: z.array(fileSchema).min(1).max(8),
@@ -78,6 +79,7 @@ export const submitPacket = createServerFn({ method: "POST" })
       auto_liability: data.insurance.auto_liability, insurance_expires: data.insurance.auto_expires,
       cargo_insurance: data.insurance.cargo_insurance, cargo_expires: data.insurance.cargo_expires,
       factoring_company: data.factoring_company || null,
+      pay_terms: data.pay_terms,
       w9_received: true, coi_received: true, agreement_signed: true,
       noa_received: kinds.has("noa"), voided_check_received: kinds.has("voided_check"),
     };

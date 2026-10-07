@@ -134,6 +134,13 @@
       "when": 1791380063539,
       "tag": "0018_load_edits_override_commission",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791381171509,
+      "tag": "0019_carrier_pay_terms",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Ban, Copy as CopyIcon, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
-import { carrierCompliance, carrierExpiry, DNU_REASONS, type Carrier } from "@/lib/tms";
+import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
 import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInvite } from "@/components/CarrierOnboarding";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "@/components/BulkImportDialog";
@@ -167,6 +167,13 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input placeholder="Factoring company (blank = pay carrier direct)" value={factor} onChange={(e) => setFactor(e.target.value)} />
           <Button variant="secondary" onClick={() => update({ factoring_company: factor || null }, "Pay-to updated")}>Save NOA</Button>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="text-sm text-muted-foreground">Pay option (carrier's choice)</span>
+          <Select value={payTermsOf(c.pay_terms).value} onValueChange={(v) => { if (confirm(`Change ${c.legal_name}'s pay option to "${payTermsOf(v).label}"?`)) update({ pay_terms: v }, "Pay option updated"); }}>
+            <SelectTrigger className="sm:w-80"><SelectValue /></SelectTrigger>
+            <SelectContent>{PAY_TERMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+          </Select>
         </div>
       </div>
       <div className="rounded border bg-card p-4">
