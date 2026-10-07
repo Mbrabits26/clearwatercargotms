@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/public/hooks/carrier-recheck")({
                 changes.push({ name: c.legal_name, what: "Safety rating", from: c.safety_rating ?? "Not Rated", to: r.safety_rating });
                 upd.safety_rating = r.safety_rating;
               }
-              if (Object.keys(upd).length) await supabaseAdmin.from("carriers").update(upd).eq("id", c.id);
+              if (Object.keys(upd).length) await supabaseAdmin.from("carriers").update(upd as never).eq("id", c.id);
             } catch { failed++; }
           }));
         }
