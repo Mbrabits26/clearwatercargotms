@@ -1,3 +1,4 @@
+import { CarrierLanes } from "@/components/CarrierLanes";
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -147,6 +148,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       </div>
       <DocumentsPanel c={c} update={update} />
       <InvitePanel c={c} />
+      <CarrierLanes carrierId={c.id} />
       <div className="rounded border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Factoring / notice of assignment</h3>
         {c.factoring_company && !c.noa_received && <p className="mb-2 text-xs text-destructive">NOA not on file — upload it in the packet above before paying the factor.</p>}
