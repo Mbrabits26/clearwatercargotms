@@ -342,7 +342,9 @@ function Cockpit({
             {load.delivery_notes && <div className="mt-1 rounded bg-muted p-2 text-xs">{load.delivery_notes}</div>}
           </div>
         </Panel>
+        </TabsContent>
 
+        <TabsContent value="carrier" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Carrier & compliance">
           <div className="mb-3">
             <CarrierPicker
