@@ -142,7 +142,7 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Bulk import {target === "company" ? "directory" : "carriers"}</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">Upload an Excel (.xlsx/.xls) or CSV file. The first row should be column headings. Cells containing links are ignored, and names already in the system are skipped.{target === "carrier" && " Carriers come in as pending until vetted."}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           {target === "company" && (
             <Select value={kind} onValueChange={setKind}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -154,7 +154,7 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
         {headers.length > 0 && (
           <>
             <div className="text-xs text-muted-foreground">{file}: {rows.length} rows. Match your columns:</div>
-            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-auto">
+            <div className="grid max-h-64 grid-cols-1 gap-2 overflow-auto sm:grid-cols-2">
               {fields.map((f) => (
                 <label key={f.key} className="text-xs text-muted-foreground">{f.label}{f.required && " *"}
                   <Select value={map[f.key] || "__none"} onValueChange={(v) => setMap((m) => ({ ...m, [f.key]: v === "__none" ? "" : v }))}>

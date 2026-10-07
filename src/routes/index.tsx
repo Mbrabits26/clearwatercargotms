@@ -8,6 +8,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Dispatch, carrier vetting and rate confirmations for Clearwater Cargo, LLC of Staley, NC." },
       { property: "og:title", content: "Clearwater Cargo TMS" },
       { property: "og:description", content: "Dispatch, carrier vetting and rate confirmations for Clearwater Cargo, LLC." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Index,

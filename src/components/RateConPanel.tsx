@@ -59,7 +59,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   return (
     <div className="mt-4 space-y-2 border-t pt-3">
       <div className="text-xs font-semibold uppercase tracking-widest text-gold">Rate confirmation · RC #{load.load_number}</div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Input placeholder="Ship ref" value={shipRef} onChange={(e) => setShipRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Dest ref" value={destRef} onChange={(e) => setDestRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Carrier email" value={email} onChange={(e) => setEmail(e.target.value)} />

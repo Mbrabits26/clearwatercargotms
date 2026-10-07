@@ -12,7 +12,7 @@
 # AGENTS.md
 
 - App data is read/written from the browser client under RLS; privacy rules (broker pay, load visibility) live in database policies — keep them there, not in UI.
-- Roles live in `user_roles` with `has_role()`; first signup becomes admin via the `handle_new_user` trigger.
+- Account admission is admin-approved through `approved_users`; roles remain in `user_roles` with `has_role()` so unapproved identities receive no app access.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so no client can bypass it.
 - Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
 - QuickBooks sends are recorded in `qb_sync` (admin-only RLS) as a queue; a future server-side worker delivers queued rows once QuickBooks is connected.

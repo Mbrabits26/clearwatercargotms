@@ -62,7 +62,7 @@ export function TrackingPanel({ load }: { load: Load }) {
       ) : (
         <div className="space-y-2">
           <div className="break-all rounded border bg-background p-2 font-mono text-xs">{link}</div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
             <Button size="sm" variant="outline" onClick={email}><Mail className="mr-1 h-3.5 w-3.5" />Email</Button>
             <Button size="sm" variant="ghost" onClick={() => revoke(active.id)}><Ban className="mr-1 h-3.5 w-3.5" />Revoke</Button>

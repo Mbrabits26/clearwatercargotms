@@ -73,12 +73,12 @@ function Fleet() {
   const soon = (d: string | null) => !!d && new Date(d).getTime() - Date.now() < 30 * 86400_000;
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 p-3 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Internal fleet</h1>
         <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {tab}</Button>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         {[
           ["Trucks available", count(trucks, "available"), trucks.length],
           ["Trailers available", count(trailers, "available"), trailers.length],
@@ -97,7 +97,7 @@ function Fleet() {
           <TabsTrigger value="driver">Drivers</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="rounded-md border bg-card">
+      <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "driver" ? (
           <Table>
             <TableHeader><TableRow><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead></TableRow></TableHeader>
@@ -167,7 +167,7 @@ function AddDialog({ tab, open, onOpenChange }: { tab: Tab; open: boolean; onOpe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add {tab}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(([k, l]) => (
             <label key={k} className="text-xs text-muted-foreground">{l}
               <Input className="mt-1" value={f[k!] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k!]: e.target.value }))} />

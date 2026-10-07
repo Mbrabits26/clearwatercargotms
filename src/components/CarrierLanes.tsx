@@ -17,7 +17,7 @@ export function CarrierLanes({ carrierId }: { carrierId: string }) {
     <div className="rounded-lg border p-4">
       <h3 className="mb-2 font-display text-lg font-bold uppercase tracking-wider text-gold">Lanes run</h3>
       {lanes.length === 0 ? <p className="text-sm text-muted-foreground">No loads hauled for Clearwater yet.</p> : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="min-w-[600px] text-sm">
           <thead className="text-left text-xs uppercase text-muted-foreground">
             <tr><th>Lane</th><th>Equip</th><th className="text-right">Runs</th><th className="text-right">Avg pay</th><th className="text-right">$/mi</th><th className="text-right">Last</th></tr>
           </thead>
@@ -33,7 +33,7 @@ export function CarrierLanes({ carrierId }: { carrierId: string }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
       {interest.length > 0 && (
         <div className="mt-3">

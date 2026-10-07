@@ -11,6 +11,11 @@ export const Route = createFileRoute("/track/$token")({
   head: () => ({
     meta: [
       { title: "Load Tracking — Clearwater Cargo" },
+      { name: "description", content: "Send load status, location and delivery documents to Clearwater Cargo." },
+      { property: "og:title", content: "Load Tracking — Clearwater Cargo" },
+      { property: "og:description", content: "Send load status, location and delivery documents to Clearwater Cargo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
