@@ -69,7 +69,7 @@ function Admin() {
             {profiles.map((p) => {
               const mine = loads.filter((l) => l.broker_id === p.id);
               const margin = mine.reduce((s, l) => s + loadTotals(l).margin, 0);
-              const pct = Number(comm.find((c) => c.user_id === p.id)?.commission_pct ?? 30);
+              const pct = Number(comm.find((c) => c.user_id === p.id)?.commission_pct ?? 0);
               const role = roles.find((r) => r.user_id === p.id)?.role ?? "broker";
               return (
                 <TableRow key={p.id}>
@@ -82,7 +82,15 @@ function Admin() {
                   </TableCell>
                   <TableCell>{mine.length}</TableCell>
                   <TableCell>{usd(margin)}</TableCell>
-                  <TableCell><Input className="h-8 w-20" type="number" defaultValue={pct} onBlur={(e) => setComm(p.id, Number(e.target.value))} /></TableCell>
+                  <TableCell><Input key={`${p.id}-${pct}`} className="h-8 w-20" type="number" min={0} max={100} defaultValue={pct}
+                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                    onBlur={(e) => {
+                      const next = Number(e.target.value);
+                      if (next === pct) return;
+                      if (isNaN(next) || next < 0 || next > 100) { toast.error("Enter 0–100"); e.target.value = String(pct); return; }
+                      if (!window.confirm(`Change commission for ${p.full_name ?? p.email} from ${pct}% to ${next}%?`)) { e.target.value = String(pct); return; }
+                      setComm(p.id, next);
+                    }} /></TableCell>
                   <TableCell className="text-gold">{usd((margin * pct) / 100)}</TableCell>
                 </TableRow>
               );
