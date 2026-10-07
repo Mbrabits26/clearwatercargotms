@@ -13,18 +13,18 @@ export const setMailClient = (c: MailClient) => localStorage.setItem(KEY, c);
  * pre-filled draft in Gmail (Google Workspace) or the computer's default mail app.
  * Returns true when the email was sent directly.
  */
-export async function composeEmail(to: string, subject: string, body: string, client: MailClient = getMailClient()): Promise<boolean> {
+export async function composeEmail(to: string, subject: string, body: string, client: MailClient = getMailClient(), cc?: string): Promise<boolean> {
   try {
-    const r = await sendGmail({ data: { to, subject, body } });
+    const r = await sendGmail({ data: { to, subject, body, ...(cc ? { cc } : {}) } });
     if (r.sent) return true;
   } catch {
     // Not signed in or not connected — fall back to a draft.
   }
   if (client === "gmail") {
-    const u = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const u = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}${cc ? `&cc=${encodeURIComponent(cc)}` : ""}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(u, "_blank", "noopener");
   } else {
-    window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    window.open(`mailto:${to}?${cc ? `cc=${encodeURIComponent(cc)}&` : ""}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   }
   return false;
 }
