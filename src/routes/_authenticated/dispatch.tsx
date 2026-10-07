@@ -404,6 +404,10 @@ function Cockpit({
           <FleetPanel load={load} />
         </Panel>
 
+        <Panel title="Driver tracking">
+          <TrackingPanel load={load} />
+        </Panel>
+
         <Panel title="Team notes">
           <LoadNotes loadId={load.id} />
         </Panel>
