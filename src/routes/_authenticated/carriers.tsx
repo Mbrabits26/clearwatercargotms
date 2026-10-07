@@ -1,9 +1,12 @@
 import { CarrierLanes } from "@/components/CarrierLanes";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { findMatch, mergeFill, duplicateGroups } from "@/lib/carrierMerge";
+import { mergeCarriers } from "@/lib/carriers.functions";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Ban, Plus, Search } from "lucide-react";
+import { ArrowLeft, Ban, Copy as CopyIcon, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, type Carrier } from "@/lib/tms";
@@ -62,7 +65,7 @@ function Carriers() {
           <Button size="icon" onClick={() => setAdding(true)} aria-label="Add carrier"><Plus className="h-4 w-4" /></Button>
         </div>
         <NewCarrierInvite />
-        <div className="border-b px-3 py-2"><BulkImportButton target="carrier" onDone={refresh} /></div>
+        <div className="flex gap-2 border-b px-3 py-2"><BulkImportButton target="carrier" onDone={refresh} /><DuplicatesButton carriers={data} onDone={refresh} /></div>
         <div className="flex flex-wrap gap-1 border-b p-2">
           {([["all", "All", ""], ["expired", "Expired / missing insurance", "text-destructive"], ["soon", "Expiring ≤30 days", "text-warning"], ["docs", "Missing documents", "text-destructive"]] as const).map(([k, l, cls]) => (
             <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : cls || "text-muted-foreground")}>
@@ -87,12 +90,14 @@ function Carriers() {
         </ul>
       </aside>
       <section className={cn("overflow-auto p-3 sm:p-6", mobileDetail ? "block" : "hidden md:block")}><Button variant="ghost" className="mb-2 min-h-11 md:hidden" onClick={() => setMobileDetail(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to carriers</Button>{c ? <CarrierDetail key={c.id} c={c} refresh={refresh} /> : <p className="text-muted-foreground">Select a carrier.</p>}</section>
-      <AddCarrier open={adding} onOpenChange={setAdding} onDone={(id) => { refresh(); setSel(id); }} />
+      <AddCarrier carriers={data} open={adding} onOpenChange={setAdding} onDone={(id) => { refresh(); setSel(id); }} />
     </div>
   );
 }
 
 function StatusPill({ c }: { c: Carrier }) {
+  if (c.status === "pending" && c.conditional_until && c.conditional_until >= new Date().toISOString().slice(0, 10))
+    return <span className="rounded border border-gold px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gold">Conditional</span>;
   const cls = c.status === "dnu" ? "border-destructive text-destructive" : c.status === "vetted" ? "border-success text-success" : "border-warning text-warning";
   return <span className={cn("rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider", cls)}>{c.status === "dnu" ? "Do not use" : c.status}</span>;
 }
@@ -116,6 +121,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
         <div>
           <h1 className="text-3xl font-bold">{c.legal_name}</h1>
           <p className="text-muted-foreground">{c.dba && `DBA ${c.dba} · `}MC {c.mc_number} · DOT {c.dot_number} · {c.city}, {c.state} · {c.phone}</p>
+          <p className="text-sm text-muted-foreground">{[c.contact_name, c.email, c.address && `${c.address}, ${c.city ?? ""} ${c.state ?? ""} ${c.zip ?? ""}`].filter(Boolean).join(" · ")}</p>
         </div>
         <StatusPill c={c} />
       </div>
@@ -132,8 +138,11 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
               setFm(r);
               update({
                 authority_status: r.authority_status, safety_rating: r.safety_rating,
-                dot_number: c.dot_number || r.dot_number, mc_number: c.mc_number || r.mc_number,
-                address: c.address || r.address, city: c.city || r.city, state: c.state || r.state, zip: c.zip || r.zip,
+                ...mergeFill(c as unknown as Record<string, unknown>, {
+                  legal_name: r.legal_name, dba: r.dba, dot_number: r.dot_number, mc_number: r.mc_number,
+                  address: r.address, city: r.city, state: r.state, zip: r.zip, phone: r.phone ?? r.cell_phone,
+                  email: r.email, contact_name: r.contact_name,
+                }),
               }, "Updated from FMCSA");
             }} />
           </div>
@@ -144,6 +153,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
             Mark vetted
           </Button>
           {!docsDone && c.status === "pending" && <p className="mt-1 text-xs text-muted-foreground">Needs W-9, COI and signed agreement first.</p>}
+          {c.status === "pending" && <ConditionalApproval c={c} update={update} />}
         </div>
         <InsurancePanel c={c} update={update} />
       </div>
@@ -188,40 +198,115 @@ function Row({ k, v, bad }: { k: string; v: string; bad?: boolean }) {
   return <div className="flex justify-between py-0.5 text-sm"><span className="text-muted-foreground">{k}</span><span className={bad ? "text-destructive" : ""}>{v}</span></div>;
 }
 
-function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; onDone: (id: string) => void }) {
+function ConditionalApproval({ c, update }: { c: Carrier; update: (p: Partial<Carrier>, m: string) => void }) {
+  const { isAdmin, user } = useRouteContext({ from: "/_authenticated" });
+  const today = new Date().toISOString().slice(0, 10);
+  const def = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const [until, setUntil] = useState(c.conditional_until ?? def);
+  const [note, setNote] = useState(c.conditional_note ?? "");
+  const active = !!c.conditional_until && c.conditional_until >= today;
+  return (
+    <div className="mt-3 space-y-2 rounded border border-gold/40 bg-gold/5 p-2 text-xs">
+      <div className="font-semibold uppercase tracking-wider text-gold">Conditional approval</div>
+      {active ? <p>Bookable until <b>{c.conditional_until}</b>{c.conditional_note && ` — ${c.conditional_note}`}. Missing documents still need to come in.</p>
+        : <p className="text-muted-foreground">Lets this carrier be assigned to loads while documents are pending. Do Not Use and unauthorized carriers can never be approved.</p>}
+      {isAdmin ? (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input type="date" min={today} value={until} onChange={(e) => setUntil(e.target.value)} className="sm:w-40" />
+          <Input placeholder="Note, e.g. W-9 coming Friday" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Button size="sm" disabled={c.authority_status !== "Authorized"} onClick={() => update({ conditional_until: until, conditional_note: note || null, conditional_by: user.id }, "Carrier conditionally approved")}>{active ? "Update" : "Approve"}</Button>
+          {active && <Button size="sm" variant="ghost" onClick={() => update({ conditional_until: null, conditional_note: null, conditional_by: null }, "Conditional approval removed")}>Remove</Button>}
+        </div>
+      ) : <p className="text-muted-foreground">Ask an admin to approve.</p>}
+    </div>
+  );
+}
+
+function DuplicatesButton({ carriers, onDone }: { carriers: Carrier[]; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const merge = useServerFn(mergeCarriers);
+  const [busy, setBusy] = useState<string | null>(null);
+  const groups = open ? duplicateGroups(carriers) : [];
+  const run = async (keep: Carrier, g: Carrier[]) => {
+    setBusy(keep.id);
+    try {
+      await merge({ data: { keepId: keep.id, dropIds: g.filter((x) => x.id !== keep.id).map((x) => x.id) } });
+      toast.success(`Merged into ${keep.legal_name}`);
+      onDone();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Merge failed"); }
+    setBusy(null);
+  };
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}><CopyIcon className="mr-1 h-4 w-4" />Find duplicates</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-auto">
+          <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Duplicate carriers</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Matched by DOT #, MC # or legal name. Choose which record to keep — details, documents, loads and offers from the others are merged into it.</p>
+          {!groups.length && <p className="text-sm text-muted-foreground">No duplicates found.</p>}
+          {groups.map((g) => (
+            <div key={g[0]!.id} className="space-y-1 rounded border p-2">
+              {g.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0"><b>{c.legal_name}</b> <span className="text-xs text-muted-foreground">MC {c.mc_number ?? "—"} · DOT {c.dot_number ?? "—"} · {c.phone ?? "no phone"} · {c.email ?? "no email"} · {c.status}</span></span>
+                  <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => run(c, g)}>{busy === c.id ? "Merging…" : "Keep this"}</Button>
+                </div>
+              ))}
+            </div>
+          ))}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function AddCarrier({ carriers, open, onOpenChange, onDone }: { carriers: Carrier[]; open: boolean; onOpenChange: (o: boolean) => void; onDone: (id: string) => void }) {
   const [f, setF] = useState<Record<string, string>>({ authority_status: "Authorized" });
   const [fm, setFm] = useState<FmcsaCarrier | null>(null);
   const fields = [
     ["legal_name", "Legal name"], ["dba", "DBA"], ["mc_number", "MC #"], ["dot_number", "DOT #"],
-    ["city", "City"], ["state", "State"], ["phone", "Phone"], ["email", "Email"],
-    ["equipment", "Equipment"], ["insurance_expires", "Insurance expires (YYYY-MM-DD)"],
+    ["address", "Street address"], ["city", "City"], ["state", "State"], ["zip", "ZIP"],
+    ["contact_name", "Contact name"], ["phone", "Phone"], ["email", "Email"], ["equipment", "Equipment"],
+    ["insurance_expires", "Auto liability expires (YYYY-MM-DD)"], ["cargo_expires", "Cargo expires (YYYY-MM-DD)"],
   ] as const;
   const fill = (r: FmcsaCarrier) => {
     setFm(r);
+    const pick = (v: string | null | undefined, cur?: string) => v || cur || "";
     setF((p) => ({
-      ...p, legal_name: r.legal_name, dba: r.dba ?? "", dot_number: r.dot_number, mc_number: r.mc_number ?? p.mc_number ?? "",
-      city: r.city ?? "", state: r.state ?? "", phone: r.phone ?? p.phone ?? "", address: r.address ?? "", zip: r.zip ?? "",
+      ...p, legal_name: pick(r.legal_name, p.legal_name), dba: pick(r.dba, p.dba), dot_number: pick(r.dot_number, p.dot_number), mc_number: pick(r.mc_number, p.mc_number),
+      address: pick(r.address, p.address), city: pick(r.city, p.city), state: pick(r.state, p.state), zip: pick(r.zip, p.zip),
+      phone: pick(r.phone ?? r.cell_phone, p.phone), email: pick(r.email, p.email), contact_name: pick(r.contact_name, p.contact_name),
       authority_status: r.authority_status, safety_rating: r.safety_rating,
     }));
   };
+  const close = (id: string) => { onDone(id); setF({ authority_status: "Authorized" }); setFm(null); onOpenChange(false); };
   const save = async () => {
     if (!f.legal_name || (!f.mc_number && !f.dot_number)) return toast.error("Legal name and MC or DOT are required");
-    const { data, error } = await supabase.from("carriers").insert({
+    const row = {
       legal_name: f.legal_name, dba: f.dba || null, mc_number: f.mc_number || null, dot_number: f.dot_number || null,
       address: f.address || null, zip: f.zip || null, safety_rating: f.safety_rating || "Not Rated",
       city: f.city || null, state: f.state?.toUpperCase() || null, phone: f.phone || null, email: f.email || null,
-      equipment: f.equipment || null, insurance_expires: f.insurance_expires || null, authority_status: f.authority_status ?? "Authorized",
-    }).select("id").single();
+      contact_name: f.contact_name || null, equipment: f.equipment || null,
+      insurance_expires: f.insurance_expires || null, cargo_expires: f.cargo_expires || null, authority_status: f.authority_status ?? "Authorized",
+    };
+    const dup = findMatch(carriers, row);
+    if (dup) {
+      const patch = mergeFill(dup as unknown as Record<string, unknown>, row);
+      if (Object.keys(patch).length) {
+        const { error } = await supabase.from("carriers").update(patch).eq("id", dup.id);
+        if (error) return toast.error(error.message);
+      }
+      toast.info(`${dup.legal_name} is already in the system — ${Object.keys(patch).length ? "added the new details to it" : "nothing new to add"}.`);
+      return close(dup.id);
+    }
+    const { data, error } = await supabase.from("carriers").insert(row).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Carrier added as pending");
-    onDone(data.id);
-    setF({ authority_status: "Authorized" });
-    setFm(null);
-    onOpenChange(false);
+    close(data.id);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-auto">
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add carrier</DialogTitle></DialogHeader>
         <div className="flex items-center gap-2">
           <p className="flex-1 text-xs text-muted-foreground">Enter the MC # or DOT #, then pull the carrier's details straight from FMCSA / SAFER.</p>
@@ -231,7 +316,7 @@ function AddCarrier({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(([k, l]) => (
             <label key={k} className="text-xs text-muted-foreground">{l}
-              <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
+              <Input className="mt-1" type={k.endsWith("expires") ? "date" : "text"} value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
             </label>
           ))}
           <label className="text-xs text-muted-foreground">Authority status
