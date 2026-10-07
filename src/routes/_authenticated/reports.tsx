@@ -7,6 +7,7 @@ import { STATUSES, fmtDate, loadTotals, usd, type Load, type LoadStatus } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
+import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
