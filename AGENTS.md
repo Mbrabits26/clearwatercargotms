@@ -21,7 +21,7 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
-- Outbound emails go through `composeEmail` in src/lib/email.ts (Gmail compose or mailto, per-browser preference) — one place to change mail behavior.
+- Outbound emails go through `composeEmail` in src/lib/email.ts: sends directly via the google_mail App User Connector when the user connected Gmail (encrypted keys in app_user_connections, sendGmail in src/lib/gmail.functions.ts), else falls back to a Gmail compose/mailto draft.
 - Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - Public market rates: getMarketRates (staff-only) searches public pages via Firecrawl, Lovable AI summarizes to strict JSON, cached 24h in market_rate_cache.
