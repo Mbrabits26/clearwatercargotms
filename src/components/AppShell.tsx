@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
+import { ConnectGmail } from "@/components/ConnectGmail";
 import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -54,6 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <ConnectGmail />
           <select
             value={mail}
             onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }}
