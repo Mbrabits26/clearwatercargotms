@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { backfillPingPlaces, getLanePoints } from "@/lib/tracking.functions";
+import { TrackingMap } from "@/components/TrackingMap";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Copy, Mail, MapPin, Ban } from "lucide-react";
@@ -22,6 +25,22 @@ export function TrackingPanel({ load }: { load: Load }) {
     queryFn: async () =>
       (await supabase.from("load_tracking_pings").select("*").eq("load_id", load.id).order("created_at", { ascending: false }).limit(20)).data ?? [],
   });
+  const lanePts = useServerFn(getLanePoints);
+  const { data: lane } = useQuery({
+    queryKey: ["lane_points", load.origin_city, load.origin_state, load.dest_city, load.dest_state],
+    queryFn: () => lanePts({ data: { origin: `${load.origin_city}, ${load.origin_state}`, dest: `${load.dest_city}, ${load.dest_state}` } }),
+    staleTime: Infinity, gcTime: Infinity, retry: false,
+  });
+  const [focus, setFocus] = useState<string | null>(null);
+  const backfill = useServerFn(backfillPingPlaces);
+  const tried = useRef(false);
+  useEffect(() => {
+    if (tried.current || !pings.some((p) => p.lat != null && !p.place)) return;
+    tried.current = true;
+    backfill({ data: { loadId: load.id } }).then((r) => { if (r.updated) qc.invalidateQueries({ queryKey: ["tracking_pings", load.id] }); }).catch(() => {});
+  }, [pings]);
+  const pts = useMemo(() => pings.filter((p) => p.lat != null && p.lng != null)
+    .map((p) => ({ id: p.id, lat: Number(p.lat), lng: Number(p.lng), label: p.place ?? (p.status || "Location") })), [pings]);
   const active = tokens.find((t) => t.status === "active" && new Date(t.expires_at) > new Date());
   const link = active ? `${window.location.origin}/track/${active.token}` : null;
 
@@ -70,18 +89,22 @@ export function TrackingPanel({ load }: { load: Load }) {
           {active.driver_name && <div className="text-xs text-muted-foreground">Driver: {active.driver_name}{active.driver_phone ? ` · ${active.driver_phone}` : ""}</div>}
         </div>
       )}
+      {(pts.length > 0 || lane?.origin) && (
+        <TrackingMap pts={pts} focus={focus} origin={lane?.origin ?? null} dest={lane?.dest ?? null} />
+      )}
       {pings.length > 0 && (
         <div className="space-y-1 border-t pt-2">
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Driver updates</div>
           {pings.map((p) => (
-            <div key={p.id} className="flex items-start gap-2 text-xs">
+            <div key={p.id} className={`flex cursor-pointer items-start gap-2 rounded text-xs hover:bg-muted/50 ${focus === p.id ? "bg-muted/50" : ""}`} onClick={() => p.lat != null && setFocus(p.id)}>
               <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-gold" />
               <div>
                 <span className="font-medium">{p.kind === "status" ? p.status : "Location"}</span>
                 {p.note ? ` — ${p.note}` : ""}
+                {p.place && <div className="text-foreground">{p.place}</div>}
                 {p.lat != null && (
                   <a className="ml-1 text-gold underline" target="_blank" rel="noreferrer"
-                    href={`https://www.google.com/maps?q=${p.lat},${p.lng}`}>map</a>
+                    href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} onClick={(e) => e.stopPropagation()}>Open in Google Maps</a>
                 )}
                 <div className="text-muted-foreground">{fmtDate(p.created_at)}</div>
               </div>

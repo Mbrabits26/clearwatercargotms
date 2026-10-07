@@ -31,3 +31,4 @@
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
+- Driver ping GPS is reverse geocoded once server-side (geocode.server.ts via the Google Maps connector) and stored in load_tracking_pings.place; the browser map uses only the managed browser key (no browser geocoding/Places).
