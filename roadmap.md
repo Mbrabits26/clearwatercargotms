@@ -18,7 +18,7 @@
 - [x] Carrier onboarding packet portal (built in-app: invite links, uploads, insurance expiry alerts)
 - [x] Digital rate con signing links (template layout, signed PDF attached to load)
 - [x] QuickBooks section: AR/AP send queue + sync log
-- [ ] Live QuickBooks delivery of queued items (blocked: QuickBooks account connection)
+- [ ] Live QuickBooks delivery of queued items (blocked: user adds Intuit Client ID/Secret in Project Settings → Secrets, then tells me)
 - [x] Customizable reports: customer AR, carrier AP, broker loads/amounts, custom filters + CSV
 - [x] Admin access for accounting@ and eric@clearwatercargo.com (verified email only)
 - [x] Bulk import (xlsx/csv) on Directory + Carriers; import customerlist.xlsx
@@ -41,4 +41,3 @@
 - [x] Sales Leads tab with contact log + follow-ups
 - [x] Direct Gmail sending per user (google_mail App User Connector, Connect Gmail button in header)
 - [x] Driver tracking link: status, GPS, POD/BOL upload auto-attaching to the load
-- [ ] QuickBooks Online live connection + auto-sync (blocked: user adds Intuit Client ID/Secret in Project Settings → Secrets, then tells me)
