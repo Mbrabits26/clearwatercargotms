@@ -120,6 +120,13 @@
       "when": 1791368632880,
       "tag": "0016_revoke_removed_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791378564740,
+      "tag": "0017_carrier_conditional_approval",
+      "breakpoints": true
     }
   ]
 }
