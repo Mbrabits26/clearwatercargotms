@@ -17,6 +17,7 @@ export const STATUSES: { value: LoadStatus; label: string; cls: string }[] = [
   { value: "invoiced", label: "Invoiced", cls: "bg-st-invoiced/15 text-st-invoiced border-st-invoiced/40" },
   { value: "paid", label: "Completed / Paid", cls: "bg-st-paid/15 text-st-paid border-st-paid/40" },
   { value: "issue", label: "Delay / Issue", cls: "bg-st-issue/15 text-st-issue border-st-issue/40" },
+  { value: "cancelled", label: "Cancelled", cls: "bg-muted text-muted-foreground border-muted-foreground/40" },
 ];
 export const statusMeta = (s: LoadStatus) => STATUSES.find((x) => x.value === s)!;
 
