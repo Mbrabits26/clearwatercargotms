@@ -48,3 +48,29 @@ export async function fetchSafer(kind: "dot" | "mc", id: string): Promise<SaferR
     safety_rating: rating ? clean(rating[1] ?? "") || null : null,
   };
 }
+
+export type CensusResult = {
+  email: string | null; contact_name: string | null; phone: string | null; cell_phone: string | null; fax: string | null;
+  mailing_address: string | null; address: string | null; city: string | null; state: string | null; zip: string | null;
+  legal_name: string | null; dba: string | null; power_units: number | null; drivers: number | null;
+};
+
+/** Free FMCSA Company Census file (data.transportation.gov) — has email, officer and phones. */
+export async function fetchCensus(dot: string): Promise<CensusResult | null> {
+  try {
+    const r = await fetch(`https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=${encodeURIComponent(dot)}&$limit=1`, { headers: { Accept: "application/json" } });
+    if (!r.ok) return null;
+    const [c] = (await r.json()) as Record<string, string | undefined>[];
+    if (!c) return null;
+    const v = (k: string) => (c[k] && c[k]!.trim() ? c[k]!.trim() : null);
+    const ph = (k: string) => { const d = (v(k) ?? "").replace(/\D/g, ""); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : v(k); };
+    const n = (k: string) => (v(k) ? Number(v(k)) : null);
+    const mail = [v("carrier_mailing_street"), v("carrier_mailing_city"), v("carrier_mailing_state"), v("carrier_mailing_zip")].filter(Boolean).join(", ");
+    return {
+      email: v("email_address")?.toLowerCase() ?? null, contact_name: v("company_officer_1"),
+      phone: ph("phone"), cell_phone: ph("cell_phone"), fax: ph("fax"), mailing_address: mail || null,
+      address: v("phy_street"), city: v("phy_city"), state: v("phy_state"), zip: v("phy_zip")?.slice(0, 5) ?? null,
+      legal_name: v("legal_name"), dba: v("dba_name"), power_units: n("power_units"), drivers: n("total_drivers"),
+    };
+  } catch { return null; }
+}

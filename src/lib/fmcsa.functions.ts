@@ -10,6 +10,7 @@ export type FmcsaCarrier = {
   bipd_on_file: number | null; bipd_required: number | null; cargo_on_file: number | null;
   out_of_service: boolean; warnings: string[];
   source: "FMCSA" | "SAFER" | "blocked"; safer_url: string;
+  email?: string | null; contact_name?: string | null; cell_phone?: string | null; fax?: string | null; mailing_address?: string | null;
 };
 
 const BASE = "https://mobile.fmcsa.dot.gov/qc/services";
@@ -35,8 +36,9 @@ export const lookupFmcsa = createServerFn({ method: "POST" })
     const dot = data.dot?.replace(/\D/g, "") || null;
     if (!mc && !dot) throw new Error("Enter an MC # or DOT #.");
     const { saferUrl, fetchSafer } = await import("./fmcsa.server");
+    const { fetchCensus } = await import("./fmcsa.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const ck = `fmcsa:${dot ? "dot" + dot : "mc" + mc}`;
+    const ck = `fmcsa2:${dot ? "dot" + dot : "mc" + mc}`;
     const { data: hit } = await supabaseAdmin.from("market_rate_cache").select("result, fetched_at").eq("key", ck).maybeSingle();
     if (hit && Date.now() - new Date(hit.fetched_at).getTime() < 86400000) return hit.result as unknown as FmcsaCarrier;
     const url = dot ? saferUrl("dot", dot) : saferUrl("mc", mc!);
@@ -67,6 +69,15 @@ export const lookupFmcsa = createServerFn({ method: "POST" })
         safety_rating: s.safety_rating && s.safety_rating !== "" ? s.safety_rating : "Not Rated",
         power_units: s.power_units, drivers: s.drivers, bipd_on_file: null, bipd_required: null, cargo_on_file: null,
         out_of_service: !!s.oos_date, warnings, source: "SAFER", safer_url: url };
+    }
+    const cen = out.dot_number ? await fetchCensus(out.dot_number) : null;
+    if (cen) {
+      const o = out;
+      out = { ...o, legal_name: o.legal_name || cen.legal_name || "", dba: o.dba ?? cen.dba,
+        address: o.address ?? cen.address, city: o.city ?? cen.city, state: o.state ?? cen.state, zip: o.zip ?? cen.zip,
+        phone: o.phone ?? cen.phone ?? cen.cell_phone, email: cen.email, contact_name: cen.contact_name,
+        cell_phone: cen.cell_phone, fax: cen.fax, mailing_address: cen.mailing_address,
+        power_units: o.power_units ?? cen.power_units, drivers: o.drivers ?? cen.drivers };
     }
     await supabaseAdmin.from("market_rate_cache").upsert({ key: ck, result: out as never, fetched_at: new Date().toISOString() });
     return out;
