@@ -17,6 +17,7 @@ import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
 import { FleetPanel } from "@/components/FleetPanel";
+import { TrackingPanel } from "@/components/TrackingPanel";
 import { LoadNotes } from "@/components/LoadNotes";
 import { OffersPanel } from "@/components/OffersPanel";
 import { RateView } from "@/components/RateView";
