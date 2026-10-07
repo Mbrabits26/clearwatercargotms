@@ -13,7 +13,7 @@ function field(html: string, label: string): string | null {
   const re = new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\\s\\S]*?<td[^>]*>([\\s\\S]*?)</td>", "i");
   const m = html.match(re);
   if (!m) return null;
-  const v = clean(m[1]);
+  const v = clean(m[1] ?? "");
   return v && v !== "None" ? v : null;
 }
 
@@ -45,6 +45,6 @@ export async function fetchSafer(kind: "dot" | "mc", id: string): Promise<SaferR
     oos_date: field(html, "Out of Service Date:"),
     power_units: num(field(html, "Power Units:")),
     drivers: num(field(html, "Drivers:")),
-    safety_rating: rating ? clean(rating[1]) || null : null,
+    safety_rating: rating ? clean(rating[1] ?? "") || null : null,
   };
 }

@@ -17,6 +17,7 @@ import { Route as AuthenticatedCarriersRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
 import { Route as AuthenticatedFleetRouteImport } from './routes/_authenticated/fleet'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authenticated/quickbooks'
 import { Route as AuthenticatedQuotesRouteImport } from './routes/_authenticated/quotes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -63,6 +64,11 @@ const AuthenticatedFleetRoute = AuthenticatedFleetRouteImport.update({
   path: '/fleet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedQuickbooksRoute = AuthenticatedQuickbooksRouteImport.update({
   id: '/quickbooks',
   path: '/quickbooks',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/fleet': typeof AuthenticatedFleetRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/fleet': typeof AuthenticatedFleetRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
   '/_authenticated/fleet': typeof AuthenticatedFleetRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/_authenticated/quotes': typeof AuthenticatedQuotesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/directory'
     | '/dispatch'
     | '/fleet'
+    | '/leads'
     | '/quickbooks'
     | '/quotes'
     | '/reports'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/directory'
     | '/dispatch'
     | '/fleet'
+    | '/leads'
     | '/quickbooks'
     | '/quotes'
     | '/reports'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/_authenticated/directory'
     | '/_authenticated/dispatch'
     | '/_authenticated/fleet'
+    | '/_authenticated/leads'
     | '/_authenticated/quickbooks'
     | '/_authenticated/quotes'
     | '/_authenticated/reports'
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFleetRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/quickbooks': {
       id: '/_authenticated/quickbooks'
       path: '/quickbooks'
@@ -308,6 +327,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDirectoryRoute: typeof AuthenticatedDirectoryRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
   AuthenticatedFleetRoute: typeof AuthenticatedFleetRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedQuickbooksRoute: typeof AuthenticatedQuickbooksRoute
   AuthenticatedQuotesRoute: typeof AuthenticatedQuotesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -319,6 +339,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDirectoryRoute: AuthenticatedDirectoryRoute,
   AuthenticatedDispatchRoute: AuthenticatedDispatchRoute,
   AuthenticatedFleetRoute: AuthenticatedFleetRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedQuickbooksRoute: AuthenticatedQuickbooksRoute,
   AuthenticatedQuotesRoute: AuthenticatedQuotesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
