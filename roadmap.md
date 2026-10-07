@@ -43,3 +43,7 @@
 - [x] Sales Leads tab with contact log + follow-ups
 - [x] Direct Gmail sending per user (google_mail App User Connector, Connect Gmail button in header)
 - [x] Driver tracking link: status, GPS, POD/BOL upload auto-attaching to the load
+- [x] FMCSA lookup fills email/contact/phones (free Census file); Add carrier full fields
+- [x] Duplicate carriers merged on add/import + Find duplicates merge tool
+- [x] Admin conditional carrier approval while documents pending (DB-enforced)
+- [x] Rate con email auto-fills from assigned carrier
