@@ -113,6 +113,13 @@
       "when": 1791368571523,
       "tag": "0015_approved_user_access",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791368632880,
+      "tag": "0016_revoke_removed_approval",
+      "breakpoints": true
     }
   ]
 }
