@@ -57,3 +57,8 @@
 - [x] Accounting tab: AR/AP with aging, edit/delete/retry queued items (admin only)
 - [x] Weekly carrier safety/authority auto re-check (FMCSA/SAFER, free) + team-chat change notices
 - [ ] MOTUS DOT lookup (dropped: no free public MOTUS endpoint; FMCSA QCMobile + SAFER cover it)
+- [ ] Factoring pay option on carrier sign-up packet
+- [ ] Document preview viewer (hover / in-page, with Download)
+- [ ] Billing: invoice numbers + PDF, carrier invoice match, auto Quick Pay fee, fleet billing, AR/AP totals
+- [ ] Import carrier packets from "Live App Polish" (waiting: export added in that app + shared secret)
+- [ ] Connect clearwatercargo.com (user will do once they have the registrar login)
