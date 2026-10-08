@@ -30,7 +30,17 @@ The website, partner portal and packet-import ideas stay saved in the draft "Web
 - Duplicates merge with the carriers you already have (DOT, MC, name) and only fill empty fields. New carriers start as Pending, and Vetted/DNU status never changes.
 - You see a preview before anything saves, and a summary after. Running it again skips packets already imported. Optional: check for new packets every hour.
 
+## 5. "Factoring" pay option on the carrier sign-up packet
+- The sign-up link's "Tax & payment" step gets four choices:
+  - Net 30 (standard, no fee)
+  - Quick Pay (5% fee, paid in 3 days)
+  - **Factoring (standard Net 30, paid to the factoring company)**
+  - Factored Quick Pay (2.5% fee)
+- When a carrier picks either factoring option, the factoring company name, remit-to address and Notice of Assignment upload become required.
+- The same option appears in the carrier profile's Pay option list and the load Money tab. The rate con terms line reads "Net 30 · Paid to <factoring company>". Carrier bills go to the factoring company.
+
 ## Technical details
+- Add `factoring` to PayTerms/PAY_TERMS (fee 0) in tms.ts and the onboarding zod enum. Add a `factoring_remit` field to the portal form. Accounting routes the payee to factoring when the terms are factoring or factored_quickpay.
 - Packet export: a server route in the packet app, `/api/public/packet-export`, using a Bearer shared secret with a timing-safe compare. It returns submissions plus 10-minute signed URLs for its `carrier-documents` files. In this app, `PACKET_EXPORT_URL` and `PACKET_EXPORT_SECRET` secrets feed an admin-only `importPackets` server fn. It uses carrierMerge fill-blanks, copies files into `carrier-docs/<carrier_id>/`, adds `carrier_documents` rows (source "packet app"), and creates a new `carrier_signatures` table (external_ref unique, staff-read / admin-write RLS).
 - Domain: run the connect check for the chosen name, then show the connect card. The root route already redirects to the sign-in page.
 - Migration: `qb_sync` gains `invoice_number` (sequence-backed, AR only), `carrier_invoice_amount`, `carrier_invoice_path`, `quickpay_fee` and `net_amount`. The `kind` value gains `fleet_invoice`. A unique `(load_id, kind)` constraint already applies, and admin-only RLS stays as it is.
