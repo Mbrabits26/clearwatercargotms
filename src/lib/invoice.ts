@@ -32,7 +32,7 @@ export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?:
   doc.setTextColor(0).setFont("helvetica", "normal");
   const acc = ((load.accessorials as Accessorial[] | null) ?? []);
   const accSum = acc.reduce((s, a) => s + Number(a.amount || 0), 0);
-  const rows: [string, number][] = [["Linehaul", o.amount - accSum], ...acc.map((a) => [a.label ?? a.type ?? "Accessorial", Number(a.amount || 0)] as [string, number])];
+  const rows: [string, number][] = [["Linehaul", o.amount - accSum], ...acc.map((a) => [a.type || "Accessorial", Number(a.amount || 0)] as [string, number])];
   y += 20;
   for (const [k, v] of rows) { y += 18; doc.text(String(k), L + 8, y).text(money(v), R - 8, y, { align: "right" }); doc.setDrawColor(220).line(L, y + 5, R, y + 5); }
   y += 30;
