@@ -32,3 +32,6 @@
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
 - Driver ping GPS is reverse geocoded once server-side (geocode.server.ts via the Google Maps connector) and stored in load_tracking_pings.place; the browser map uses only the managed browser key (no browser geocoding/Places).
+- Documents preview in-page through `DocPreview` (signed URLs / blob URLs); never auto-download generated PDFs.
+- AR invoice numbers come from the `assign_invoice_number` trigger on qb_sync (kinds invoice, fleet_invoice); loads with a truck_id bill as fleet_invoice. Carrier bills store gross, quickpay_fee and the net amount.
+- Packet app import: `importPackets` (admin) pulls PACKET_EXPORT_URL with the PACKET_EXPORT_SECRET bearer, merges via carrierMerge, and records proof of signing in carrier_signatures (external_ref keeps it idempotent).
