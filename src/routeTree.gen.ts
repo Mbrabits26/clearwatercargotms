@@ -25,7 +25,6 @@ import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
-import { Route as ApiPublicPacketPingRouteImport } from './routes/api/public/packet-ping'
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
 import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
 
@@ -108,11 +107,6 @@ const TrackTokenRoute = TrackTokenRouteImport.update({
   path: '/track/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicPacketPingRoute = ApiPublicPacketPingRouteImport.update({
-  id: '/api/public/packet-ping',
-  path: '/api/public/packet-ping',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OauthGoogle_mailReturnRoute = OauthGoogle_mailReturnRouteImport.update({
   id: '/oauth/google_mail/return',
   path: '/oauth/google_mail/return',
@@ -141,7 +135,6 @@ export interface FileRoutesByFullPath {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
-  '/api/public/packet-ping': typeof ApiPublicPacketPingRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
@@ -161,7 +154,6 @@ export interface FileRoutesByTo {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
-  '/api/public/packet-ping': typeof ApiPublicPacketPingRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
@@ -183,7 +175,6 @@ export interface FileRoutesById {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
-  '/api/public/packet-ping': typeof ApiPublicPacketPingRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
@@ -205,7 +196,6 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
-    | '/api/public/packet-ping'
     | '/oauth/google_mail/return'
     | '/api/public/hooks/carrier-recheck'
   fileRoutesByTo: FileRoutesByTo
@@ -225,7 +215,6 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
-    | '/api/public/packet-ping'
     | '/oauth/google_mail/return'
     | '/api/public/hooks/carrier-recheck'
   id:
@@ -246,7 +235,6 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
-    | '/api/public/packet-ping'
     | '/oauth/google_mail/return'
     | '/api/public/hooks/carrier-recheck'
   fileRoutesById: FileRoutesById
@@ -259,7 +247,6 @@ export interface RootRouteChildren {
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
   TrackTokenRoute: typeof TrackTokenRoute
-  ApiPublicPacketPingRoute: typeof ApiPublicPacketPingRoute
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
   ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
 }
@@ -378,13 +365,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/packet-ping': {
-      id: '/api/public/packet-ping'
-      path: '/api/public/packet-ping'
-      fullPath: '/api/public/packet-ping'
-      preLoaderRoute: typeof ApiPublicPacketPingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/oauth/google_mail/return': {
       id: '/oauth/google_mail/return'
       path: '/oauth/google_mail/return'
@@ -437,7 +417,6 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
   TrackTokenRoute: TrackTokenRoute,
-  ApiPublicPacketPingRoute: ApiPublicPacketPingRoute,
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
   ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
 }
