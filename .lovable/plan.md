@@ -20,7 +20,18 @@ The website, partner portal and packet-import ideas stay saved in the draft "Web
 - The viewer has **Download** and **Open in new tab** buttons, plus next/previous when a load or carrier has several documents.
 - Other file types, like Excel, show the file name with a Download button.
 
+## 4. Import every carrier packet from your packet app ("Live App Polish")
+- Your packet app keeps its records separately, so it has to share them first. I'll give you a short text to paste into the packet app's chat. It adds a private, password-protected export. Nobody can use it without the shared password.
+- An admin-only **Import from packet app** button on the Carriers tab brings in every submission:
+  - Carrier details, MC/DOT, contact, insurance and factoring
+  - The pay option the carrier picked
+  - **Every uploaded document** (W-9, COI, agreement, NOA, voided check and others), saved to that carrier's Documents and opening in the new viewer
+  - The signature record: signer, date and time, IP address, device and reference number
+- Duplicates merge with the carriers you already have (DOT, MC, name) and only fill empty fields. New carriers start as Pending, and Vetted/DNU status never changes.
+- You see a preview before anything saves, and a summary after. Running it again skips packets already imported. Optional: check for new packets every hour.
+
 ## Technical details
+- Packet export: a server route in the packet app, `/api/public/packet-export`, using a Bearer shared secret with a timing-safe compare. It returns submissions plus 10-minute signed URLs for its `carrier-documents` files. In this app, `PACKET_EXPORT_URL` and `PACKET_EXPORT_SECRET` secrets feed an admin-only `importPackets` server fn. It uses carrierMerge fill-blanks, copies files into `carrier-docs/<carrier_id>/`, adds `carrier_documents` rows (source "packet app"), and creates a new `carrier_signatures` table (external_ref unique, staff-read / admin-write RLS).
 - Domain: run the connect check for the chosen name, then show the connect card. The root route already redirects to the sign-in page.
 - Migration: `qb_sync` gains `invoice_number` (sequence-backed, AR only), `carrier_invoice_amount`, `carrier_invoice_path`, `quickpay_fee` and `net_amount`. The `kind` value gains `fleet_invoice`. A unique `(load_id, kind)` constraint already applies, and admin-only RLS stays as it is.
 - Invoice PDF via jsPDF in `src/lib/invoice.ts`, reusing the ratecon layout helpers and logo. It's emailed through `composeEmail`.
