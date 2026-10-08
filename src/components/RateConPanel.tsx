@@ -1,3 +1,4 @@
+import { DocLink, useBlobViewer } from "@/components/DocPreview";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     const base = buildRateConData({ load: current(), carrier: carrier!, shipper, consignee, customer });
     return draft ? { ...draft, rc: base.rc, date: base.date, shipRef: shipRef, destRef: destRef } : base;
   };
+  const viewer = useBlobViewer();
   const preview = () => {
     if (!carrier) return;
     viewer.show(buildRateConPdf(rcData()).output("blob"), `RateCon-${load.load_number}.pdf`);
@@ -70,14 +72,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     toast.success("Signing link copied" + (to.length ? (direct ? ` and emailed to ${to.length} recipient${to.length > 1 ? "s" : ""}${ccMe ? " (copy to you)" : ""}` : " and email drafted") : ""));
     qc.invalidateQueries({ queryKey: key });
   };
-  const openSigned = async (path: string) => {
-    const { data, error } = await supabase.storage.from("load-docs").createSignedUrl(path, 300);
-    if (error) return toast.error(error.message);
-    window.open(data.signedUrl, "_blank");
-  };
   const pending = reqs.find((r) => r.status === "sent");
 
   return (
+    <>
+    {viewer.viewer}
     <div className="mt-4 space-y-2 border-t pt-3">
       <div className="text-xs font-semibold uppercase tracking-widest text-gold">Rate confirmation · RC #{load.load_number}</div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -97,7 +96,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
           <Mail className="mr-1 h-3.5 w-3.5" />{pending ? "Resend for signature" : "Send for signature"}
         </Button>
         {load.ratecon_pdf_path && (
-          <Button size="sm" variant="secondary" onClick={() => openSigned(load.ratecon_pdf_path!)}><Download className="mr-1 h-3.5 w-3.5" />Signed rate con</Button>
+          <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>
         )}
       </div>
       <ul className="space-y-1 text-xs">
@@ -160,7 +159,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
               <label className="block">Notes / instructions<Textarea rows={4} value={work.notes} onChange={(e) => W("notes", e.target.value)} /></label>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                <Button variant="secondary" onClick={() => buildRateConPdf({ ...work, total: work.lines.reduce((a, l) => a + l.amount, 0) }).output("blob")) && undefined}>Preview</Button>
+                <Button variant="secondary" onClick={() => viewer.show(buildRateConPdf({ ...work, total: work.lines.reduce((a, l) => a + l.amount, 0) }).output("blob"), `RateCon-${load.load_number}.pdf`)}>Preview</Button>
                 <Button onClick={() => { setDraft({ ...work, lines: work.lines.filter((l) => l.label.trim()), total: work.lines.filter((l) => l.label.trim()).reduce((a, l) => a + l.amount, 0) }); setEditOpen(false); toast.success("Rate con updated. Send it for signature when ready."); }}>Save rate con</Button>
               </div>
             </div>
@@ -168,5 +167,6 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

@@ -98,7 +98,7 @@ function QuoteBuilder() {
     qc.invalidateQueries({ queryKey: ["quotes"] });
   };
 
-  const pdf = async (q: Quote) => (await buildQuotePdf(q, logo.url)).save(`Quote-${q.quote_number}.pdf`);
+  const pdf = async (q: Quote) => quoteViewer.show((await buildQuotePdf(q, logo.url)).output("blob"), `Quote-${q.quote_number}.pdf`);
   const email = async (q: Quote) => {
     await pdf(q);
     composeEmail(q.customer_email ?? "", `Clearwater Cargo quote ${q.quote_number}: ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state}`,
