@@ -1,3 +1,4 @@
+import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -502,6 +503,10 @@ function Cockpit({
         <TabsContent value="docs" className="mt-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Rate confirmation">
           <RateConPanel load={load} carrier={carrier} shipper={shipper} consignee={consignee} customer={customer} onSaved={() => qc.invalidateQueries({ queryKey: ["loads"] })} />
+        </Panel>
+
+        <Panel title="Load documents">
+          <LoadDocs loadId={load.id} />
         </Panel>
 
         <Panel title="Driver tracking">
