@@ -1,19 +1,8 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { useRouteContext } from "@tanstack/react-router";
-import { DownloadCloud, Loader2, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
+import { ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { importPackets } from "@/lib/packetImport.functions";
 import { fmtDate } from "@/lib/tms";
 
-type Row = { ref: string; name: string; action: string; docs: number; note?: string };
-const LABEL: Record<string, string> = { new: "New carrier", merge: "Merge into existing", skip: "Skipped", error: "Problem" };
-
-/** Admin-only: pull every submission from the separate carrier packet app into Carriers. */
 export function SignatureRecords({ carrierId }: { carrierId: string }) {
   const { data = [] } = useQuery({
     queryKey: ["carrier_signatures", carrierId],
