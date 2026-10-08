@@ -47,6 +47,24 @@ Tell me which one, and I'll show you the purchase card. It connects to this app 
 - Partners use a separate sign-in at /portal. Staff and partners never land in each other's areas.
 - The TMS keeps its current phone layout (bottom bar, list then details). The website and portal are built phone-first too.
 
+## Part 6 — Free built-in e-sign for every signed document
+
+- One signing system built into the app, at no cost and with no outside service. It covers rate cons (already in place), carrier packets and broker agreements, customer credit applications and shipper agreements, quotes the customer accepts, and any PDF you upload and send for signature.
+- The signer types their name, draws or types a signature, and agrees to sign electronically.
+- Each signed PDF gets a signature certificate page: name, email, date and time, IP address, device/browser, and a fingerprint of the document that shows it wasn't changed after signing.
+- Signed copies attach to the right carrier, customer or load automatically, and you and the signer both get a copy by email.
+
+## Part 7 — Billing check: what you bill vs what carriers bill you
+
+What it does today (checked): Accounting already keeps the two apart. Customer invoices (money owed to us) are billed to the load's customer for the customer rate plus accessorials. Carrier bills (money we owe) go to the carrier, or to their factoring company, for carrier pay. A load can have only one of each.
+
+Gaps to fix:
+- Give each customer invoice its own invoice number and a branded PDF you can email from the app. It includes the load number, references and POD attached.
+- When a carrier sends in their invoice (through the portal or the website), match it to the load and the carrier bill. Flag it if the amount differs from the rate con.
+- Apply the Quick Pay fee automatically on carrier bills (5% or 2.5% factored) based on that load's pay terms. It shows as revenue for us.
+- Keep loads we haul for outside brokers with our own trucks as a third type: "we bill the broker". It stays separate from brokerage invoices.
+- Show separate Receivables (AR) and Payables (AP) totals and aging, so the two never mix.
+
 ## Open items
 - You: paste the export request into the packet app (I'll give you the exact text) and pick a domain.
 - Your website content: I'll write placeholder text (services, about us, phone/email). Send me your real details and photos to swap in.
