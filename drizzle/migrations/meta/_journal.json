@@ -162,6 +162,13 @@
       "when": 1791486169575,
       "tag": "0022_billing_gaps_factoring",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791486330259,
+      "tag": "0023_carrier_signatures",
+      "breakpoints": true
     }
   ]
 }

@@ -177,6 +177,56 @@ export type Database = {
           },
         ]
       }
+      carrier_signatures: {
+        Row: {
+          carrier_id: string
+          created_at: string
+          external_ref: string
+          id: string
+          pay_type: string | null
+          signed_at: string | null
+          signer_ip: string | null
+          signer_name: string | null
+          signer_title: string | null
+          source: string
+          user_agent: string | null
+        }
+        Insert: {
+          carrier_id: string
+          created_at?: string
+          external_ref: string
+          id?: string
+          pay_type?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          source?: string
+          user_agent?: string | null
+        }
+        Update: {
+          carrier_id?: string
+          created_at?: string
+          external_ref?: string
+          id?: string
+          pay_type?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          source?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_signatures_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carriers: {
         Row: {
           address: string | null
