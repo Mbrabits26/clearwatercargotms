@@ -1,3 +1,4 @@
+import { useBlobViewer } from "@/components/DocPreview";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -98,9 +99,10 @@ function QuoteBuilder() {
     qc.invalidateQueries({ queryKey: ["quotes"] });
   };
 
-  const pdf = async (q: Quote) => (await buildQuotePdf(q, logo.url)).save(`Quote-${q.quote_number}.pdf`);
+  const quoteViewer = useBlobViewer();
+  const pdf = async (q: Quote) => quoteViewer.show((await buildQuotePdf(q, logo.url)).output("blob"), `Quote-${q.quote_number}.pdf`);
   const email = async (q: Quote) => {
-    await pdf(q);
+    (await buildQuotePdf(q, logo.url)).save(`Quote-${q.quote_number}.pdf`);
     composeEmail(q.customer_email ?? "", `Clearwater Cargo quote ${q.quote_number}: ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state}`,
       `Hello,\n\nThank you for the opportunity. Our ${q.kind} rate for ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state} (${q.equipment}) is ${usd(Number(q.rate))} all-in.\n\nThe quote PDF is attached (downloaded to your computer — please attach it). Valid for 24 hours.\n\nClearwater Cargo LLC · 252-497-7916`);
     if (q.status === "draft") setStatus(q, "sent");
@@ -110,6 +112,7 @@ function QuoteBuilder() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
+      {quoteViewer.viewer}
       <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-display text-lg font-bold uppercase tracking-wider text-gold">New quote</h2>
         <EntityCombobox

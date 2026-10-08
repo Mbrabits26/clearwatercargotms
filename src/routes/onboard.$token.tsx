@@ -55,7 +55,9 @@ function Portal() {
     if (!f.legal_name || !f.email || (!f.mc_number && !f.dot_number)) return toast.error("Legal name, email and MC or DOT number are required.");
     if (!f.auto_expires || !f.cargo_expires) return toast.error("Enter both insurance expiration dates.");
     if (!files.w9 || !files.coi) return toast.error("Attach your W-9 and certificate of insurance.");
-    if (f.factoring_company && !files.noa) return toast.error("Attach your factoring Notice of Assignment.");
+    const factored = f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay";
+    if (factored && (!f.factoring_company || !f.factoring_remit)) return toast.error("Enter your factoring company and remit-to address.");
+    if ((f.factoring_company || factored) && !files.noa) return toast.error("Attach your factoring Notice of Assignment.");
     if (!agree || !f.signer_name) return toast.error("Accept the broker-carrier agreement and type your name to sign.");
     const list = Object.entries(files) as [Kind, File][];
     if (list.some(([, x]) => x.size > 10 * 1024 * 1024)) return toast.error("Each file must be under 10 MB.");
@@ -71,7 +73,8 @@ function Portal() {
           },
           insurance: { auto_liability: Number(f.auto_liability) || 0, auto_expires: f.auto_expires, cargo_insurance: Number(f.cargo_insurance) || 0, cargo_expires: f.cargo_expires },
           factoring_company: f.factoring_company,
-          pay_terms: (f.pay_terms || "net30") as "net30" | "quickpay" | "factored_quickpay",
+          factoring_remit: f.factoring_remit,
+          pay_terms: (f.pay_terms || "net30") as "net30" | "quickpay" | "factoring" | "factored_quickpay",
           agreement_accepted: true,
           signer_name: f.signer_name,
           files: payload,
@@ -142,15 +145,19 @@ function Portal() {
       <section className="rounded border bg-card p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">3. Tax & payment</h2>
         {fileIn("w9", "W-9", true)}
-        {field("factoring_company", "Factoring company (leave blank if we pay you directly)")}
         <label className="block text-sm">How would you like to be paid?
           <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => setF((p) => ({ ...p, pay_terms: e.target.value }))}>
             <option value="net30">Net 30 (no fee)</option>
             <option value="quickpay">Quick Pay – 5% fee, paid in 3 days</option>
+            <option value="factoring">Factoring – Net 30, paid to my factoring company</option>
             <option value="factored_quickpay">Factored Quick Pay – 2.5% fee</option>
           </select>
         </label>
-        {f.factoring_company ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
+        {(f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay") && (<>
+          {field("factoring_company", "Factoring company *")}
+          {field("factoring_remit", "Factoring remit-to address *")}
+        </>)}
+        {f.factoring_company || f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay" ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
       </section>
       <section className="rounded border bg-card p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">4. Broker-carrier agreement</h2>

@@ -177,6 +177,56 @@ export type Database = {
           },
         ]
       }
+      carrier_signatures: {
+        Row: {
+          carrier_id: string
+          created_at: string
+          external_ref: string
+          id: string
+          pay_type: string | null
+          signed_at: string | null
+          signer_ip: string | null
+          signer_name: string | null
+          signer_title: string | null
+          source: string
+          user_agent: string | null
+        }
+        Insert: {
+          carrier_id: string
+          created_at?: string
+          external_ref: string
+          id?: string
+          pay_type?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          source?: string
+          user_agent?: string | null
+        }
+        Update: {
+          carrier_id?: string
+          created_at?: string
+          external_ref?: string
+          id?: string
+          pay_type?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          source?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_signatures_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carriers: {
         Row: {
           address: string | null
@@ -199,6 +249,7 @@ export type Database = {
           equipment: string | null
           factoring_company: string | null
           factoring_remit: string | null
+          factoring_remit_address: string | null
           id: string
           insurance_expires: string | null
           legal_name: string
@@ -234,6 +285,7 @@ export type Database = {
           equipment?: string | null
           factoring_company?: string | null
           factoring_remit?: string | null
+          factoring_remit_address?: string | null
           id?: string
           insurance_expires?: string | null
           legal_name: string
@@ -269,6 +321,7 @@ export type Database = {
           equipment?: string | null
           factoring_company?: string | null
           factoring_remit?: string | null
+          factoring_remit_address?: string | null
           id?: string
           insurance_expires?: string | null
           legal_name?: string
@@ -1026,40 +1079,55 @@ export type Database = {
       qb_sync: {
         Row: {
           amount: number
+          carrier_invoice_amount: number | null
+          carrier_invoice_path: string | null
           created_at: string
           created_by: string | null
           error: string | null
+          gross_amount: number | null
           id: string
+          invoice_number: string | null
           kind: string
           load_id: string
           payee: string | null
           qb_ref: string | null
+          quickpay_fee: number
           sent_at: string | null
           status: string
         }
         Insert: {
           amount?: number
+          carrier_invoice_amount?: number | null
+          carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
           error?: string | null
+          gross_amount?: number | null
           id?: string
+          invoice_number?: string | null
           kind: string
           load_id: string
           payee?: string | null
           qb_ref?: string | null
+          quickpay_fee?: number
           sent_at?: string | null
           status?: string
         }
         Update: {
           amount?: number
+          carrier_invoice_amount?: number | null
+          carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
           error?: string | null
+          gross_amount?: number | null
           id?: string
+          invoice_number?: string | null
           kind?: string
           load_id?: string
           payee?: string | null
           qb_ref?: string | null
+          quickpay_fee?: number
           sent_at?: string | null
           status?: string
         }
