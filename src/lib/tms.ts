@@ -121,10 +121,11 @@ export const PERMISSIONS = [
 export const DEFAULT_PERMS = PERMISSIONS.map((p) => p.key) as string[];
 
 /** Carrier pay options: carrier picks one at onboarding; staff can change it per carrier or per load. */
-export type PayTerms = "net30" | "quickpay" | "factored_quickpay";
+export type PayTerms = "net30" | "quickpay" | "factoring" | "factored_quickpay";
 export const PAY_TERMS: { value: PayTerms; label: string; fee: number; terms: string }[] = [
   { value: "net30", label: "Net 30 (no fee)", fee: 0, terms: "Net 30" },
   { value: "quickpay", label: "Quick Pay – 5% fee, paid in 3 days", fee: 0.05, terms: "Quick Pay: 5% fee, paid in 3 days" },
+  { value: "factoring", label: "Factoring – Net 30, paid to factoring company", fee: 0, terms: "Net 30 · Paid to factoring company" },
   { value: "factored_quickpay", label: "Factored Quick Pay – 2.5% fee", fee: 0.025, terms: "Factored Quick Pay: 2.5% fee" },
 ];
 export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) => p.value === v) ?? PAY_TERMS[0]!;
