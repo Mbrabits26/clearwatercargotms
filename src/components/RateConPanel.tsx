@@ -47,7 +47,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   };
   const preview = () => {
     if (!carrier) return;
-    buildRateConPdf(rcData()).save(`RateCon-${load.load_number}.pdf`);
+    viewer.show(buildRateConPdf(rcData()).output("blob"), `RateCon-${load.load_number}.pdf`);
   };
   const openEdit = () => { if (!carrier) return; setWork(structuredClone(rcData())); setEditOpen(true); };
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
@@ -160,7 +160,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
               <label className="block">Notes / instructions<Textarea rows={4} value={work.notes} onChange={(e) => W("notes", e.target.value)} /></label>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                <Button variant="secondary" onClick={() => buildRateConPdf({ ...work, total: work.lines.reduce((a, l) => a + l.amount, 0) }).save(`RateCon-${load.load_number}.pdf`)}>Preview</Button>
+                <Button variant="secondary" onClick={() => buildRateConPdf({ ...work, total: work.lines.reduce((a, l) => a + l.amount, 0) }).output("blob")) && undefined}>Preview</Button>
                 <Button onClick={() => { setDraft({ ...work, lines: work.lines.filter((l) => l.label.trim()), total: work.lines.filter((l) => l.label.trim()).reduce((a, l) => a + l.amount, 0) }); setEditOpen(false); toast.success("Rate con updated. Send it for signature when ready."); }}>Save rate con</Button>
               </div>
             </div>

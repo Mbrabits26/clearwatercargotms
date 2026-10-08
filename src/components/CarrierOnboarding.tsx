@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, FileText, Link2, Mail, Upload } from "lucide-react";
+import { DocLink, type DocItem } from "@/components/DocPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { DOC_KINDS, expiryState, fmtDate, type Carrier, type ExpiryState } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -73,11 +74,7 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
     qc.invalidateQueries({ queryKey: key });
     update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
   };
-  const open = async (path: string) => {
-    const { data, error } = await supabase.storage.from("carrier-docs").createSignedUrl(path, 300);
-    if (error) return toast.error(error.message);
-    window.open(data.signedUrl, "_blank");
-  };
+  const fileDocs: DocItem[] = docs.filter((d) => d.file_path).map((d) => ({ name: d.file_name ?? d.kind, bucket: "carrier-docs", path: d.file_path }));
 
   return (
     <div className="space-y-3 rounded border bg-card p-4">
@@ -113,7 +110,7 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
             <span className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <b className="text-xs uppercase text-gold">{d.kind === "packet" ? "Full carrier packet" : DOC_KINDS.find((k) => k.value === d.kind)?.label}</b>
-              {d.file_path ? <button className="underline" onClick={() => open(d.file_path)}>{d.file_name}</button> : <span>{d.file_name}</span>}
+              {d.file_path ? <DocLink items={fileDocs} index={fileDocs.findIndex((x) => x.path === d.file_path)}>{d.file_name}</DocLink> : <span>{d.file_name}</span>}
             </span>
             <span className="text-xs text-muted-foreground">{d.source} · {fmtDate(d.uploaded_at)}</span>
           </li>
