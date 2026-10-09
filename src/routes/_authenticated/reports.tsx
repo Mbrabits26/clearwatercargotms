@@ -205,6 +205,7 @@ function Reports() {
           )}
         </Table>
       </div>
+      </>}
     </div>
   );
 }
