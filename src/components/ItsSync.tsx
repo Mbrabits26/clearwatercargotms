@@ -72,11 +72,15 @@ async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
   const idx: Record<string, number> = Object.fromEntries(Object.keys(COLS).map((k) => [k, col(k)]));
   const rows: ItsRow[] = [];
   let group = "";
+  const cell = (r: unknown[], k: string): unknown => {
+    const i = idx[k];
+    return i == null || i < 0 ? "" : r[i];
+  };
   for (let i = hi + 1; i < grid.length; i++) {
     const r = grid[i]!;
     const c0 = String(r[0] ?? "").trim();
     if (!c0) continue;
-    const loadNo = idx.its >= 0 ? String(r[idx.its] ?? "").trim() : "";
+    const loadNo = String(cell(r, "its") ?? "").trim();
     if (!/^\d+$/.test(loadNo)) {
       // group header line (customer / dispatcher / carrier name) — skip city+tel line and totals
       if (!/tel:|total/i.test(c0) && !/^\d/.test(c0) && String(r[1] ?? "").trim() === "") group = c0;
@@ -86,16 +90,16 @@ async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
       its: loadNo,
       customer: type === "customer" ? group : "",
       dispatcher: type === "dispatcher" ? group : "",
-      carrier: (idx.carrier >= 0 ? String(r[idx.carrier] ?? "").trim() : "") || (type === "carrier" ? group : ""),
-      origin: idx.origin >= 0 ? String(r[idx.origin] ?? "").trim() : "",
-      dest: idx.dest >= 0 ? String(r[idx.dest] ?? "").trim() : "",
-      ship: idx.ship >= 0 ? dt(r[idx.ship]) : null,
-      del: idx.del >= 0 ? dt(r[idx.del]) : null,
-      equip: idx.equip >= 0 ? String(r[idx.equip] ?? "").trim() : "",
-      weight: idx.weight >= 0 ? num(r[idx.weight]) : null,
-      revenue: idx.revenue >= 0 ? num(r[idx.revenue]) : null,
-      carrierPay: idx.carrierPay >= 0 ? num(r[idx.carrierPay]) : null,
-      po: idx.po >= 0 ? String(r[idx.po] ?? "").trim() : "",
+      carrier: String(cell(r, "carrier") ?? "").trim() || (type === "carrier" ? group : ""),
+      origin: String(cell(r, "origin") ?? "").trim(),
+      dest: String(cell(r, "dest") ?? "").trim(),
+      ship: dt(cell(r, "ship")),
+      del: dt(cell(r, "del")),
+      equip: String(cell(r, "equip") ?? "").trim(),
+      weight: num(cell(r, "weight")),
+      revenue: num(cell(r, "revenue")),
+      carrierPay: num(cell(r, "carrierPay")),
+      po: String(cell(r, "po") ?? "").trim(),
     });
   }
   return { type, rows };
