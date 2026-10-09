@@ -22,7 +22,6 @@ import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authenticated/quickbooks'
 import { Route as AuthenticatedQuotesRouteImport } from './routes/_authenticated/quotes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as ApiTmpDirImportRouteImport } from './routes/api/tmp-dir-import'
 import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
@@ -94,11 +93,6 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiTmpDirImportRoute = ApiTmpDirImportRouteImport.update({
-  id: '/api/tmp-dir-import',
-  path: '/api/tmp-dir-import',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OfferTokenRoute = OfferTokenRouteImport.update({
   id: '/offer/$token',
   path: '/offer/$token',
@@ -144,7 +138,6 @@ export interface FileRoutesByFullPath {
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/api/tmp-dir-import': typeof ApiTmpDirImportRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
@@ -165,7 +158,6 @@ export interface FileRoutesByTo {
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/api/tmp-dir-import': typeof ApiTmpDirImportRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
@@ -188,7 +180,6 @@ export interface FileRoutesById {
   '/_authenticated/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/_authenticated/quotes': typeof AuthenticatedQuotesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/api/tmp-dir-import': typeof ApiTmpDirImportRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
@@ -211,7 +202,6 @@ export interface FileRouteTypes {
     | '/quickbooks'
     | '/quotes'
     | '/reports'
-    | '/api/tmp-dir-import'
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
@@ -232,7 +222,6 @@ export interface FileRouteTypes {
     | '/quickbooks'
     | '/quotes'
     | '/reports'
-    | '/api/tmp-dir-import'
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
@@ -254,7 +243,6 @@ export interface FileRouteTypes {
     | '/_authenticated/quickbooks'
     | '/_authenticated/quotes'
     | '/_authenticated/reports'
-    | '/api/tmp-dir-import'
     | '/offer/$token'
     | '/onboard/$token'
     | '/sign/$token'
@@ -268,7 +256,6 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  ApiTmpDirImportRoute: typeof ApiTmpDirImportRoute
   OfferTokenRoute: typeof OfferTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
@@ -370,13 +357,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/tmp-dir-import': {
-      id: '/api/tmp-dir-import'
-      path: '/api/tmp-dir-import'
-      fullPath: '/api/tmp-dir-import'
-      preLoaderRoute: typeof ApiTmpDirImportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/offer/$token': {
       id: '/offer/$token'
       path: '/offer/$token'
@@ -454,7 +434,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  ApiTmpDirImportRoute: ApiTmpDirImportRoute,
   OfferTokenRoute: OfferTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
