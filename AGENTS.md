@@ -38,3 +38,4 @@
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through the shared ConfirmDelete (type-to-confirm); the log_deletion trigger snapshots every deleted row into deletion_log (admin-read), and referencing FKs on loads/quotes/leads are ON DELETE SET NULL so history survives.
+- ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
