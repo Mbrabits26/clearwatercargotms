@@ -55,3 +55,24 @@ Every list in the TMS gets a **Delete** option: Directory companies, carriers, c
 - `guard_load_delete` changes: admins may delete accounting-linked loads when a reason is supplied, and brokers stay blocked.
 - New `deletion_log` table (admin read, insert via trigger on each covered table, which stores a row snapshot).
 - One shared `ConfirmDelete` component, plus a dependency count query per entity. Reassign/blank runs in a staff-verified server function, then the delete.
+
+## 4. Features other broker TMS products have that yours doesn't yet
+
+I compared your TMS with Aljex, Tai, McLeod PowerBroker, Turvo, Rose Rocket, Revenova and ITS Dispatch, using their public information. Your core workflow is already covered. These are the standard pieces still missing.
+
+**Build next (no paid outside service needed):**
+1. **Multi-stop loads.** Add more than one pickup or delivery stop, each with its own appointment and reference numbers.
+2. **Automatic status emails to customers.** The customer gets an email when a load is dispatched, picked up, delayed or delivered (with the POD attached). This is set per customer.
+3. **Automatic check-call prompts.** The driver tracking link is re-sent on a schedule, and the load gets flagged when a driver goes quiet.
+4. **Customer portal.** Shippers log in to see their own loads, tracking, PODs and invoices, and to request quotes.
+5. **Carrier bid portal.** Carriers see the open loads you share and submit their own rate, instead of only accepting or rejecting an offer.
+6. **Smart carrier suggestions.** For each load, carriers are ranked by lane history, past rates, on-time record and compliance.
+7. **Carrier scorecards.** On-time pickup and delivery %, loads hauled, fall-offs and claims for each carrier.
+8. **Bill audit before paying carriers.** The TMS checks the rate con, carrier invoice and POD against each other, and the bill can't be released until they match or an admin approves it.
+9. **Customer credit limits.** Set a limit and terms per customer, with a warning or block when open invoices go over the limit.
+10. **Claims tracking.** Log cargo claims with photos and documents, track their status and amounts, and link them to the load and carrier.
+11. **Phone camera BOL/POD capture.** Drivers take a photo from the tracking link, and the TMS reads it and files it on the load.
+
+**Later (need a paid outside account):** live ELD/GPS tracking (MacroPoint, Trucker Tools), EDI with large shippers, direct DAT/Truckstop posting by API, factoring and fuel card payment links, LTL rating, and a native phone app.
+
+I'll add all of these to the roadmap. Once you approve the plan, I'll build the ITS Sync screen and delete-anywhere first, then work through items 1–11 in order.
