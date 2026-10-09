@@ -13,7 +13,7 @@ async function fetchAllPaged(
   let from = 0;
   for (;;) {
     const { data, error } = await supabase
-      .from(table)
+      .from(table as "companies")
       .select("*")
       .order(order, { ascending })
       .range(from, from + PAGE - 1);
