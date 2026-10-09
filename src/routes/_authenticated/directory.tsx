@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery } from "@/lib/queries";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,7 @@ function Directory() {
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead><TableHead /></TableRow></TableHeader>
           <TableBody>
             {rows.map((c) => (
               <TableRow key={c.id}>
@@ -87,9 +88,10 @@ function Directory() {
                 <TableCell>{c.contact_name}</TableCell>
                 <TableCell>{c.phone}</TableCell>
                 <TableCell className="text-muted-foreground">{c.address}, {c.city}, {c.state} {c.zip}</TableCell>
+                <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
-            {!rows.length && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>

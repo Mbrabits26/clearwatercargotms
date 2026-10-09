@@ -1,3 +1,4 @@
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -153,6 +154,7 @@ function LeadDetail({ lead, onChange }: { lead: Lead; onChange: () => void }) {
             {STAGES.map((s) => <option key={s} value={s}>{cap(s)}</option>)}
           </select>
           <Button size="sm" variant="secondary" onClick={quote}>Create quote</Button>
+          <ConfirmDelete table="leads" id={lead.id} label={lead.company_name} what="Lead" size="sm" invalidate={["leads"]} linked="Its contact history is deleted too." />
         </div>
       </div>
       <div className="rounded border p-3">

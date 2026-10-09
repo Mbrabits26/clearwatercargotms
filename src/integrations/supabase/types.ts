@@ -472,6 +472,36 @@ export type Database = {
         }
         Relationships: []
       }
+      deletion_log: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          id: string
+          label: string | null
+          row_id: string | null
+          snapshot: Json
+          table_name: string
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          id?: string
+          label?: string | null
+          row_id?: string | null
+          snapshot: Json
+          table_name: string
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          id?: string
+          label?: string | null
+          row_id?: string | null
+          snapshot?: Json
+          table_name?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           cdl_expires: string | null

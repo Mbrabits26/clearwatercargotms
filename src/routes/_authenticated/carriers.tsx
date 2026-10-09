@@ -1,3 +1,4 @@
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { CarrierLanes } from "@/components/CarrierLanes";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -186,7 +187,8 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
         )}
       </div>
       <div className="rounded border border-destructive/40 p-4">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-destructive">Do Not Use</h3>
+        <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-semibold uppercase tracking-widest text-destructive">Do Not Use</h3>
+          <ConfirmDelete table="carriers" id={c.id} label={c.legal_name} what="Carrier" size="sm" invalidate={["carriers"]} linked="Its documents, signature records and offers are deleted. Loads it hauled keep their history but show no carrier. To block a bad carrier, use Do Not Use instead." /></div>
         {c.status === "dnu" ? (
           <Button variant="outline" onClick={() => update({ status: "pending", dnu_reason: null }, "Removed from DNU — re-vet required")}>Remove from DNU</Button>
         ) : (

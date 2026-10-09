@@ -37,3 +37,4 @@
 - Carrier signature proof (signer, time, IP, device) lives in carrier_signatures; packet-app history was migrated once and that app is retired.
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
+- Deletes go through the shared ConfirmDelete (type-to-confirm); the log_deletion trigger snapshots every deleted row into deletion_log (admin-read), and referencing FKs on loads/quotes/leads are ON DELETE SET NULL so history survives.

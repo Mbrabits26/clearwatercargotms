@@ -62,3 +62,21 @@
 - [x] Billing: invoice numbers + PDF, carrier invoice match, auto Quick Pay fee, fleet billing, AR/AP totals
 - [ ] Import carrier packets from "Live App Polish" — TMS side built (waiting: export added in that app + shared secret)
 - [ ] Connect clearwatercargo.com (user will do once they have the registrar login)
+
+## Round 3 — ITS move, delete anywhere, standard broker features
+- [x] Directory: "Also add as" shipper/consignee/customer; customer/shipper/consignee spreadsheets imported
+- [x] Delete anywhere with type-to-confirm + admin deletion log; accounting-linked deletes admin-only
+- [ ] ITS history import (blocked: user uploads ITS loads/stops/carrier pay exports here in chat)
+- [ ] ITS Sync section in Admin for recurring uploads (built to match the ITS export columns once received)
+- [ ] Clearwater TMS API keys + inbound/outbound endpoints
+- [ ] Multi-stop loads
+- [ ] Automatic customer status emails
+- [ ] Automatic check-call prompts
+- [ ] Customer portal
+- [ ] Carrier bid portal
+- [ ] Smart carrier suggestions
+- [ ] Carrier scorecards
+- [ ] Carrier bill audit (rate con / invoice / POD match)
+- [ ] Customer credit limits
+- [ ] Claims tracking
+- [ ] Phone camera BOL/POD capture with AI filing
