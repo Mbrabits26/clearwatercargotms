@@ -586,6 +586,39 @@ export type Database = {
         }
         Relationships: []
       }
+      its_sync_runs: {
+        Row: {
+          carriers_added: number
+          customers_added: number
+          files: string[]
+          id: string
+          loads_added: number
+          loads_skipped: number
+          ran_at: string
+          ran_by: string | null
+        }
+        Insert: {
+          carriers_added?: number
+          customers_added?: number
+          files?: string[]
+          id?: string
+          loads_added?: number
+          loads_skipped?: number
+          ran_at?: string
+          ran_by?: string | null
+        }
+        Update: {
+          carriers_added?: number
+          customers_added?: number
+          files?: string[]
+          id?: string
+          loads_added?: number
+          loads_skipped?: number
+          ran_at?: string
+          ran_by?: string | null
+        }
+        Relationships: []
+      }
       lead_activities: {
         Row: {
           author_id: string | null
@@ -1396,6 +1429,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_its_loads: { Args: { rows: Json }; Returns: Json }
       is_approved: { Args: { _uid: string }; Returns: boolean }
       is_staff: { Args: { _uid: string }; Returns: boolean }
     }

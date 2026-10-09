@@ -8,6 +8,7 @@ import { loadsQuery, profilesQuery } from "@/lib/queries";
 import { loadTotals, usd } from "@/lib/tms";
 import { Input } from "@/components/ui/input";
 import { UserManagement } from "@/components/UserManagement";
+import { ItsSync } from "@/components/ItsSync";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -98,6 +99,7 @@ function Admin() {
         </Table>
       </div>
       <UserManagement profiles={profiles} roles={roles} selfId={user.id} />
+      <ItsSync profiles={profiles} />
       <DeletionLog names={Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""]))} />
     </div>
   );

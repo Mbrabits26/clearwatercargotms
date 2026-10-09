@@ -1,11 +1,11 @@
 import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
   PAY_TERMS, effectivePayTerms,
   STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
   validateSearch: (s: Record<string, unknown>): { load?: string } => (typeof s.load === "string" ? { load: s.load } : {}),
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(loadsQuery),
+      context.queryClient.ensureQueryData(recentLoadsQuery),
       context.queryClient.ensureQueryData(carriersQuery),
       context.queryClient.ensureQueryData(companiesQuery),
       context.queryClient.ensureQueryData(profilesQuery),
@@ -102,7 +102,10 @@ function exportCsv(loads: Load[], format: "dat" | "truckstop") {
 const datEquip = (e: string) => ({ "Dry Van": "V", Reefer: "R", Flatbed: "F", "Step Deck": "SD", "Power Only": "PO", Conestoga: "CN", Hotshot: "HS", "Box Truck": "SB" })[e] ?? "V";
 
 function Dispatch() {
-  const { data: loads } = useSuspenseQuery(loadsQuery);
+  const { data: recentLoads } = useSuspenseQuery(recentLoadsQuery);
+  const [showAll, setShowAll] = useState(false);
+  const { data: allLoads } = useQuery({ ...loadsQuery, enabled: showAll });
+  const loads = showAll && allLoads ? allLoads : recentLoads;
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
@@ -182,6 +185,10 @@ function Dispatch() {
                 </SelectContent>
               </Select>
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="accent-gold" />
+              Show loads older than 30 days
+            </label>
           </div>
           <ul className="min-h-0 flex-1 overflow-auto">
             {filtered.map((l) => {
