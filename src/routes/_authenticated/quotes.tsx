@@ -1,3 +1,4 @@
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useBlobViewer } from "@/components/DocPreview";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -163,6 +164,7 @@ function QuoteBuilder() {
                 </select>
                 <Button size="sm" variant="ghost" onClick={() => pdf(q)} aria-label="PDF"><FileDown className="h-4 w-4" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => email(q)} aria-label="Email"><Mail className="h-4 w-4" /></Button>
+                <ConfirmDelete table="quotes" id={q.id} label={q.quote_number} what="Quote" invalidate={["quotes"]} />
               </div>
             );
           })}
