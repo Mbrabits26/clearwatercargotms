@@ -144,7 +144,13 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
       setBusy(false);
       toast.success(`Added ${added} · merged details into ${merged} existing · ${same} unchanged`);
     } else {
-      const existing = (await supabase.from("companies").select("name").eq("kind", kind)).data?.map((x) => x.name.toLowerCase()) ?? [];
+      const existing: string[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from("companies").select("name").eq("kind", kind).range(from, from + 999);
+        if (!data || data.length === 0) break;
+        existing.push(...data.map((x: { name: string }) => x.name.toLowerCase()));
+        if (data.length < 1000) break;
+      }
       const seen = new Set(existing);
       const fresh = out.filter((o) => { const k = String(o.name).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
       let added = 0;
