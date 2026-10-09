@@ -34,6 +34,20 @@ export const loadsQuery = queryOptions({
     return data;
   },
 });
+// Dispatch board default: only the last 30 days (older loads stay in reports/accounting).
+export const recentLoadsQuery = queryOptions({
+  queryKey: ["loads", "recent"],
+  queryFn: async () => {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("loads")
+      .select("*")
+      .or(`pickup_at.gte.${cutoff},pickup_at.is.null`)
+      .order("pickup_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+});
 export const carriersQuery = queryOptions({
   queryKey: ["carriers"],
   queryFn: async () => {
