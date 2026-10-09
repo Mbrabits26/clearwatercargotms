@@ -39,3 +39,19 @@ If Truckstop grants API access, the TMS would pull from ITS automatically on a s
 - Sync parsing happens in the browser (spreadsheet to rows). The write happens in an admin-verified server function that runs the match/merge with the admin client. Historical loads are inserted with an admin override reason "Imported from ITS" so `enforce_carrier_compliance` accepts past bookings. DNU and unauthorized carriers are still never bypassed.
 - Public API: server routes under `/api/public/v1/*` (loads, carriers, companies). Every request must carry a valid hashed API key, input is validated with Zod, and responses never include broker pay or commissions.
 - Outgoing webhooks: a trigger on load status change queues a call, which is HMAC-signed and sent by a server route.
+
+## 3. Delete anything, with a confirm step
+
+Every list in the TMS gets a **Delete** option: Directory companies, carriers, carrier documents, fleet trucks/trailers, drivers, leads and lead activities, quotes, loads, load notes, load documents, offers and tracking links.
+
+- **Confirm step:** a dialog shows what will be removed and what's attached to it (for example "3 loads use this customer"). You type the name or number to confirm. Nothing is deleted with a single click.
+- **Linked records are protected:** deleting a customer, carrier, truck or driver that's used on loads asks you to pick a replacement or leave that field blank on those loads. The loads themselves are never removed silently.
+- **Who can delete:** all staff (admins and brokers) can delete regular entries. Brokers still only see, and so only delete, loads, leads and quotes assigned to them.
+- **Accounting is admin-only:** invoices, carrier bills, the QuickBooks queue, and loads that were invoiced, paid or sent to QuickBooks can only be deleted by an admin. Admins confirm with a reason, and the reason is logged.
+- **Deletion log:** every delete records who, when, what, and the reason, and admins can see it under Admin → Deletion log.
+
+### Technical details (delete)
+- Today only admins can delete companies, carriers, carrier documents, drivers and fleet units. Those policies widen to staff (`is_staff`), and `qb_sync` stays admin-only.
+- `guard_load_delete` changes: admins may delete accounting-linked loads when a reason is supplied, and brokers stay blocked.
+- New `deletion_log` table (admin read, insert via trigger on each covered table, which stores a row snapshot).
+- One shared `ConfirmDelete` component, plus a dependency count query per entity. Reassign/blank runs in a staff-verified server function, then the delete.
