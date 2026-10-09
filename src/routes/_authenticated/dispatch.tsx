@@ -1,11 +1,11 @@
 import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
   PAY_TERMS, effectivePayTerms,
   STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
   validateSearch: (s: Record<string, unknown>): { load?: string } => (typeof s.load === "string" ? { load: s.load } : {}),
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(loadsQuery),
+      context.queryClient.ensureQueryData(recentLoadsQuery),
       context.queryClient.ensureQueryData(carriersQuery),
       context.queryClient.ensureQueryData(companiesQuery),
       context.queryClient.ensureQueryData(profilesQuery),
