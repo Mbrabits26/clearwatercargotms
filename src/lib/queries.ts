@@ -8,7 +8,7 @@ async function fetchAllPaged(
   ascending: boolean,
 ): Promise<Record<string, any>[]> {
   const PAGE = 1000;
-  const out: Record<string, unknown>[] = [];
+  const out: Record<string, any>[] = [];
   let from = 0;
   for (;;) {
     const { data, error } = await supabase
