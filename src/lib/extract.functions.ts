@@ -28,7 +28,7 @@ export const extractLoadFromDoc = createServerFn({ method: "POST" })
     return { loads: await extractLoads(parts, key) };
   });
 
-const PACKET_FIELDS = {
+export const PACKET_FIELDS = {
   legal_name: { type: ["string", "null"] }, dba: { type: ["string", "null"] },
   mc_number: { type: ["string", "null"] }, dot_number: { type: ["string", "null"] },
   address: { type: ["string", "null"] }, city: { type: ["string", "null"] }, state: { type: ["string", "null"] }, zip: { type: ["string", "null"] },
@@ -45,7 +45,7 @@ export type PacketData = {
   [K in keyof typeof PACKET_FIELDS]: (typeof PACKET_FIELDS)[K]["type"] extends "boolean" ? boolean
     : (typeof PACKET_FIELDS)[K]["type"][0] extends "number" ? number | null : string | null;
 };
-const PACKET_PROMPT = `You read motor-carrier onboarding packets (W-9, certificate of insurance, broker-carrier agreement, factoring notice of assignment, voided check, carrier profile) for Clearwater Cargo, a freight broker.
+export const PACKET_PROMPT = `You read motor-carrier onboarding packets (W-9, certificate of insurance, broker-carrier agreement, factoring notice of assignment, voided check, carrier profile) for Clearwater Cargo, a freight broker.
 Return null for anything not present — never guess.
 - mc_number / dot_number: digits only (strip "MC-", "USDOT").
 - States 2-letter. Dates "YYYY-MM-DD".

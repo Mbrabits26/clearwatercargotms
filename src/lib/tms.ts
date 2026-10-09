@@ -132,3 +132,32 @@ export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) =
 /** Load override wins, else the carrier's chosen option. */
 export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?: { pay_terms?: string | null } | null) =>
   payTermsOf(load.pay_terms ?? carrier?.pay_terms);
+
+export type CarrierDocRow = { carrier_id: string; kind: string };
+/** Every problem on a carrier, used by the Check carriers report. */
+export function carrierIssues(c: Carrier, docs: CarrierDocRow[]) {
+  const has = (k: string) => docs.some((d) => d.carrier_id === c.id && d.kind === k);
+  const out: { text: string; level: "block" | "warn" }[] = [];
+  const add = (text: string, level: "block" | "warn" = "warn") => out.push({ text, level });
+  if (c.status === "dnu") add(`Do Not Use: ${c.dnu_reason ?? "no reason"}`, "block");
+  if (c.authority_status !== "Authorized") add(`Authority ${c.authority_status}`, "block");
+  if (c.conditional_until && c.conditional_until < new Date().toISOString().slice(0, 10) && c.status === "pending") add("Conditional approval expired");
+  const ins = expiryState(c.insurance_expires);
+  if (ins === "missing") add("Auto liability expiry missing", "block"); else if (ins === "expired") add("Auto liability expired", "block"); else if (ins === "soon") add("Auto liability expiring ≤30 days");
+  if (!c.auto_liability) add("Auto liability limit missing");
+  if (!c.cargo_insurance) add("Cargo limit missing");
+  if (c.cargo_expires && expiryState(c.cargo_expires) === "expired") add("Cargo insurance expired");
+  for (const [k, flag, label] of [["w9", c.w9_received, "W-9"], ["coi", c.coi_received, "COI"], ["agreement", c.agreement_signed, "Agreement"]] as const) {
+    if (!flag && !has(k)) add(`${label} missing`, "block");
+    else if (flag && !has(k) && !(k === "w9" || k === "agreement")) add(`${label} checked but no file`);
+    else if (!flag && has(k)) add(`${label} file uploaded but not checked`);
+  }
+  const factored = !!c.factoring_company || ["factoring", "factored_quickpay"].includes(c.pay_terms);
+  if (factored && !c.noa_received && !has("noa")) add("Factoring NOA missing");
+  if (has("noa") && !c.factoring_company) add("NOA on file but factoring company blank");
+  if (!c.mc_number) add("MC # missing");
+  if (!c.dot_number) add("DOT # missing");
+  if (!c.email) add("Email missing");
+  if (!c.phone) add("Phone missing");
+  return out;
+}
