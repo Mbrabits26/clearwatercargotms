@@ -118,7 +118,13 @@ function BulkImportDialog({ open, onOpenChange, target, onDone }: { open: boolea
     if (!out.length) return toast.error("No rows with a name to import.");
     setBusy(true);
     if (target === "carrier") {
-      const { data: ex } = await supabase.from("carriers").select("*").limit(10000);
+      const ex: Record<string, unknown>[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from("carriers").select("*").range(from, from + 999);
+        if (!data || data.length === 0) break;
+        ex.push(...(data as Record<string, unknown>[]));
+        if (data.length < 1000) break;
+      }
       const list = [...(ex ?? [])] as (Record<string, unknown> & { id: string; legal_name: string; mc_number: string | null; dot_number: string | null })[];
       let added = 0, merged = 0, same = 0;
       const fresh: Record<string, string | null>[] = [];
