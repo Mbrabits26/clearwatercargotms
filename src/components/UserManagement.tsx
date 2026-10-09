@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { KeyRound, Trash2, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Trash2, UserPlus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval } from "@/lib/users.functions";
+import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval, setUserAdmin } from "@/lib/users.functions";
 import { DEFAULT_PERMS, PERMISSIONS, type Profile } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,12 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
   const del = useServerFn(deleteUser);
   const reset = useServerFn(resetUserPassword);
   const revoke = useServerFn(revokeApproval);
+  const setAdmin = useServerFn(setUserAdmin);
+  const [pwFor, setPwFor] = useState<Profile | null>(null);
+  const flipAdmin = async (p: Profile, on: boolean) => {
+    if (!confirm(on ? `Give ${p.email} full admin access?` : `Turn off admin access for ${p.email}? They become a Broker.`)) return;
+    try { await setAdmin({ data: { userId: p.id, admin: on } }); toast.success(on ? "Admin access on" : "Admin access off"); qc.invalidateQueries(); } catch (e) { toast.error((e as Error).message); }
+  };
   const { data: perms = [] } = useQuery({ queryKey: ["user_permissions"], queryFn: async () => (await supabase.from("user_permissions").select("*")).data ?? [] });
   const { data: approvals = [] } = useQuery({ queryKey: ["approved_users"], queryFn: async () => (await supabase.from("approved_users").select("*").order("created_at")).data ?? [] });
   const permsOf = (id: string) => perms.find((p) => p.user_id === id)?.perms ?? DEFAULT_PERMS;
@@ -30,11 +37,6 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
     if (!confirm(`Delete ${p.email}? They lose access immediately. Their loads become unassigned.`)) return;
     try { await del({ data: { userId: p.id } }); toast.success("User deleted"); qc.invalidateQueries(); } catch (e) { toast.error((e as Error).message); }
   };
-  const resetPw = async (p: Profile) => {
-    const pw = prompt(`New temporary password for ${p.email} (8+ characters):`);
-    if (!pw) return;
-    try { await reset({ data: { userId: p.id, password: pw } }); toast.success("Password changed — share it with them securely"); } catch (e) { toast.error((e as Error).message); }
-  };
   const revokeAccess = async (a: (typeof approvals)[number]) => {
     if (!confirm(`Revoke access for ${a.email}?`)) return;
     try { await revoke({ data: { id: a.id, userId: a.user_id } }); toast.success("Access revoked"); qc.invalidateQueries(); } catch (e) { toast.error((e as Error).message); }
@@ -42,6 +44,7 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
 
   return (
     <div className="rounded border bg-card p-4">
+      <SetPassword user={pwFor} onClose={() => setPwFor(null)} run={(pw) => reset({ data: { userId: pwFor!.id, password: pw } })} />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-display text-xl font-bold uppercase tracking-wider text-gold">Users & permissions</h2>
         <div className="flex flex-wrap gap-2"><ApproveUser onDone={() => qc.invalidateQueries()} /><AddUser onDone={() => qc.invalidateQueries()} /></div>
@@ -59,14 +62,14 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
               return (
                 <tr key={p.id} className="border-t">
                   <td className="py-1"><div>{p.full_name}</div><div className="text-xs text-muted-foreground">{p.email}</div></td>
-                  <td>{admin ? "Admin" : "Broker"}</td>
+                  <td><label className="flex items-center gap-2 text-xs"><Switch checked={admin} disabled={p.id === selfId} onCheckedChange={(v) => flipAdmin(p, v)} aria-label="Admin access" />{admin ? "Admin" : "Broker"}</label></td>
                   {PERMISSIONS.map((k) => (
                     <td key={k.key} className="text-center">
                       <input type="checkbox" disabled={admin} checked={admin || mine.includes(k.key)} onChange={() => toggle(p.id, k.key)} />
                     </td>
                   ))}
                   <td className="whitespace-nowrap text-right">
-                    <Button size="sm" variant="ghost" onClick={() => resetPw(p)} aria-label="Reset password"><KeyRound className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPwFor(p)} aria-label="Set password"><KeyRound className="h-4 w-4" /></Button>
                     {p.id !== selfId && <Button size="sm" variant="ghost" onClick={() => remove(p)} aria-label="Delete user"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                   </td>
                 </tr>
@@ -148,6 +151,30 @@ function AddUser({ onDone }: { onDone: () => void }) {
           )}
           <Button className="w-full" disabled={busy} onClick={save}>{busy ? "Adding…" : "Add user"}</Button>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SetPassword({ user, onClose, run }: { user: Profile | null; onClose: () => void; run: (pw: string) => Promise<unknown> }) {
+  const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [show, setShow] = useState(false); const [busy, setBusy] = useState(false);
+  const close = () => { setPw(""); setPw2(""); onClose(); };
+  const save = async () => {
+    if (pw.length < 8) return toast.error("Use at least 8 characters.");
+    if (pw !== pw2) return toast.error("The two passwords don't match.");
+    setBusy(true);
+    try { await run(pw); toast.success(`Password set and tested — ${user?.email} can sign in now`); close(); }
+    catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog open={!!user} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Set password</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{user?.email} — works alongside Google sign-in.</p>
+        <div className="relative"><Input type={show ? "text" : "password"} placeholder="New password (8+ characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <button type="button" className="absolute right-2 top-2.5 text-muted-foreground" onClick={() => setShow(!show)} aria-label="Show password">{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+        <Input type={show ? "text" : "password"} placeholder="Type it again" value={pw2} onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
+        <Button disabled={busy} onClick={save}>{busy ? "Saving and testing…" : "Save password"}</Button>
       </DialogContent>
     </Dialog>
   );

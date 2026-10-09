@@ -1,6 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { setUserAdmin } from "@/lib/users.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { loadsQuery, profilesQuery } from "@/lib/queries";
 import { loadTotals, usd } from "@/lib/tms";
@@ -37,12 +39,9 @@ function Admin() {
   const ar = loads.filter((l) => l.status === "invoiced").reduce((s, l) => s + loadTotals(l).revenue, 0);
   const ap = loads.filter((l) => ["delivered", "invoiced"].includes(l.status) && l.pod_received).reduce((s, l) => s + loadTotals(l).cost, 0);
 
+  const setAdmin = useServerFn(setUserAdmin);
   const setRole = async (userId: string, role: "admin" | "broker") => {
-    if (userId === user.id && role !== "admin") return toast.error("You can't remove your own admin role.");
-    await supabase.from("user_roles").delete().eq("user_id", userId);
-    const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
-    await supabase.from("approved_users").update({ role }).eq("user_id", userId);
-    if (error) toast.error(error.message); else toast.success("Role updated");
+    try { await setAdmin({ data: { userId, admin: role === "admin" } }); toast.success("Role updated"); } catch (e) { toast.error((e as Error).message); }
     qc.invalidateQueries({ queryKey: ["roles"] });
   };
   const setComm = async (userId: string, pct: number) => {
