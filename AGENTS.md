@@ -35,3 +35,5 @@
 - Documents preview in-page through `DocPreview` (signed URLs / blob URLs); never auto-download generated PDFs.
 - AR invoice numbers come from the `assign_invoice_number` trigger on qb_sync (kinds invoice, fleet_invoice); loads with a truck_id bill as fleet_invoice. Carrier bills store gross, quickpay_fee and the net amount.
 - Carrier signature proof (signer, time, IP, device) lives in carrier_signatures; packet-app history was migrated once and that app is retired.
+- Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
+- Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
