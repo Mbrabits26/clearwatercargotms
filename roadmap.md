@@ -81,3 +81,5 @@
 - [ ] Claims tracking
 - [ ] Phone camera BOL/POD capture with AI filing
 - [x] Full TMS check: every tab/function works (fleet sample trucks can't be deleted)
+- [x] Accounting + Admin checked with an admin session; fixed 1,000-row fetch cap hiding companies past "B" in Accounting (and possible bulk-import duplicates)
+- [x] michael@clearwatercargo.com promoted to Admin
