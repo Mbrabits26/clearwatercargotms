@@ -6,7 +6,7 @@ async function fetchAllPaged(
   table: string,
   order: string,
   ascending: boolean,
-): Promise<Record<string, unknown>[]> {
+): Promise<Record<string, any>[]> {
   const PAGE = 1000;
   const out: Record<string, unknown>[] = [];
   let from = 0;
