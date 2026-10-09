@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Company } from "@/lib/tms";
 
 // The database caps a single request at 1000 rows; page until exhausted.
 async function fetchAllPaged(
