@@ -1,9 +1,9 @@
-import { createServerFn } from "@tanstack/react-start";
-export const runDirImport = createServerFn({ method: "POST" })
-  .inputValidator((d: { t: string }) => d)
-  .handler(async ({ data }) => {
-    if (data.t !== "ed5ceb4b-6be2-4be3-a5d4-45ae8d13cdda") throw new Error("no");
-    const rows = (await import("./tmpDirImport.json")).default as Record<string, string | null>[];
+import { createFileRoute } from "@tanstack/react-router";
+export const Route = createFileRoute("/api/tmp-dir-import")({
+  server: { handlers: { POST: async ({ request }) => {
+    const t = new URL(request.url).searchParams.get("t");
+    if (t !== "ed5ceb4b-6be2-4be3-a5d4-45ae8d13cdda") throw new Error("no");
+    const rows = (await import("@/lib/tmpDirImport.json")).default as Record<string, string | null>[];
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const n = (s?: string | null) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const all: any[] = [];
@@ -24,5 +24,6 @@ export const runDirImport = createServerFn({ method: "POST" })
       else stats[r.kind + " unchanged"] = (stats[r.kind + " unchanged"] ?? 0) + 1;
     }
     for (let i = 0; i < ins.length; i += 500) { const { error } = await supabaseAdmin.from("companies").insert(ins.slice(i, i + 500) as any); if (error) throw error; }
-    return stats;
-  });
+    return Response.json(stats);
+  } } },
+});
