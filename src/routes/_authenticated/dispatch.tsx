@@ -185,6 +185,10 @@ function Dispatch() {
                 </SelectContent>
               </Select>
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="accent-gold" />
+              Show loads older than 30 days
+            </label>
           </div>
           <ul className="min-h-0 flex-1 overflow-auto">
             {filtered.map((l) => {
