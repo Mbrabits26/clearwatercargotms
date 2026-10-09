@@ -169,6 +169,13 @@
       "when": 1791486330259,
       "tag": "0023_carrier_signatures",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791513587427,
+      "tag": "0024_delete_anywhere",
+      "breakpoints": true
     }
   ]
 }
