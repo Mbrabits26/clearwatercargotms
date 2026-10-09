@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
+import { CarrierCheck } from "@/components/CarrierCheck";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ function Reports() {
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
+  const [carrierView, setCarrierView] = useState(false);
   const [preset, setPreset] = useState("ar");
   const [cfg, setCfg] = useState<Cfg>(PRESETS.ar!.cfg);
   const [from, setFrom] = useState("");
@@ -154,9 +156,11 @@ function Reports() {
       </div>
       <div className="flex flex-wrap gap-2 print:hidden">
         {Object.entries(PRESETS).map(([k, p]) => (
-          <button key={k} onClick={() => choose(k)} className={cn("rounded-md border px-3 py-1.5 text-sm", preset === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>{p.label}</button>
+          <button key={k} onClick={() => { setCarrierView(false); choose(k); }} className={cn("rounded-md border px-3 py-1.5 text-sm", !carrierView && preset === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>{p.label}</button>
         ))}
+        <button onClick={() => setCarrierView(true)} className={cn("rounded-md border px-3 py-1.5 text-sm", carrierView ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>Carrier check</button>
       </div>
+      {carrierView ? <div className="rounded-md border bg-card p-4"><CarrierCheck carriers={carriers} /></div> : <>
       <div className="space-y-3 rounded-md border bg-card p-4 print:hidden">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <label className="text-xs text-muted-foreground">Pickup from<DatePicker className="mt-1" value={from} onChange={setFrom} /></label>
