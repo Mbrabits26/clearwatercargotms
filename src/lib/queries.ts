@@ -44,7 +44,7 @@ export const carriersQuery = queryOptions({
 });
 export const companiesQuery = queryOptions({
   queryKey: ["companies"],
-  queryFn: async () => fetchAllPaged("companies", "name", true),
+  queryFn: async () => (await fetchAllPaged("companies", "name", true)) as unknown as Company[],
 });
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],
