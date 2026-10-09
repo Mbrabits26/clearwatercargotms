@@ -25,3 +25,11 @@ When you upload the three Excel files (customers, shippers, consignees):
 - `src/routes/_authenticated/directory.tsx`: add `alsoAs` state (checkboxes for the other kinds); `save()` inserts one `companies` row per selected kind in a single batch; duplicates guarded by normalized-name check against existing rows.
 - Import: files parsed in the browser, matched against existing companies by normalized name, fill-blanks only (same merge rule as carrier import), inserted per list kind.
 - No database changes needed — `companies.kind` already supports customer / shipper / consignee.
+
+## Spreadsheet contents (read)
+
+- Customers.xlsx: 139 companies (name, address, billing, contact, phone, email, payment terms, notes).
+- Shipper.xlsx: 411 shippers (address, contact, phone, email, appointments, shipping hours, notes).
+- Consignee.xlsx: 1,602 consignees (same, with receiving hours).
+
+Import mapping: name, contact, phone (+ext), email, street address, city, state, ZIP go into the Directory fields; shipping/receiving hours, appointment info and notes go into each company's notes. Matching is by name + city so two different locations of the same company stay separate. This is a one-time import done directly, followed by a counts summary.
