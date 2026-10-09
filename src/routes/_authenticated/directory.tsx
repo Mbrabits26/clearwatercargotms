@@ -45,13 +45,20 @@ function Directory() {
   const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(q.toLowerCase()));
   const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
 
+  const [also, setAlso] = useState<string[]>([]);
   const save = async () => {
     if (!f.name) return toast.error("Business name is required");
-    const { error } = await supabase.from("companies").insert({ kind, name: f.name, contact_name: f.contact_name, phone: f.phone, email: f.email, address: f.address, city: f.city, state: f.state?.toUpperCase(), zip: f.zip });
+    const kinds = [kind, ...also.filter((k) => k !== kind)];
+    const norm = (s?: string | null) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const todo = kinds.filter((k) => !data.some((c) => c.kind === k && norm(c.name) === norm(f.name) && norm(c.city) === norm(f.city)));
+    if (!todo.length) return toast.error("Already in the Directory");
+    const base = { name: f.name, contact_name: f.contact_name, phone: f.phone, email: f.email, address: f.address, city: f.city, state: f.state?.toUpperCase(), zip: f.zip };
+    const { error } = await supabase.from("companies").insert(todo.map((k) => ({ ...base, kind: k })));
     if (error) return toast.error(error.message);
-    toast.success(`${label} added`);
+    toast.success(`Added as ${todo.join(" and ")}`);
     qc.invalidateQueries({ queryKey: ["companies"] });
     setF({});
+    setAlso([]);
     setOpen(false);
   };
 
@@ -93,6 +100,15 @@ function Directory() {
             {FIELDS.map(([k, l]) => (
               <label key={k} className={`text-xs text-muted-foreground ${k === "name" || k === "address" ? "sm:col-span-2" : ""}`}>{l}
                 <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span className="text-muted-foreground">Also add as:</span>
+            {KINDS.filter((k) => k.v !== kind).map((k) => (
+              <label key={k.v} className="flex items-center gap-2">
+                <input type="checkbox" checked={also.includes(k.v)} onChange={(e) => setAlso((p) => e.target.checked ? [...p, k.v] : p.filter((x) => x !== k.v))} />
+                {k.l.slice(0, -1)}
               </label>
             ))}
           </div>
