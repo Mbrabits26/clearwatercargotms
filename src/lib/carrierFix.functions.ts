@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { mergeFill } from "./carrierMerge";
 import { PACKET_FIELDS, PACKET_PROMPT, type PacketData } from "./extract.functions";
 
+type Patch = Record<string, string | number | boolean | null>;
 const digits = (s?: string | null) => (s ?? "").replace(/\D/g, "") || null;
 
 /** Reads a carrier's stored documents with AI + free FMCSA data, and fills only blank fields. */
@@ -22,7 +23,7 @@ export const fixCarrierWithAi = createServerFn({ method: "POST" })
         const { error: e } = await context.supabase.from("carriers").update(allowed as never).eq("id", c.id);
         if (e) throw new Error(e.message);
       }
-      return { patch: allowed, notes: [] as string[] };
+      return { patch: allowed as Patch, notes: [] as string[] };
     }
     const notes: string[] = [];
     const incoming: Record<string, unknown> = {};
@@ -71,5 +72,5 @@ export const fixCarrierWithAi = createServerFn({ method: "POST" })
     const suggestFactoring = incoming.pay_terms_suggest; delete incoming.pay_terms_suggest;
     const patch = mergeFill(c as Record<string, unknown>, incoming);
     if (suggestFactoring && patch.factoring_company) { patch.pay_terms = "factoring"; patch.noa_received = true; }
-    return { patch, notes };
+    return { patch: patch as Patch, notes };
   });

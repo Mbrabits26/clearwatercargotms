@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type Fix = { patch: Record<string, unknown>; notes: string[] };
+type Fix = { patch: Record<string, string | number | boolean | null>; notes: string[] };
 const FILTERS = [["all", "All with problems"], ["block", "Blocks booking"], ["docs", "Missing documents"], ["ins", "Insurance"], ["info", "Missing info"], ["inactive", "Inactive / DNU"]] as const;
 const match: Record<string, (t: string) => boolean> = {
   all: () => true, block: () => true,
@@ -28,7 +28,7 @@ export function CarrierCheck({ carriers, onDone }: { carriers: Carrier[]; onDone
   const [fixes, setFixes] = useState<Record<string, Fix>>({});
   const { data: docs = [] } = useQuery({ queryKey: ["carrier_documents_all"], queryFn: async () => (await supabase.from("carrier_documents").select("carrier_id, kind")).data ?? [] });
   const rows = useMemo(() => carriers.map((c) => ({ c, issues: carrierIssues(c, docs) })).filter((r) => r.issues.length)
-    .filter((r) => flt === "block" ? r.issues.some((i) => i.level === "block") : r.issues.some((i) => match[flt](i.text))), [carriers, docs, flt]);
+    .filter((r) => flt === "block" ? r.issues.some((i) => i.level === "block") : r.issues.some((i) => (match[flt] ?? match.all)!(i.text))), [carriers, docs, flt]);
 
   const mark = (id: string, on: boolean) => setBusy((s) => { const n = new Set(s); on ? n.add(id) : n.delete(id); return n; });
   const check = async (c: Carrier) => {
