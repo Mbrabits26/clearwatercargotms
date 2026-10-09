@@ -102,7 +102,10 @@ function exportCsv(loads: Load[], format: "dat" | "truckstop") {
 const datEquip = (e: string) => ({ "Dry Van": "V", Reefer: "R", Flatbed: "F", "Step Deck": "SD", "Power Only": "PO", Conestoga: "CN", Hotshot: "HS", "Box Truck": "SB" })[e] ?? "V";
 
 function Dispatch() {
-  const { data: loads } = useSuspenseQuery(loadsQuery);
+  const { data: recentLoads } = useSuspenseQuery(recentLoadsQuery);
+  const [showAll, setShowAll] = useState(false);
+  const { data: allLoads } = useQuery({ ...loadsQuery, enabled: showAll });
+  const loads = showAll && allLoads ? allLoads : recentLoads;
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
