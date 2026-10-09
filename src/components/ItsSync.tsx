@@ -69,7 +69,7 @@ async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
   if (hi < 0) return { type, rows: [] };
   const headers = (grid[hi] ?? []).map((h) => String(h).trim().toLowerCase());
   const col = (key: string) => headers.findIndex((h) => COLS[key]!.includes(h));
-  const idx = Object.fromEntries(Object.keys(COLS).map((k) => [k, col(k)]));
+  const idx: Record<string, number> = Object.fromEntries(Object.keys(COLS).map((k) => [k, col(k)]));
   const rows: ItsRow[] = [];
   let group = "";
   for (let i = hi + 1; i < grid.length; i++) {

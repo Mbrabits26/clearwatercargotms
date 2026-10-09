@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Company } from "@/lib/tms";
 
 // The database caps a single request at 1000 rows; page until exhausted.
-async function fetchAllPaged(
+export async function fetchAllPaged(
   table: string,
   order: string,
   ascending: boolean,
