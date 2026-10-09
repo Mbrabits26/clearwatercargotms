@@ -1,5 +1,30 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Company } from "@/lib/tms";
+
+// The database caps a single request at 1000 rows; page until exhausted.
+async function fetchAllPaged(
+  table: string,
+  order: string,
+  ascending: boolean,
+): Promise<Record<string, any>[]> {
+  const PAGE = 1000;
+  const out: Record<string, any>[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(table as "companies")
+      .select("*")
+      .order(order, { ascending })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    out.push(...(data as Record<string, any>[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
 
 export const loadsQuery = queryOptions({
   queryKey: ["loads"],
@@ -19,11 +44,7 @@ export const carriersQuery = queryOptions({
 });
 export const companiesQuery = queryOptions({
   queryKey: ["companies"],
-  queryFn: async () => {
-    const { data, error } = await supabase.from("companies").select("*").order("name");
-    if (error) throw error;
-    return data;
-  },
+  queryFn: async () => (await fetchAllPaged("companies", "name", true)) as unknown as Company[],
 });
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],

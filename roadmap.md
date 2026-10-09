@@ -66,7 +66,7 @@
 ## Round 3 — ITS move, delete anywhere, standard broker features
 - [x] Directory: "Also add as" shipper/consignee/customer; customer/shipper/consignee spreadsheets imported
 - [x] Delete anywhere with type-to-confirm + admin deletion log; accounting-linked deletes admin-only
-- [ ] ITS history import (blocked: user uploads ITS loads/stops/carrier pay exports here in chat)
+- [x] ITS history import (879 loads imported as CW-<ITS #>; user to fill CW-15435 destination)
 - [ ] ITS Sync section in Admin for recurring uploads (built to match the ITS export columns once received)
 - [ ] Clearwater TMS API keys + inbound/outbound endpoints
 - [ ] Multi-stop loads
@@ -81,3 +81,5 @@
 - [ ] Claims tracking
 - [ ] Phone camera BOL/POD capture with AI filing
 - [x] Full TMS check: every tab/function works (fleet sample trucks can't be deleted)
+- [x] Accounting + Admin checked with an admin session; fixed 1,000-row fetch cap hiding companies past "B" in Accounting (and possible bulk-import duplicates)
+- [x] michael@clearwatercargo.com promoted to Admin
