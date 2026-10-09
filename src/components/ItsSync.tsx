@@ -165,8 +165,8 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
       const existing = new Set(
         ((await supabase.from("loads").select("external_ref").eq("source", "its")).data ?? []).map((l) => l.external_ref as string),
       );
-      const companies = await fetchAllPaged("companies", "name");
-      const carriers = await fetchAllPaged("carriers", "legal_name");
+      const companies = await fetchAllPaged("companies", "name", true);
+      const carriers = await fetchAllPaged("carriers", "legal_name", true);
       const customers = new Map(companies.filter((c) => c.kind === "customer").map((c) => [norm(c.name as string), c.id as string]));
       const carrierMap = new Map(carriers.map((c) => [norm(c.legal_name as string), c.id as string]));
       const newCustomers = new Set<string>();
