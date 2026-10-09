@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { ACTIVE_STATUSES, DRIVER_STATUSES, UNIT_STATUSES, fmtDate, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,7 +109,7 @@ function Fleet() {
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "driver" ? (
           <Table>
-            <TableHeader><TableRow><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {drivers.map((d) => (
                 <TableRow key={d.id}>
@@ -118,13 +119,14 @@ function Fleet() {
                   <TableCell className={soon(d.medical_expires) ? "text-warning" : ""}>exp {d.medical_expires ?? "—"}</TableCell>
                   <TableCell><StatusDropdown value={d.status} options={DRIVER_STATUSES} onChange={(v) => setDriver(d.id, v)} /></TableCell>
                   <TableCell className="text-sm">{lane(loadFor("driver_id", d.id)) ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="w-10"><ConfirmDelete table="drivers" id={d.id} label={d.full_name} what="Driver" invalidate={["drivers"]} linked={loadFor("driver_id", d.id) ? "This driver is on an active load — the load will show no driver." : null} /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {(tab === "truck" ? trucks : trailers).map((u) => {
                 const l = loadFor(tab === "truck" ? "truck_id" : "trailer_id", u.id);
@@ -136,6 +138,7 @@ function Fleet() {
                     <TableCell>{u.equipment}</TableCell>
                     <TableCell><StatusDropdown value={u.status} options={UNIT_STATUSES} onChange={(v) => setUnit(u.id, v)} /></TableCell>
                     <TableCell className="text-sm">{l ? <>{lane(l)}<div className="text-xs text-muted-foreground">Delivers {fmtDate(l.delivery_at)}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="w-10"><ConfirmDelete table="fleet_units" id={u.id} label={u.unit_number} what={tab === "truck" ? "Truck" : "Trailer"} invalidate={["fleet"]} linked={l ? "This unit is on an active load — the load will show no unit." : null} /></TableCell>
                   </TableRow>
                 );
               })}
