@@ -18,7 +18,7 @@ async function fetchAllPaged(
       .range(from, from + PAGE - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
-    out.push(...(data as Record<string, unknown>[]));
+    out.push(...(data as Record<string, any>[]));
     if (data.length < PAGE) break;
     from += PAGE;
   }
