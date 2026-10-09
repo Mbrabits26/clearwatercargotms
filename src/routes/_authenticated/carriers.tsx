@@ -12,6 +12,7 @@ import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
 import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInvite } from "@/components/CarrierOnboarding";
 import { Button } from "@/components/ui/button";
+import { CarrierCheckButton } from "@/components/CarrierCheck";
 import { SignatureRecords } from "@/components/PacketAppImport";
 import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
@@ -67,7 +68,7 @@ function Carriers() {
           <Button size="icon" onClick={() => setAdding(true)} aria-label="Add carrier"><Plus className="h-4 w-4" /></Button>
         </div>
         <NewCarrierInvite />
-        <div className="flex flex-wrap gap-2 border-b px-3 py-2"><BulkImportButton target="carrier" onDone={refresh} /><DuplicatesButton carriers={data} onDone={refresh} /></div>
+        <div className="flex flex-wrap gap-2 border-b px-3 py-2"><BulkImportButton target="carrier" onDone={refresh} /><DuplicatesButton carriers={data} onDone={refresh} /><CarrierCheckButton carriers={data} onDone={refresh} /></div>
         <div className="flex flex-wrap gap-1 border-b p-2">
           {([["all", "All", ""], ["expired", "Expired / missing insurance", "text-destructive"], ["soon", "Expiring ≤30 days", "text-warning"], ["docs", "Missing documents", "text-destructive"]] as const).map(([k, l, cls]) => (
             <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : cls || "text-muted-foreground")}>

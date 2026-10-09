@@ -17,6 +17,7 @@ export const fixCarrierWithAi = createServerFn({ method: "POST" })
     if (error || !c) throw new Error("Carrier not found");
     if (data.apply) {
       const allowed = mergeFill(c as Record<string, unknown>, data.patch ?? {});
+      if (data.patch?.pay_terms === "factoring" && c.pay_terms === "net30") allowed.pay_terms = "factoring";
       if (Object.keys(allowed).length) {
         const { error: e } = await context.supabase.from("carriers").update(allowed as never).eq("id", c.id);
         if (e) throw new Error(e.message);
