@@ -396,7 +396,12 @@ function Cockpit({
               onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
             />
           </div>
-          {carrier && load.override_reason && (
+          {load.source === "its" && (
+            <div className="mb-2 rounded border border-primary/50 bg-primary/10 px-2 py-1 text-xs">
+              <span className="font-semibold uppercase text-primary">From ITS</span> · imported from ITS Dispatch load #{load.external_ref}
+            </div>
+          )}
+          {carrier && load.override_reason && load.source !== "its" && (
             <div className="mb-2 rounded border border-warning/60 bg-warning/10 px-2 py-1 text-xs">
               <span className="font-semibold uppercase text-warning">Compliance override</span> · {load.override_reason}
               {" · "}{profiles.find((p) => p.id === load.override_by)?.full_name ?? "admin"} {fmtDate(load.override_at)}

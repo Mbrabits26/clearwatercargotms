@@ -80,3 +80,4 @@
 - [ ] Customer credit limits
 - [ ] Claims tracking
 - [ ] Phone camera BOL/POD capture with AI filing
+- [x] Full TMS check: every tab/function works (fleet sample trucks can't be deleted)

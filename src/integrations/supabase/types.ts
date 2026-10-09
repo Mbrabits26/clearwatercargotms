@@ -903,6 +903,7 @@ export type Database = {
           dest_state: string
           driver_id: string | null
           equipment: string
+          external_ref: string | null
           id: string
           last_check_call: string | null
           load_number: string
@@ -921,6 +922,7 @@ export type Database = {
           ratecon_signed: boolean
           ship_ref: string | null
           shipper_id: string | null
+          source: string | null
           status: Database["public"]["Enums"]["load_status"]
           temperature: string | null
           trailer_id: string | null
@@ -947,6 +949,7 @@ export type Database = {
           dest_state: string
           driver_id?: string | null
           equipment?: string
+          external_ref?: string | null
           id?: string
           last_check_call?: string | null
           load_number?: string
@@ -965,6 +968,7 @@ export type Database = {
           ratecon_signed?: boolean
           ship_ref?: string | null
           shipper_id?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
           trailer_id?: string | null
@@ -991,6 +995,7 @@ export type Database = {
           dest_state?: string
           driver_id?: string | null
           equipment?: string
+          external_ref?: string | null
           id?: string
           last_check_call?: string | null
           load_number?: string
@@ -1009,6 +1014,7 @@ export type Database = {
           ratecon_signed?: boolean
           ship_ref?: string | null
           shipper_id?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           temperature?: string | null
           trailer_id?: string | null
