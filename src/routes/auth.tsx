@@ -55,8 +55,13 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) toast.error(error.message);
+    if (error) toast.error(error.message === "Invalid login credentials" ? "Wrong email or password. If you normally use Google, ask an admin to set a password or use Forgot password." : error.message);
     setBusy(false);
+  };
+  const forgot = async () => {
+    if (!email) return toast.error("Type your email first.");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/reset-password" });
+    if (error) toast.error(error.message); else toast.success("Check your email for a reset link.");
   };
 
   const google = async () => {
@@ -85,6 +90,7 @@ function AuthPage() {
             Sign in
           </Button>
         </form>
+        <button type="button" onClick={forgot} className="mt-2 w-full text-center text-xs text-gold hover:underline">Forgot password?</button>
         <Button variant="outline" className="mt-3 w-full" onClick={google}>
           Continue with Google
         </Button>

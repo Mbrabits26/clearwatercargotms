@@ -94,7 +94,37 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ userId: z.string().uuid(), password: z.string().min(8).max(72) }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context);
-    const { error } = await admin.auth.admin.updateUserById(data.userId, { password: data.password });
+    const { data: u, error } = await admin.auth.admin.updateUserById(data.userId, { password: data.password, email_confirm: true });
     if (error) throw new Error(error.message);
+    const email = u.user?.email;
+    if (!email) throw new Error("This user has no email address.");
+    // Prove the new password signs in, using a throwaway client that never persists the session.
+    const { createClient } = await import("@supabase/supabase-js");
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+    const test = createClient(process.env["SUPABASE_URL"]!, key, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+      global: { fetch: (input, init) => { const h = new Headers(init?.headers); if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization"); h.set("apikey", key); return fetch(input, { ...init, headers: h }); } },
+    });
+    const { data: s, error: signErr } = await test.auth.signInWithPassword({ email, password: data.password });
+    if (signErr) throw new Error(`Password saved, but test sign-in failed: ${signErr.message}`);
+    if (s.session) await test.auth.signOut().catch(() => {});
+    return { ok: true, email };
+  });
+
+export const setUserAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid(), admin: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (data.userId === context.userId && !data.admin) throw new Error("You can't turn off your own admin access.");
+    const admin = await requireAdmin(context);
+    if (!data.admin) {
+      const { data: admins } = await admin.from("user_roles").select("user_id").eq("role", "admin");
+      if ((admins ?? []).filter((a) => a.user_id !== data.userId).length === 0) throw new Error("There must always be at least one admin.");
+    }
+    const role = data.admin ? "admin" : "broker";
+    await admin.from("user_roles").delete().eq("user_id", data.userId);
+    const { error } = await admin.from("user_roles").insert({ user_id: data.userId, role });
+    if (error) throw new Error(error.message);
+    await admin.from("approved_users").update({ role }).eq("user_id", data.userId);
     return { ok: true };
   });
