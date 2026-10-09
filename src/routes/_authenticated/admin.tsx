@@ -98,6 +98,34 @@ function Admin() {
         </Table>
       </div>
       <UserManagement profiles={profiles} roles={roles} selfId={user.id} />
+      <DeletionLog names={Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""]))} />
+    </div>
+  );
+}
+
+const TABLE_LABEL: Record<string, string> = { companies: "Directory", carriers: "Carrier", carrier_documents: "Carrier document", drivers: "Driver", fleet_units: "Fleet unit", leads: "Lead", quotes: "Quote", loads: "Load", load_notes: "Load note", qb_sync: "Accounting entry", load_offers: "Load offer", load_tracking_tokens: "Tracking link" };
+
+function DeletionLog({ names }: { names: Record<string, string> }) {
+  const { data = [] } = useQuery({ queryKey: ["deletion_log"], queryFn: async () => (await supabase.from("deletion_log").select("id,table_name,label,deleted_by,deleted_at").order("deleted_at", { ascending: false }).limit(200)).data ?? [] });
+  return (
+    <div className="rounded border bg-card">
+      <h2 className="border-b p-3 font-display text-xl uppercase">Deletion log</h2>
+      <div className="max-h-96 overflow-auto">
+        <Table>
+          <TableHeader><TableRow><TableHead>When</TableHead><TableHead>What</TableHead><TableHead>Name</TableHead><TableHead>By</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {data.map((d) => (
+              <TableRow key={d.id}>
+                <TableCell className="text-xs">{new Date(d.deleted_at).toLocaleString()}</TableCell>
+                <TableCell>{TABLE_LABEL[d.table_name] ?? d.table_name}</TableCell>
+                <TableCell>{d.label}</TableCell>
+                <TableCell className="text-muted-foreground">{d.deleted_by ? names[d.deleted_by] ?? "—" : "System"}</TableCell>
+              </TableRow>
+            ))}
+            {!data.length && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nothing deleted yet.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
