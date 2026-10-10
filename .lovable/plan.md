@@ -1,36 +1,19 @@
-# Lower your TMS costs — staying on Lovable is the cheap option
+# Copy a load into multiple loads
 
-## What your credits are actually going to (last 13 days, measured)
+## What you'll get
+- **Copy load** button on a load's details on the Dispatch board.
+- A small window asks:
+  - **How many copies** (1 to 50).
+  - **Pickup dates:** keep the same dates, move each copy forward by a set number of days (for example every day or every week), or pick a date for each copy on a calendar. Delivery dates shift along with pickup.
+- Each copy gets its own new CW load number and comes over with the same customer, shipper, consignee, lane, equipment, commodity, weight, pieces, temperature, miles, customer rate, target carrier pay, accessorials, reference numbers and facility notes.
+- **Not copied** (each copy starts fresh): the carrier, truck and driver, rate con and signature, tracking links, offers, notes, documents, and anything sent to Accounting. Copies start as **Available**, and you're the broker on them.
+- The **Load builder** also gets a **"Create how many"** box, so a brand-new load can be made several times at once with the same date options.
+- When it's done you'll see a message like "Created 5 loads: CW-10461 to CW-10465". The copies show up on the board right away.
 
-| Where | Credits | Share |
-| --- | --- | --- |
-| Building the TMS (our work sessions) | ~252 | 98% |
-| Running the app (database, functions, storage, network) | ~1.7 | <1% |
-| AI features (document reading, carrier fix) | ~2.6 | ~1% |
-| **Total** | **~257** | |
-
-**The finding:** your running TMS costs almost nothing — under 2 credits in two weeks for the database, storage, and hosting combined. The AI features add about 2.6. **98% of your spend is building new features**, not running the app.
-
-## Why moving to Bolt (or anywhere) costs more, not less
-
-- You'd pay to rebuild the entire TMS from scratch — the equivalent of the ~252 build credits already spent, plus migration risk.
-- Your safety rules (DNU blocking, unauthorized-carrier checks), 888 loads, 4,854 companies, documents, and signature records would all need to be exported and rebuilt.
-- Bolt's running costs for a database-backed app are in the same ballpark — you would not save the ~1.7 credits of runtime; you'd just pay the build cost twice.
-
-## The plan: spend less without moving
-
-1. **Batch your requests.** Build-mode cost is per task. Sending one message with three related fixes costs less than three separate sessions. I'll also keep grouping related work into single passes.
-2. **Use plan mode only for big features.** Each plan-mode message costs 1 credit. For small tweaks ("move this button"), skip the plan and just tell me directly — I'll build it straight away.
-3. **Keep AI features as-is but use them deliberately.** Document reading and Fix-with-AI are ~1 credit per few uses — cheap, but only run them when needed.
-4. **Nothing to cut in the running app.** Database (~0.95 credits/2 weeks on the smallest instance), storage, and network are already near zero. No resize or cleanup would meaningfully change this.
-5. **If the monthly credit total itself is the issue**, check Settings → Plans & credits for your plan's credit allowance and top-up options — that's a billing choice, not a platform problem.
-
-## What I will NOT do
-
-- No migration, no rebuild, no export to another platform — it would multiply your costs, not reduce them.
+## Rules kept
+- A carrier you assign to a copy later still goes through the normal booking safety checks.
+- Brokers can only copy loads they can already see.
 
 ## Technical details
-
-- Evidence: project credit ledger, 2026-09-26 → 2026-10-09, 14 recorded groups, no missing deduction rows. Build = 252.49 credits (build_mode 195.5 + plan_mode 55.9 + chat 1.09); runtime = database 0.95 + functions 0.71 + network/storage/realtime ~0.01; AI gateway = 2.64.
-- Cloud compute is on the pico instance (~0.077 credits/instance-hour quoted); recorded usage shows 12.33 instance-hours in the window.
-- Cash paid is not visible from this data; figures are recorded credit deductions.
+- Client-side in `dispatch.tsx` (new CopyLoadDialog) and `LoadBuilderDialog.tsx` (count + date-spacing fields). The copies are inserted as one batch into `loads`, with carrier, fleet, ratecon, cancel, override, source and external_ref fields cleared, and `broker_id` set to the current user. Load numbers come from the existing default, the same as any new load.
+- No database changes.
