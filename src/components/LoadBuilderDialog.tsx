@@ -16,6 +16,7 @@ import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
 import { extractLoadFromDoc } from "@/lib/extract.functions";
 import type { Extracted } from "@/lib/extract.server";
 import { cn } from "@/lib/utils";
+import { copyRows } from "@/components/CopyLoadDialog";
 
 type F = Record<string, string>;
 type Kind = "customer" | "shipper" | "consignee";
@@ -181,7 +182,13 @@ export function LoadBuilderDialog({
       }
       const { data, error } = await supabase.from("loads").insert({ ...row, broker_id: user.id }).select("id").single();
       if (error) throw new Error(error.message);
-      toast.success(added.length ? `Load created · added new ${added.join(", ")} to the Directory` : "Load created");
+      const extra = Math.max(1, Math.min(50, Number(f.copies) || 1)) - 1;
+      if (extra > 0) {
+        const stepMs = (Number(f.copy_step ?? "1") || 0) * 86_400_000;
+        const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id));
+        if (e2) toast.error(`First load created, but copies failed: ${e2.message}`);
+      }
+      toast.success(`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`);
       qc.invalidateQueries({ queryKey: ["loads"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
       onCreated(data.id);
@@ -264,6 +271,8 @@ export function LoadBuilderDialog({
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
           <L label="Shipper ref / BOL #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
           <L label="Delivery ref / appt #"><Input value={f.dest_ref ?? ""} onChange={set("dest_ref")} /></L>
+          {!editLoad && <L label="Create how many (1–50)"><Input type="number" min={1} max={50} placeholder="1" value={f.copies ?? ""} onChange={set("copies")} /></L>}
+          {!editLoad && Number(f.copies) > 1 && <L label="Days between pickups (0 = same day, 7 = weekly)"><Input type="number" min={0} placeholder="1" value={f.copy_step ?? "1"} onChange={set("copy_step")} /></L>}
           <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2 lg:col-span-3">
             <L label="Pickup facility notes"><Textarea value={f.pickup_notes ?? ""} onChange={set("pickup_notes")} /></L>
             <L label="Delivery facility notes"><Textarea value={f.delivery_notes ?? ""} onChange={set("delivery_notes")} /></L>
