@@ -84,3 +84,4 @@
 - [x] Accounting + Admin checked with an admin session; fixed 1,000-row fetch cap hiding companies past "B" in Accounting (and possible bulk-import duplicates)
 - [x] michael@clearwatercargo.com promoted to Admin
 - [x] Speed up data loading: dispatch board defaults to last 30 days of loads (checkbox shows older); reports/accounting still read all loads; domain change will NOT help speed
+- [x] Copy a load into multiple loads (Copy load button + Create how many in load builder)

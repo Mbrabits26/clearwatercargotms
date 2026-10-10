@@ -184,9 +184,8 @@ export function LoadBuilderDialog({
       if (error) throw new Error(error.message);
       const extra = Math.max(1, Math.min(50, Number(f.copies) || 1)) - 1;
       if (extra > 0) {
-        const step = Number(f.copy_step ?? "1") || 0;
-        const _s = step * 86_400_000;
-        const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * _s * 86_400_000), user.id));
+        const stepMs = (Number(f.copy_step ?? "1") || 0) * 86_400_000;
+        const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id));
         if (e2) toast.error(`First load created, but copies failed: ${e2.message}`);
       }
       toast.success(`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`);
