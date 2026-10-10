@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
+import { CopyLoadDialog } from "@/components/CopyLoadDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -341,6 +342,7 @@ function Cockpit({
         <div className="flex flex-wrap items-center gap-2">
           <StatusSelect load={load} />
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit load</Button>
+          <CopyLoadDialog load={load} />
           <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
             <Phone className="mr-1 h-3.5 w-3.5" />Log check call
           </Button>
