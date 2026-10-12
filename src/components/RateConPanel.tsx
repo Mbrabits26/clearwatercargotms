@@ -60,6 +60,9 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     const snapshot = rcData();
     const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: recipients().join(", ") || null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);
+    // Keep a copy of exactly what was sent in the load's documents.
+    await supabase.storage.from("load-docs").upload(`${load.id}/ratecon-${load.load_number}-sent.pdf`, buildRateConPdf(snapshot).output("blob"), { upsert: true, contentType: "application/pdf" });
+    qc.invalidateQueries({ queryKey: ["load-docs", load.id] });
     const url = link(data.token);
     await navigator.clipboard.writeText(url).catch(() => {});
     const to = recipients();

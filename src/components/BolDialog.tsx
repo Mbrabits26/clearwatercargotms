@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DocViewer, type DocItem } from "@/components/DocPreview";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { CW } from "@/lib/ratecon";
-import { loadImage } from "@/lib/invoice";
 import type { Carrier, Company, Load } from "@/lib/tms";
-import logo from "@/assets/clearwater-logo.jpg.asset.json";
 
 type B = Record<string, string>;
 const addr = (c?: Company) => (c ? [c.address, [c.city, c.state, c.zip].filter(Boolean).join(", ")].filter(Boolean).join("\n") : "");
@@ -31,15 +32,11 @@ function initial(load: Load, shipper?: Company, consignee?: Company, carrier?: C
   };
 }
 
-async function buildBolPdf(b: B) {
+function buildBolPdf(b: B) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const L = 40, R = 572, W = R - L;
-  const img = await loadImage(logo.url);
-  if (img) doc.addImage(img, "JPEG", L, 30, 56, 56);
-  doc.setFont("helvetica", "bold").setFontSize(16).text(CW.name, L + 66, 50);
-  doc.setFont("helvetica", "normal").setFontSize(9).text([CW.addr1, CW.addr2, CW.phone], L + 66, 63);
-  doc.setFont("helvetica", "bold").setFontSize(20).text("BILL OF LADING", R, 50, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(9).text([`BOL #: ${b.bol}`, `Date: ${b.date}`], R, 66, { align: "right" });
+  doc.setFont("helvetica", "bold").setFontSize(20).text("BILL OF LADING", L, 56);
+  doc.setFont("helvetica", "normal").setFontSize(9).text([`BOL #: ${b.bol}`, `Date: ${b.date}`], R, 48, { align: "right" });
   const box = (x: number, y: number, w: number, h: number, title: string, body: string) => {
     doc.setDrawColor(150).rect(x, y, w, h);
     doc.setFillColor(15, 61, 62).rect(x, y, w, 14, "F");
@@ -89,10 +86,17 @@ export function BolDialog({ load, shipper, consignee, carrier }: { load: Load; s
   const [open, setOpen] = useState(false);
   const [b, setB] = useState<B>({});
   const [view, setView] = useState<DocItem[] | null>(null);
+  const qc = useQueryClient();
   const start = () => { setB(initial(load, shipper, consignee, carrier)); setOpen(true); };
   const name = () => `BOL-${b.bol || load.load_number}.pdf`;
-  const preview = async () => setView([{ name: name(), blob: (await buildBolPdf(b)).output("blob") }]);
-  const download = async () => (await buildBolPdf(b)).save(name());
+  // Every created BOL is kept in the load's documents (latest version replaces the previous one).
+  const store = async (blob: Blob) => {
+    const { error } = await supabase.storage.from("load-docs").upload(`${load.id}/bol-${load.load_number}.pdf`, blob, { upsert: true, contentType: "application/pdf" });
+    if (error) return toast.error(`Couldn't save to load documents: ${error.message}`);
+    qc.invalidateQueries({ queryKey: ["load-docs", load.id] });
+  };
+  const preview = async () => { const blob = buildBolPdf(b).output("blob"); setView([{ name: name(), blob }]); await store(blob); };
+  const download = async () => { const d = buildBolPdf(b); d.save(name()); await store(d.output("blob")); toast.success("BOL saved to the load's documents"); };
   return (
     <>
       <Button size="sm" variant="outline" onClick={start}><FileText className="mr-1 h-3.5 w-3.5" />Create BOL</Button>

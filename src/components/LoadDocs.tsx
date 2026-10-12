@@ -20,7 +20,9 @@ export function LoadDocs({ loadId }: { loadId: string }) {
     queryKey: key,
     queryFn: async () => (await supabase.storage.from("load-docs").list(loadId, { sortBy: { column: "created_at", order: "desc" } })).data ?? [],
   });
-  const items: DocItem[] = files.filter((f) => f.id).map((f) => ({ name: f.name, bucket: "load-docs", path: `${loadId}/${f.name}` }));
+  // Invoices and carrier bills live only in the Accounting (billing) section.
+  const items: DocItem[] = files.filter((f) => f.id && !/^(invoice|carrier_invoice)-/i.test(f.name))
+    .map((f) => ({ name: f.name, bucket: "load-docs", path: `${loadId}/${f.name}` }));
   const upload = async (file?: File) => {
     if (!file) return;
     setBusy(true);
