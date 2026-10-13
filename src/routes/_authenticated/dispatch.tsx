@@ -127,17 +127,22 @@ function Dispatch() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.load]);
 
-  const filtered = useMemo(
-    () =>
-      loads.filter((l) => {
-        if (status === "active" && ["paid", "cancelled"].includes(l.status)) return false;
-        if (status !== "active" && status !== "all" && l.status !== status) return false;
-        if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
-        const hay = `${l.load_number} ${l.origin_city} ${l.origin_state} ${l.dest_city} ${l.dest_state} ${l.commodity ?? ""}`.toLowerCase();
-        return hay.includes(q.toLowerCase());
-      }),
-    [loads, q, status, broker],
-  );
+  const filtered = useMemo(() => {
+    const cName = new Map(companies.map((c) => [c.id, c.name]));
+    const kName = new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`]));
+    const needle = q.trim().toLowerCase();
+    return loads.filter((l) => {
+      if (!needle && status === "active" && ["paid", "cancelled"].includes(l.status)) return false;
+      if (status !== "active" && status !== "all" && l.status !== status) return false;
+      if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
+      if (!needle) return true;
+      const hay = [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref,
+        cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [loads, q, status, broker, companies, carriers]);
+  // Searching always looks through every load, not just the last 30 days.
+  useEffect(() => { if (q.trim().length >= 2 && !showAll) setShowAll(true); }, [q, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
   const overdueCalls = loads.filter(checkCallOverdue);
   const carrierDue = loads.filter((l) => l.status === "delivered" && l.pod_received);
@@ -167,7 +172,7 @@ function Dispatch() {
           <div className="space-y-2 border-b p-3">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-8" placeholder="Search load #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
+              <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <div className="flex gap-2">
               <Select value={status} onValueChange={setStatus}>

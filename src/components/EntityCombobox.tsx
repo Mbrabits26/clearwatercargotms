@@ -12,10 +12,19 @@ export function EntityCombobox({
 }: { value: ComboValue; onChange: (v: ComboValue, picked?: ComboOption) => void; options: ComboOption[]; placeholder?: string; newLabel?: string }) {
   const [open, setOpen] = useState(false);
   const q = value.name.trim().toLowerCase();
-  const matches = useMemo(
-    () => (q ? options.filter((o) => `${o.label} ${o.sub ?? ""} ${o.search ?? ""}`.toLowerCase().includes(q)) : options).slice(0, 30),
-    [q, options],
-  );
+  // Match on the name (plus MC/DOT-style extra keys), never on city/address; A–Z with "starts with" first.
+  const matches = useMemo(() => {
+    const sorted = [...options].sort((a, b) => a.label.localeCompare(b.label));
+    if (!q) return sorted.slice(0, 50);
+    const starts: ComboOption[] = [], word: ComboOption[] = [], rest: ComboOption[] = [];
+    for (const o of sorted) {
+      const l = o.label.toLowerCase();
+      if (l.startsWith(q)) starts.push(o);
+      else if (l.includes(` ${q}`)) word.push(o);
+      else if (l.includes(q) || (o.search ?? "").toLowerCase().includes(q)) rest.push(o);
+    }
+    return [...starts, ...word, ...rest].slice(0, 50);
+  }, [q, options]);
   const exact = options.find((o) => o.label.toLowerCase() === q);
   return (
     <div className="relative">
