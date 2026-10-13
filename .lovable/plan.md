@@ -31,7 +31,7 @@
 - When an admin signs in, a reminder panel lists customer invoices coming due/past due and carrier bills due to pay.
 - Admin → Settings: editable timelines (e.g. remind X days before due, customer terms default 30, carrier terms by pay option) and a "snooze for today".
 
-## 10. Carrier on the load create form
+## 10. Carrier on an optional load create form section
 - Load builder gets a carrier section: pick an existing carrier or "Add new carrier" inline (name + MC/DOT, optional FMCSA lookup) without leaving the form. Safety checks still apply before booking.
 
 ## 11. Google address fill + rate con addresses
