@@ -48,6 +48,12 @@
 ## Order
 Quick wins first (1, 3, 5, 6, 12), then 4, 7, 10, 11, 2, 8, 9, finishing with the full review (13).
 
+## 14. Let brokers approve non-compliant carriers (admin option)
+- Admin → Users: per-broker "Can approve non-compliant carriers" switch (off by default).
+- Brokers with it on can use the compliance override (reason required, logged with name/time), same as admins.
+- Do Not Use carriers and carriers without active authority stay blocked for everyone.
+- The database safety rule checks this switch, so it can't be bypassed.
+
 ## Technical details
 - New columns: invoice editable fields on accounting records (line items json, due date, notes); a must-change-password flag per user; reminder settings table (admin-only RLS, with grants).
 - User email/name edits and temp-password flag via admin-verified server functions; auth gate redirects flagged users to a change-password page.
