@@ -48,6 +48,9 @@
 ## Order
 Quick wins first (1, 3, 5, 6, 12), then 4, 7, 10, 11, 2, 8, 9, finishing with the full review (13).
 
+## 15. Customer bill-to search by name
+- Right now the customer, shipper and consignee pickers also match on city, so typing a name shows companies from that city too. They'll search by business name first, with names that start with what you typed listed at the top (A–Z). City only shows as a hint under each name.
+
 ## 14. Let brokers approve non-compliant carriers (admin option)
 - Admin → Users: per-broker "Can approve non-compliant carriers" switch (off by default).
 - Brokers with it on can use the compliance override (reason required, logged with name/time), same as admins.
