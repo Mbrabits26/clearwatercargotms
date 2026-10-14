@@ -294,6 +294,7 @@ function Cockpit({
   isAdmin: boolean;
 }) {
   const qc = useQueryClient();
+  const { data: laneHist = loads } = useQuery(laneHistoryQuery());
   const { user } = useRouteContext({ from: "/_authenticated" });
   const carrier = carriers.find((c) => c.id === load.carrier_id);
   const shipper = companies.find((c) => c.id === load.shipper_id);
