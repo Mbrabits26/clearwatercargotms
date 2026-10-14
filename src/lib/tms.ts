@@ -22,6 +22,8 @@ export const STATUSES: { value: LoadStatus; label: string; cls: string }[] = [
 export const statusMeta = (s: LoadStatus) => STATUSES.find((x) => x.value === s)!;
 
 export const EQUIPMENT = ["Dry Van", "Reefer", "Flatbed", "Step Deck", "Power Only", "Conestoga", "Hotshot", "Box Truck"];
+/** Carrier record Clearwater's internal fleet runs under (Foust Farms Trucking). */
+export const FLEET_CARRIER_ID = "1f5c03ec-37bc-40d8-bc06-dd9cc2a9b9b5";
 export const ACCESSORIAL_TYPES = ["Detention", "Layover", "TONU", "Lumper", "Driver Assist", "Fuel Surcharge"];
 export const DNU_REASONS = ["Double-brokering", "Hostage load", "Late cancel", "Fraud / identity theft", "Cargo claim", "Safety concern"];
 

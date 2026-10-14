@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { ACTIVE_STATUSES, DRIVER_STATUSES, UNIT_STATUSES, fmtDate, type Load } from "@/lib/tms";
+import { ACTIVE_STATUSES, DRIVER_STATUSES, UNIT_STATUSES, fmtDate, usd, FLEET_CARRIER_ID, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/fleet")({
   component: Fleet,
 });
 
-type Tab = "truck" | "trailer" | "driver";
+type Tab = "truck" | "trailer" | "driver" | "carrier" | "history";
 
 function StatusDropdown({ value, options, onChange }: { value: string; options: typeof UNIT_STATUSES; onChange: (v: string) => void }) {
   const m = options.find((o) => o.value === value) ?? options[0]!;
@@ -52,6 +52,11 @@ function Fleet() {
   const { data: units } = useSuspenseQuery(fleetQuery);
   const { data: drivers } = useSuspenseQuery(driversQuery);
   const { data: loads } = useSuspenseQuery(loadsQuery);
+  const { data: carriers } = useSuspenseQuery(carriersQuery);
+  const { data: companies } = useSuspenseQuery(companiesQuery);
+  const fc = carriers.find((c) => c.id === FLEET_CARRIER_ID);
+  const history = loads.filter((l) => l.carrier_id === FLEET_CARRIER_ID || l.truck_id || l.trailer_id || l.driver_id);
+  const cname = (id: string | null) => companies.find((c) => c.id === id)?.name ?? "—";
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("truck");
   const [open, setOpen] = useState(false);
@@ -85,7 +90,7 @@ function Fleet() {
     <div className="space-y-5 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Internal fleet</h1>
-        <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {tab}</Button>
+        {(tab === "truck" || tab === "trailer" || tab === "driver") && <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {tab}</Button>}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         {[
@@ -104,10 +109,47 @@ function Fleet() {
           <TabsTrigger value="truck">Trucks</TabsTrigger>
           <TabsTrigger value="trailer">Trailers</TabsTrigger>
           <TabsTrigger value="driver">Drivers</TabsTrigger>
+          <TabsTrigger value="carrier">Carrier</TabsTrigger>
+          <TabsTrigger value="history">Load history ({history.length})</TabsTrigger>
         </TabsList>
       </Tabs>
       <div className="overflow-x-auto rounded-md border bg-card">
-        {tab === "driver" ? (
+        {tab === "carrier" ? (
+          fc ? (
+            <div className="grid gap-3 p-4 text-sm sm:grid-cols-3">
+              {([
+                ["Carrier", fc.legal_name], ["DBA", fc.dba], ["MC #", fc.mc_number], ["DOT #", fc.dot_number],
+                ["Status", fc.status], ["Authority", fc.authority_status], ["Safety rating", fc.safety_rating],
+                ["Auto liability", fc.auto_liability ? usd(fc.auto_liability) : null], ["Insurance expires", fc.insurance_expires],
+                ["Cargo", fc.cargo_insurance ? usd(fc.cargo_insurance) : null], ["Cargo expires", fc.cargo_expires],
+                ["Address", [fc.address, fc.city, fc.state, fc.zip].filter(Boolean).join(", ")], ["Phone", fc.phone], ["Email", fc.email],
+                ["Contact", fc.contact_name], ["Equipment", fc.equipment], ["Pay terms", fc.pay_terms], ["Factoring", fc.factoring_company],
+                ["Paperwork", [fc.w9_received && "W-9", fc.coi_received && "COI", fc.agreement_signed && "Agreement", fc.noa_received && "NOA"].filter(Boolean).join(", ")],
+              ] as [string, unknown][]).map(([k, v]) => (
+                <div key={k}><div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div><div>{v ? String(v) : "—"}</div></div>
+              ))}
+              <p className="text-xs text-muted-foreground sm:col-span-3">Clearwater's trucks, trailers and drivers run under this carrier. Edit these details on the Carriers tab.</p>
+            </div>
+          ) : <div className="p-6 text-sm text-muted-foreground">The fleet carrier record was not found.</div>
+        ) : tab === "history" ? (
+          <Table>
+            <TableHeader><TableRow><TableHead>Load</TableHead><TableHead>Pickup</TableHead><TableHead>Lane</TableHead><TableHead>Customer</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Revenue</TableHead><TableHead className="text-right">Carrier pay</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {history.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell><LoadQuickLook load={l} /></TableCell>
+                  <TableCell>{fmtDate(l.pickup_at)}</TableCell>
+                  <TableCell>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
+                  <TableCell>{cname(l.customer_id)}</TableCell>
+                  <TableCell className="capitalize">{l.status}</TableCell>
+                  <TableCell className="text-right">{usd(l.customer_rate)}</TableCell>
+                  <TableCell className="text-right">{usd(l.carrier_rate)}</TableCell>
+                </TableRow>
+              ))}
+              {!history.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No loads yet.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        ) : tab === "driver" ? (
           <Table>
             <TableHeader><TableRow><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
@@ -146,12 +188,12 @@ function Fleet() {
           </Table>
         )}
       </div>
-      <AddDialog tab={tab} open={open} onOpenChange={setOpen} />
+      {(tab === "truck" || tab === "trailer" || tab === "driver") && <AddDialog tab={tab} open={open} onOpenChange={setOpen} />}
     </div>
   );
 }
 
-function AddDialog({ tab, open, onOpenChange }: { tab: Tab; open: boolean; onOpenChange: (o: boolean) => void }) {
+function AddDialog({ tab, open, onOpenChange }: { tab: "truck" | "trailer" | "driver"; open: boolean; onOpenChange: (o: boolean) => void }) {
   const qc = useQueryClient();
   const [f, setF] = useState<Record<string, string>>({});
   const fields =
