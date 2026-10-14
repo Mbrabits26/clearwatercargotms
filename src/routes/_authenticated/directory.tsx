@@ -3,7 +3,8 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
+import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, profilesQuery } from "@/lib/queries";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -95,7 +96,7 @@ function Directory() {
         <h1 className="text-3xl font-bold uppercase">Directory</h1>
         <div className="flex flex-wrap gap-2">
           <BulkImportButton target="company" onDone={() => qc.invalidateQueries({ queryKey: ["companies"] })} />
-          <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add {label.toLowerCase()}</Button>
+          <Button onClick={() => { setEditId(null); setF({}); setOpen(true); }}><Plus className="mr-1 h-4 w-4" />Add {label.toLowerCase()}</Button>
         </div>
       </div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
@@ -120,16 +121,18 @@ function Directory() {
                     {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>)}
                   </select>
                 </TableCell>}
+                <TableCell className="w-10"><Button size="icon" variant="ghost" aria-label="Edit" onClick={() => startEdit(c)}><Pencil className="h-4 w-4" /></Button></TableCell>
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
-            {!rows.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
-      <Dialog open={open} onOpenChange={setOpen}>
+      {dialog}
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setEditId(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add {label.toLowerCase()}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{editing ? `Edit ${editing.name}` : `Add ${label.toLowerCase()}`}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {FIELDS.map(([k, l]) => (
               <label key={k} className={`text-xs text-muted-foreground ${k === "name" || k === "address" ? "sm:col-span-2" : ""}`}>{l}
@@ -142,7 +145,7 @@ function Directory() {
               </label>
             ))}
           </div>
-          <div className="flex flex-wrap gap-4 text-sm">
+          {!editing && <div className="flex flex-wrap gap-4 text-sm">
             <span className="text-muted-foreground">Also add as:</span>
             {KINDS.filter((k) => k.v !== kind).map((k) => (
               <label key={k.v} className="flex items-center gap-2">
