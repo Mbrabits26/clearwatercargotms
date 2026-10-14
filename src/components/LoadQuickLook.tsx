@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { carriersQuery, companiesQuery } from "@/lib/queries";
+import { CopyLoadString } from "@/components/CopyLoadString";
 import { fmtDate, loadTotals, statusMeta, usd, type Load } from "@/lib/tms";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -62,15 +63,18 @@ export function LoadQuickLookDialog({ load, open, onOpenChange }: { load: Load; 
             <Row k="Margin" v={`${usd(t.margin)} (${t.pct.toFixed(1)}%)`} />
           </div>
         </div>
-        <Button
-          className="mt-2 w-full"
-          onClick={() => {
-            onOpenChange(false);
-            navigate({ to: "/dispatch", search: { load: load.id } });
-          }}
-        >
-          Open load <ArrowRight className="ml-1 h-4 w-4" />
-        </Button>
+        <div className="mt-2 flex gap-2">
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onOpenChange(false);
+              navigate({ to: "/dispatch", search: { load: load.id } });
+            }}
+          >
+            Open load <ArrowRight className="ml-1 h-4 w-4" />
+          </Button>
+          <CopyLoadString load={load} companies={companies} withLabel className="border-border px-3 hover:bg-muted" />
+        </div>
       </DialogContent>
     </Dialog>
   );
