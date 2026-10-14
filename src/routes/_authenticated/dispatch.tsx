@@ -113,10 +113,21 @@ function Dispatch() {
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
-  const { isAdmin, perms } = useRouteContext({ from: "/_authenticated" });
+  const { isAdmin, perms, user } = useRouteContext({ from: "/_authenticated" });
   const canOverride = isAdmin || (perms ?? []).includes("carrier_override");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("active");
+  const defKey = `cw-dispatch-default-status:${user.id}`;
+  const [defStatus, setDefStatus] = useState("active");
+  useEffect(() => {
+    const v = localStorage.getItem(defKey);
+    if (v) { setDefStatus(v); setStatus(v); }
+  }, [defKey]);
+  const saveDefault = () => {
+    localStorage.setItem(defKey, status);
+    setDefStatus(status);
+    toast.success("Saved as your default view");
+  };
   const [broker, setBroker] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(loads[0]?.id ?? null);
   const [mobileDetail, setMobileDetail] = useState(false);
@@ -188,6 +199,9 @@ function Dispatch() {
                   {STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {status !== defStatus && (
+                <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={saveDefault} title="Open the board on this view every time">Make default</Button>
+              )}
               <Select value={broker} onValueChange={setBroker}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
