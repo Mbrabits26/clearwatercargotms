@@ -377,6 +377,17 @@ export function LoadBuilderDialog({
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
+      <Dialog open={!!fm} onOpenChange={(o) => !o && setFm(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle className="font-display text-xl uppercase">Is this the right carrier?</DialogTitle></DialogHeader>
+          {fm && <FmcsaSummary r={fm} />}
+          <div className="text-xs text-muted-foreground">Confirming adds them to the Carriers tab as Pending with this FMCSA info and selects them on this load. They can be booked once vetted.</div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setFm(null)}>Not correct</Button>
+            <Button disabled={addingCarrier} onClick={addFmcsaCarrier}>{addingCarrier && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Correct — add carrier</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
