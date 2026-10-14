@@ -195,7 +195,7 @@ export function LoadBuilderDialog({
       if (editLoad) {
         const { error } = await supabase.from("loads").update(row).eq("id", editLoad.id);
         if (error) throw new Error(error.message);
-        toast.success(added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated");
+        toast.success([added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated", carrierNote].filter(Boolean).join(" · "));
         qc.invalidateQueries({ queryKey: ["loads"] });
         qc.invalidateQueries({ queryKey: ["companies"] });
         onOpenChange(false);
@@ -209,7 +209,7 @@ export function LoadBuilderDialog({
         const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id));
         if (e2) toast.error(`First load created, but copies failed: ${e2.message}`);
       }
-      toast.success(`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`);
+      toast.success([`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`, carrierNote].filter(Boolean).join(" · "));
       qc.invalidateQueries({ queryKey: ["loads"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
       onCreated(data.id);
@@ -271,6 +271,18 @@ export function LoadBuilderDialog({
           <L label="Customer (bill-to)">{combo("customer")}</L>
           <L label="Shipper">{combo("shipper")}</L>
           <L label="Consignee">{combo("consignee")}</L>
+          <L label="Carrier (optional — only compliant carriers attach)">
+            <EntityCombobox
+              value={carrier}
+              newLabel="new carrier (added as pending, not attached)"
+              placeholder="Type carrier name or MC#"
+              options={carriers.map((c) => {
+                const cc = carrierCompliance(c);
+                return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, sub: `MC ${c.mc_number ?? "—"} · ${cc.bookable ? "✓ Compliant" : `⚠ ${cc.blockReason ?? cc.issues.join(", ")}`}` };
+              })}
+              onChange={setCarrier}
+            />
+          </L>
           <L label="Origin city"><Input value={f.origin_city ?? ""} onChange={set("origin_city")} /></L>
           <L label="Origin state"><Input maxLength={2} value={f.origin_state ?? ""} onChange={set("origin_state")} /></L>
           <L label="Miles"><Input type="number" value={f.miles ?? ""} onChange={set("miles")} /></L>
