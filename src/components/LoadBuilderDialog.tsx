@@ -19,6 +19,9 @@ import { extractLoadFromDoc } from "@/lib/extract.functions";
 import type { Extracted } from "@/lib/extract.server";
 import { cn } from "@/lib/utils";
 import { copyRows } from "@/components/CopyLoadDialog";
+import { FmcsaButton, FmcsaSummary } from "@/components/FmcsaLookup";
+import type { FmcsaCarrier } from "@/lib/fmcsa.functions";
+import { drivingMiles } from "@/lib/places.functions";
 
 type F = Record<string, string>;
 type Kind = "customer" | "shipper" | "consignee";
@@ -58,6 +61,43 @@ export function LoadBuilderDialog({
   const [hint, setHint] = useState<string>("");
   const [carrier, setCarrier] = useState<ComboValue>({ id: null, name: "" });
   const { data: carriers = [] } = useQuery(carriersQuery);
+  const [newMc, setNewMc] = useState("");
+  const [newDot, setNewDot] = useState("");
+  const [fm, setFm] = useState<FmcsaCarrier | null>(null);
+  const [addingCarrier, setAddingCarrier] = useState(false);
+  const milesFn = useServerFn(drivingMiles);
+  const [milesBusy, setMilesBusy] = useState(false);
+  const oKey = f.origin_city && f.origin_state?.length === 2 ? `${f.origin_city}, ${f.origin_state}` : "";
+  const dKey = f.dest_city && f.dest_state?.length === 2 ? `${f.dest_city}, ${f.dest_state}` : "";
+  useEffect(() => {
+    if (!oKey || !dKey) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      setMilesBusy(true);
+      try {
+        const r = await milesFn({ data: { origin: oKey, dest: dKey } });
+        if (live && r.miles) setF((p) => ({ ...p, miles: String(r.miles) }));
+      } catch { /* leave miles manual */ } finally { if (live) setMilesBusy(false); }
+    }, 600);
+    return () => { live = false; clearTimeout(t); };
+  }, [oKey, dKey, milesFn]);
+
+  const addFmcsaCarrier = async () => {
+    if (!fm) return;
+    setAddingCarrier(true);
+    const { data: c, error } = await supabase.from("carriers").insert({
+      legal_name: fm.legal_name || carrier.name.trim(), dba: fm.dba, dot_number: fm.dot_number, mc_number: fm.mc_number ?? (newMc || null),
+      address: fm.address, city: fm.city, state: fm.state, zip: fm.zip, phone: fm.phone ?? fm.cell_phone ?? null,
+      email: fm.email ?? null, contact_name: fm.contact_name ?? null, authority_status: fm.authority_status, safety_rating: fm.safety_rating,
+      auto_liability: fm.bipd_on_file, cargo_insurance: fm.cargo_on_file, status: "pending",
+    }).select("id, legal_name").single();
+    setAddingCarrier(false);
+    if (error) return toast.error(error.message);
+    await qc.invalidateQueries({ queryKey: ["carriers"] });
+    setCarrier({ id: c.id, name: c.legal_name });
+    setFm(null); setNewMc(""); setNewDot("");
+    toast.success(`${c.legal_name} added to Carriers (pending). Vet them before booking.`);
+  };
   useEffect(() => {
     if (!open || !editLoad) return;
     const s = (v: unknown) => (v == null ? "" : String(v));
@@ -241,7 +281,7 @@ export function LoadBuilderDialog({
         if (c && kind === "consignee") setF((p) => ({ ...p, dest_city: c.city ?? p.dest_city ?? "", dest_state: c.state ?? p.dest_state ?? "" }));
       }}
     />
-    {kind !== "customer" && !parties[kind]?.id && parties[kind]?.name?.trim() && (
+    {!parties[kind]?.id && parties[kind]?.name?.trim() && (
       <AddressAutocomplete value={parties[kind]?.address ?? ""} placeholder={`New ${kind} address (Google)`}
         onChange={(v) => setParties((p) => ({ ...p, [kind]: { ...p[kind], address: v } }))}
         onPick={(pl) => {
@@ -286,7 +326,7 @@ export function LoadBuilderDialog({
           <L label="Carrier (optional — only compliant carriers attach)">
             <EntityCombobox
               value={carrier}
-              newLabel="new carrier (added as pending, not attached)"
+              newLabel="new carrier — check FMCSA below"
               placeholder="Type carrier name or MC#"
               options={carriers.map((c) => {
                 const cc = carrierCompliance(c);
@@ -294,10 +334,19 @@ export function LoadBuilderDialog({
               })}
               onChange={setCarrier}
             />
+            {!carrier.id && carrier.name.trim().length > 1 && (
+              <div className="mt-1 space-y-1 rounded border border-warning/50 bg-warning/5 p-2">
+                <div className="flex gap-1">
+                  <Input placeholder="MC #" value={newMc} onChange={(e) => setNewMc(e.target.value)} />
+                  <Input placeholder="DOT #" value={newDot} onChange={(e) => setNewDot(e.target.value)} />
+                </div>
+                <FmcsaButton mc={newMc} dot={newDot} label="Check FMCSA" onResult={setFm} />
+              </div>
+            )}
           </L>
           <L label="Origin city"><Input value={f.origin_city ?? ""} onChange={set("origin_city")} /></L>
           <L label="Origin state"><Input maxLength={2} value={f.origin_state ?? ""} onChange={set("origin_state")} /></L>
-          <L label="Miles"><Input type="number" value={f.miles ?? ""} onChange={set("miles")} /></L>
+          <L label={milesBusy ? "Miles (calculating…)" : "Miles (auto from Google)"}><Input type="number" value={f.miles ?? ""} onChange={set("miles")} /></L>
           <L label="Destination city"><Input value={f.dest_city ?? ""} onChange={set("dest_city")} /></L>
           <L label="Destination state"><Input maxLength={2} value={f.dest_state ?? ""} onChange={set("dest_state")} /></L>
           <L label="Equipment">
@@ -328,6 +377,17 @@ export function LoadBuilderDialog({
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
+      <Dialog open={!!fm} onOpenChange={(o) => !o && setFm(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle className="font-display text-xl uppercase">Is this the right carrier?</DialogTitle></DialogHeader>
+          {fm && <FmcsaSummary r={fm} />}
+          <div className="text-xs text-muted-foreground">Confirming adds them to the Carriers tab as Pending with this FMCSA info and selects them on this load. They can be booked once vetted.</div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setFm(null)}>Not correct</Button>
+            <Button disabled={addingCarrier} onClick={addFmcsaCarrier}>{addingCarrier && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Correct — add carrier</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
