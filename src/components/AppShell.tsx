@@ -1,4 +1,5 @@
 import { DEFAULT_PERMS } from "@/lib/tms";
+import { DueReminders } from "@/components/DueReminders";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal } from "lucide-react";
