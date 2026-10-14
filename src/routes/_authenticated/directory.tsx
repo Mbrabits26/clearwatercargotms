@@ -114,7 +114,12 @@ function Directory() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {FIELDS.map(([k, l]) => (
               <label key={k} className={`text-xs text-muted-foreground ${k === "name" || k === "address" ? "sm:col-span-2" : ""}`}>{l}
-                <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
+                {k === "address" ? (
+                  <AddressAutocomplete value={f.address ?? ""} onChange={(v) => setF((p) => ({ ...p, address: v }))}
+                    onPick={(pl) => setF((p) => ({ ...p, address: pl.address, city: pl.city, state: pl.state, zip: pl.zip, name: p.name || pl.name, phone: p.phone || pl.phone }))} />
+                ) : (
+                  <Input className="mt-1" value={f[k] ?? ""} onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))} />
+                )}
               </label>
             ))}
           </div>

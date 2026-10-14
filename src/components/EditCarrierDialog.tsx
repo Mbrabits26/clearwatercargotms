@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
@@ -75,7 +76,12 @@ export function EditCarrierDialog({ c, open, onOpenChange, onDone }: { c: Carrie
           {FIELDS.map(({ key, label, half }) => (
             <label key={key} className={half ? "" : "col-span-2"}>
               <span className="text-xs text-muted-foreground">{label}</span>
-              <Input value={f[key as string] ?? ""} onChange={(e) => set(key as string, e.target.value)} />
+              {key === "address" ? (
+                <AddressAutocomplete value={f.address ?? ""} onChange={(v) => set("address", v)}
+                  onPick={(pl) => setF((p) => ({ ...p, address: pl.address, city: pl.city, state: pl.state, zip: pl.zip, phone: p.phone || pl.phone }))} />
+              ) : (
+                <Input value={f[key as string] ?? ""} onChange={(e) => set(key as string, e.target.value)} />
+              )}
             </label>
           ))}
           <label>
