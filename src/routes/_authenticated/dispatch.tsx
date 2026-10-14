@@ -111,7 +111,8 @@ function Dispatch() {
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
-  const { isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { isAdmin, perms } = useRouteContext({ from: "/_authenticated" });
+  const canOverride = isAdmin || (perms ?? []).includes("carrier_override");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("active");
   const [broker, setBroker] = useState<string>("all");
@@ -228,7 +229,7 @@ function Dispatch() {
         </section>
         <section className={cn("min-h-0 overflow-auto", mobileDetail ? "block" : "hidden md:block")}>
           {selected ? (
-            <><Button variant="ghost" className="m-2 min-h-11 md:hidden" onClick={() => setMobileDetail(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to loads</Button><Cockpit key={selected.id} load={selected} loads={loads} carriers={carriers} companies={companies} profiles={profiles} isAdmin={isAdmin} /></>
+            <><Button variant="ghost" className="m-2 min-h-11 md:hidden" onClick={() => setMobileDetail(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to loads</Button><Cockpit key={selected.id} load={selected} loads={loads} carriers={carriers} companies={companies} profiles={profiles} isAdmin={isAdmin} canOverride={canOverride} /></>
           ) : (
             <div className="p-10 text-center text-muted-foreground">Select a load.</div>
           )}
@@ -284,7 +285,7 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
 }
 
 function Cockpit({
-  load, loads, carriers, companies, profiles, isAdmin,
+  load, loads, carriers, companies, profiles, isAdmin, canOverride,
 }: {
   load: Load;
   loads: Load[];
@@ -292,6 +293,7 @@ function Cockpit({
   companies: Company[];
   profiles: Profile[];
   isAdmin: boolean;
+  canOverride: boolean;
 }) {
   const qc = useQueryClient();
   const { data: laneHist = loads } = useQuery(laneHistoryQuery());
@@ -405,10 +407,10 @@ function Cockpit({
               key={load.id + (load.carrier_id ?? "")}
               carriers={carriers}
               currentId={load.carrier_id}
-              isAdmin={isAdmin}
+              isAdmin={canOverride}
               onPick={(id, reason) => update({
                 carrier_id: id, status: id && load.status === "available" ? "booked" : load.status,
-                ...(reason ? { override_reason: reason } : isAdmin && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
+                ...(reason ? { override_reason: reason } : canOverride && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
               }, id ? (reason ? "Carrier assigned with admin override" : "Carrier assigned") : "Carrier removed")}
               onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
             />

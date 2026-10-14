@@ -32,7 +32,7 @@ export const createUser = createServerFn({ method: "POST" })
     }, { onConflict: "email" });
     if (approvalError) throw new Error(approvalError.message);
     const { data: created, error } = await admin.auth.admin.createUser({
-      email: normalizedEmail, password: data.password, email_confirm: true, user_metadata: { full_name: data.full_name },
+      email: normalizedEmail, password: data.password, email_confirm: true, user_metadata: { full_name: data.full_name }, app_metadata: { must_change_password: true },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Couldn't create user");
     const id = created.user.id;
@@ -89,12 +89,31 @@ export const deleteUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    userId: z.string().uuid(),
+    email: z.string().trim().email().max(200),
+    full_name: z.string().trim().min(1).max(120),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context);
+    const email = data.email.toLowerCase();
+    const { error } = await admin.auth.admin.updateUserById(data.userId, {
+      email, email_confirm: true, user_metadata: { full_name: data.full_name },
+    });
+    if (error) throw new Error(error.message);
+    await admin.from("profiles").update({ full_name: data.full_name, email }).eq("id", data.userId);
+    await admin.from("approved_users").update({ full_name: data.full_name, email }).eq("user_id", data.userId);
+    return { ok: true };
+  });
+
 export const resetUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ userId: z.string().uuid(), password: z.string().min(8).max(72) }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context);
-    const { data: u, error } = await admin.auth.admin.updateUserById(data.userId, { password: data.password, email_confirm: true });
+    const { data: u, error } = await admin.auth.admin.updateUserById(data.userId, { password: data.password, email_confirm: true, app_metadata: { must_change_password: true } });
     if (error) throw new Error(error.message);
     const email = u.user?.email;
     if (!email) throw new Error("This user has no email address.");
@@ -109,6 +128,18 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     if (signErr) throw new Error(`Password saved, but test sign-in failed: ${signErr.message}`);
     if (s.session) await test.auth.signOut().catch(() => {});
     return { ok: true, email };
+  });
+
+// Called by the signed-in user after they choose their own password (temp-password flow).
+export const completePasswordChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ password: z.string().min(8).max(72) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.auth.updateUser({ password: data.password });
+    if (error) throw new Error(error.message);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.auth.admin.updateUserById(context.userId, { app_metadata: { must_change_password: false } });
+    return { ok: true };
   });
 
 export const setUserAdmin = createServerFn({ method: "POST" })

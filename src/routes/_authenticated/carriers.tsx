@@ -7,7 +7,8 @@ import { mergeCarriers } from "@/lib/carriers.functions";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Ban, Copy as CopyIcon, Plus, Search } from "lucide-react";
+import { ArrowLeft, Ban, Copy as CopyIcon, Pencil, Plus, Search } from "lucide-react";
+import { EditCarrierDialog } from "@/components/EditCarrierDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
@@ -110,6 +111,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
   const [reason, setReason] = useState<string>("Double-brokering");
   const [factor, setFactor] = useState(c.factoring_company ?? "");
   const [fm, setFm] = useState<FmcsaCarrier | null>(null);
+  const [editing, setEditing] = useState(false);
   const comp = carrierCompliance(c);
   const update = async (patch: Partial<Carrier>, msg: string) => {
     const { error } = await supabase.from("carriers").update(patch).eq("id", c.id);
@@ -127,7 +129,10 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           <p className="text-muted-foreground">{c.dba && `DBA ${c.dba} · `}MC {c.mc_number} · DOT {c.dot_number} · {c.city}, {c.state} · {c.phone}</p>
           <p className="text-sm text-muted-foreground">{[c.contact_name, c.email, c.address && `${c.address}, ${c.city ?? ""} ${c.state ?? ""} ${c.zip ?? ""}`].filter(Boolean).join(" · ")}</p>
         </div>
-        <StatusPill c={c} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit carrier</Button>
+          <StatusPill c={c} />
+        </div>
       </div>
       {c.status === "dnu" && (
         <div className="rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
@@ -203,6 +208,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           </div>
         )}
       </div>
+      <EditCarrierDialog c={c} open={editing} onOpenChange={setEditing} onDone={refresh} />
     </div>
   );
 }

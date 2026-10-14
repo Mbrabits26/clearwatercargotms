@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
+import { ForcePasswordChange } from "@/components/ForcePasswordChange";
 import { DEFAULT_PERMS } from "@/lib/tms";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -18,9 +19,14 @@ export const Route = createFileRoute("/_authenticated")({
     const perms: string[] = isAdmin ? DEFAULT_PERMS : pr?.perms ?? DEFAULT_PERMS;
     return { user: data.user, isAdmin, perms };
   },
-  component: () => (
-    <AppShell>
-      <Outlet />
-    </AppShell>
-  ),
+  component: function AuthedLayout() {
+    const { user } = Route.useRouteContext();
+    const mustChange = !!(user.app_metadata as Record<string, unknown> | undefined)?.must_change_password;
+    return (
+      <AppShell>
+        {mustChange && <ForcePasswordChange />}
+        <Outlet />
+      </AppShell>
+    );
+  },
 });

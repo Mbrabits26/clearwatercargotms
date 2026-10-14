@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { carriersQuery } from "@/lib/queries";
 import { useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EQUIPMENT, type Company, type Load } from "@/lib/tms";
+import { EQUIPMENT, carrierCompliance, type Company, type Load } from "@/lib/tms";
 import { DatePicker } from "@/components/DatePicker";
 import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
 import { extractLoadFromDoc } from "@/lib/extract.functions";
@@ -54,6 +55,8 @@ export function LoadBuilderDialog({
   const [foundIdx, setFoundIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [hint, setHint] = useState<string>("");
+  const [carrier, setCarrier] = useState<ComboValue>({ id: null, name: "" });
+  const { data: carriers = [] } = useQuery(carriersQuery);
   useEffect(() => {
     if (!open || !editLoad) return;
     const s = (v: unknown) => (v == null ? "" : String(v));
@@ -67,6 +70,8 @@ export function LoadBuilderDialog({
     });
     const p = (id: string | null): Party => { const c = companies.find((x) => x.id === id); return c ? { id: c.id, name: c.name } : EMPTY; };
     setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
+    const car = carriers.find((x) => x.id === l.carrier_id);
+    setCarrier(car ? { id: car.id, name: car.legal_name } : { id: null, name: "" });
     setFound([]); setHint("");
   }, [open, editLoad?.id]);
   const set = (k: string) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
@@ -147,7 +152,7 @@ export function LoadBuilderDialog({
     return data.id;
   };
 
-  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); };
+  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); setCarrier({ id: null, name: "" }); };
 
   const save = async () => {
     if (!f.origin_city || !f.origin_state || !f.dest_city || !f.dest_state) return toast.error("Origin and destination are required.");
@@ -171,10 +176,26 @@ export function LoadBuilderDialog({
         customer_rate: num("customer_rate") ?? 0, carrier_rate: num("carrier_rate") ?? 0,
         ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null,
       };
+      // Optional carrier: attach only when it passes the safety checks; a new typed name is added as pending but not attached.
+      let carrier_id: string | null = null;
+      let carrierNote = "";
+      if (carrier.id) {
+        const car = carriers.find((x) => x.id === carrier.id);
+        if (car) {
+          const cc = carrierCompliance(car);
+          if (cc.bookable) carrier_id = car.id;
+          else carrierNote = `${car.legal_name} isn't cleared to book (${cc.blockReason ?? cc.issues.join(", ")}) — carrier left unassigned`;
+        }
+      } else if (carrier.name.trim().length > 1) {
+        const { error: ce } = await supabase.from("carriers").insert({ legal_name: carrier.name.trim(), status: "pending" }).select("id").single();
+        if (ce) toast.error(`Carrier not added: ${ce.message}`);
+        else { carrierNote = `${carrier.name.trim()} added as a pending carrier — vet them, then assign on the load`; qc.invalidateQueries({ queryKey: ["carriers"] }); }
+      }
+      if (carrier_id) Object.assign(row, { carrier_id });
       if (editLoad) {
         const { error } = await supabase.from("loads").update(row).eq("id", editLoad.id);
         if (error) throw new Error(error.message);
-        toast.success(added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated");
+        toast.success([added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated", carrierNote].filter(Boolean).join(" · "));
         qc.invalidateQueries({ queryKey: ["loads"] });
         qc.invalidateQueries({ queryKey: ["companies"] });
         onOpenChange(false);
@@ -188,7 +209,7 @@ export function LoadBuilderDialog({
         const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id));
         if (e2) toast.error(`First load created, but copies failed: ${e2.message}`);
       }
-      toast.success(`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`);
+      toast.success([`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`, carrierNote].filter(Boolean).join(" · "));
       qc.invalidateQueries({ queryKey: ["loads"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
       onCreated(data.id);
@@ -250,6 +271,18 @@ export function LoadBuilderDialog({
           <L label="Customer (bill-to)">{combo("customer")}</L>
           <L label="Shipper">{combo("shipper")}</L>
           <L label="Consignee">{combo("consignee")}</L>
+          <L label="Carrier (optional — only compliant carriers attach)">
+            <EntityCombobox
+              value={carrier}
+              newLabel="new carrier (added as pending, not attached)"
+              placeholder="Type carrier name or MC#"
+              options={carriers.map((c) => {
+                const cc = carrierCompliance(c);
+                return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, sub: `MC ${c.mc_number ?? "—"} · ${cc.bookable ? "✓ Compliant" : `⚠ ${cc.blockReason ?? cc.issues.join(", ")}`}` };
+              })}
+              onChange={setCarrier}
+            />
+          </L>
           <L label="Origin city"><Input value={f.origin_city ?? ""} onChange={set("origin_city")} /></L>
           <L label="Origin state"><Input maxLength={2} value={f.origin_state ?? ""} onChange={set("origin_state")} /></L>
           <L label="Miles"><Input type="number" value={f.miles ?? ""} onChange={set("miles")} /></L>

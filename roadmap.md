@@ -104,3 +104,20 @@
 - [x] Lanes run rows clickable → loads list with quick look
 - [x] Brokers see company-wide lane history + rate view (no broker attribution)
 - [x] Customer "brought in by" + Customer commissions report
+
+## Done (round 3 — polish, 2026-10-14)
+- [x] Reports CSV: group subtotals + grand total
+- [x] Date fields: typeable + calendar dropdown (DatePicker everywhere)
+- [x] Entity pickers: A–Z, starts-with first, name-only search
+- [x] Dispatch search across all dates (auto-includes older loads)
+- [x] Lane history clickable → load quick look; brokers see company-wide lanes/Rate View (no broker pay)
+- [x] Customer "Brought in by" + broker commission report
+- [x] Edit carrier dialog (all fields) on carrier detail
+- [x] Optional carrier section in load builder (compliant attach; new name → pending, not attached)
+- [x] Admin: edit user name/email; temp-password forces choose-own-password at next sign-in
+- [x] Admin due-invoice reminders banner with editable day thresholds (AR / AP / QuickPay)
+- [x] Admin-granted broker permission "Override carrier compliance" (DB trigger updated; DNU/unauthorized still blocked)
+
+## Open
+- [ ] Google Places address autofill (needs Places API on the managed browser key)
+- [ ] Full app walkthrough / confirm-before-save review
