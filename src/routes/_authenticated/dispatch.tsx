@@ -410,7 +410,7 @@ function Cockpit({
               isAdmin={canOverride}
               onPick={(id, reason) => update({
                 carrier_id: id, status: id && load.status === "available" ? "booked" : load.status,
-                ...(reason ? { override_reason: reason } : isAdmin && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
+                ...(reason ? { override_reason: reason } : canOverride && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
               }, id ? (reason ? "Carrier assigned with admin override" : "Carrier assigned") : "Carrier removed")}
               onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
             />
