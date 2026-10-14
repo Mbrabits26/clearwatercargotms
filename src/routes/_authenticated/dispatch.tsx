@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { CopyLoadDialog } from "@/components/CopyLoadDialog";
+import { CopyLoadString } from "@/components/CopyLoadString";
 import { BolDialog } from "@/components/BolDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
@@ -208,7 +209,10 @@ function Dispatch() {
                   className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", selectedId === l.id && "border-l-2 border-l-gold bg-muted")}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-gold">{l.load_number}</span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <span className="truncate font-mono text-xs text-gold">{l.load_number}</span>
+                      <CopyLoadString load={l} companies={companies} />
+                    </span>
                     <StatusSelect load={l} />
                   </div>
                   <div className="mt-1 font-display text-lg font-semibold leading-tight">
@@ -352,6 +356,7 @@ function Cockpit({
           <StatusSelect load={load} />
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit load</Button>
           <CopyLoadDialog load={load} />
+          <CopyLoadString load={load} companies={companies} withLabel className="border-border bg-card px-2.5 py-1.5 hover:bg-muted" />
           <BolDialog load={load} shipper={shipper} consignee={consignee} carrier={carrier} />
           <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
             <Phone className="mr-1 h-3.5 w-3.5" />Log check call
