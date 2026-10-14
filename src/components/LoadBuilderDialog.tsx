@@ -70,6 +70,8 @@ export function LoadBuilderDialog({
     });
     const p = (id: string | null): Party => { const c = companies.find((x) => x.id === id); return c ? { id: c.id, name: c.name } : EMPTY; };
     setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
+    const car = carriers.find((x) => x.id === l.carrier_id);
+    setCarrier(car ? { id: car.id, name: car.legal_name } : { id: null, name: "" });
     setFound([]); setHint("");
   }, [open, editLoad?.id]);
   const set = (k: string) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
@@ -150,7 +152,7 @@ export function LoadBuilderDialog({
     return data.id;
   };
 
-  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); };
+  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); setCarrier({ id: null, name: "" }); };
 
   const save = async () => {
     if (!f.origin_city || !f.origin_state || !f.dest_city || !f.dest_state) return toast.error("Origin and destination are required.");
