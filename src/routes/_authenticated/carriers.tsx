@@ -7,7 +7,8 @@ import { mergeCarriers } from "@/lib/carriers.functions";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Ban, Copy as CopyIcon, Plus, Search } from "lucide-react";
+import { ArrowLeft, Ban, Copy as CopyIcon, Pencil, Plus, Search } from "lucide-react";
+import { EditCarrierDialog } from "@/components/EditCarrierDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
 import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
@@ -110,6 +111,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
   const [reason, setReason] = useState<string>("Double-brokering");
   const [factor, setFactor] = useState(c.factoring_company ?? "");
   const [fm, setFm] = useState<FmcsaCarrier | null>(null);
+  const [editing, setEditing] = useState(false);
   const comp = carrierCompliance(c);
   const update = async (patch: Partial<Carrier>, msg: string) => {
     const { error } = await supabase.from("carriers").update(patch).eq("id", c.id);
