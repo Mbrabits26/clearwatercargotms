@@ -307,10 +307,14 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     setAmount(String(row.amount));
   }
 
+  const { ask, dialog } = useReviewChanges();
   const save = async () => {
     if (!row) return;
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt < 0) return toast.error("Enter a valid amount.");
+    const changes = diff([{ label: "Payee / customer", before: row.payee, after: payee.trim() }, { label: "Amount", before: row.amount, after: amt }]);
+    if (!changes.length) return toast.info("No changes to save.");
+    if (!(await ask(changes))) return;
     const { error } = await supabase.from("qb_sync").update({ payee: payee.trim() || null, amount: amt }).eq("id", row.id);
     if (error) return toast.error(error.message);
     toast.success("Updated.");
@@ -320,6 +324,7 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
   return (
     <Dialog open={!!row} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-sm">
+        {dialog}
         <DialogHeader><DialogTitle>Edit {row?.kind === "bill" ? "bill" : "invoice"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <label className="text-xs text-muted-foreground">Payee / customer
