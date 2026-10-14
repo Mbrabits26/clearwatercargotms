@@ -166,6 +166,7 @@ function Dispatch() {
               <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button size="sm" variant="outline" onClick={() => setBulk(true)}><Layers className="mr-1 h-3.5 w-3.5" />Bulk loads</Button>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
       </div>
@@ -240,6 +241,7 @@ function Dispatch() {
         </section>
       </div>
       <LoadBuilderDialog open={builder} onOpenChange={setBuilder} companies={companies} onCreated={(id) => setSelectedId(id)} />
+      <BulkLoadsDialog open={bulk} onOpenChange={setBulk} companies={companies} />
     </div>
   );
 }
