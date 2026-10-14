@@ -111,7 +111,8 @@ function Dispatch() {
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
-  const { isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { isAdmin, perms } = useRouteContext({ from: "/_authenticated" });
+  const canOverride = isAdmin || (perms ?? []).includes("carrier_override");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("active");
   const [broker, setBroker] = useState<string>("all");
