@@ -117,8 +117,10 @@ export const PERMISSIONS = [
   { key: "quotes", label: "Quotes & RFPs" },
   { key: "reports", label: "Reports" },
   { key: "export", label: "CSV / load board export" },
+  { key: "carrier_override", label: "Override carrier compliance" },
 ] as const;
-export const DEFAULT_PERMS = PERMISSIONS.map((p) => p.key) as string[];
+// Everything except carrier_override, which an admin grants deliberately.
+export const DEFAULT_PERMS = PERMISSIONS.map((p) => p.key).filter((k) => k !== "carrier_override") as string[];
 
 /** Carrier pay options: carrier picks one at onboarding; staff can change it per carrier or per load. */
 export type PayTerms = "net30" | "quickpay" | "factoring" | "factored_quickpay";
