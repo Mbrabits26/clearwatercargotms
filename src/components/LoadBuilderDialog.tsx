@@ -176,6 +176,22 @@ export function LoadBuilderDialog({
         customer_rate: num("customer_rate") ?? 0, carrier_rate: num("carrier_rate") ?? 0,
         ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null,
       };
+      // Optional carrier: attach only when it passes the safety checks; a new typed name is added as pending but not attached.
+      let carrier_id: string | null = null;
+      let carrierNote = "";
+      if (carrier.id) {
+        const car = carriers.find((x) => x.id === carrier.id);
+        if (car) {
+          const cc = carrierCompliance(car);
+          if (cc.bookable) carrier_id = car.id;
+          else carrierNote = `${car.legal_name} isn't cleared to book (${cc.blockReason ?? cc.issues.join(", ")}) — carrier left unassigned`;
+        }
+      } else if (carrier.name.trim().length > 1) {
+        const { error: ce } = await supabase.from("carriers").insert({ legal_name: carrier.name.trim(), status: "pending" }).select("id").single();
+        if (ce) toast.error(`Carrier not added: ${ce.message}`);
+        else { carrierNote = `${carrier.name.trim()} added as a pending carrier — vet them, then assign on the load`; qc.invalidateQueries({ queryKey: ["carriers"] }); }
+      }
+      if (carrier_id) Object.assign(row, { carrier_id });
       if (editLoad) {
         const { error } = await supabase.from("loads").update(row).eq("id", editLoad.id);
         if (error) throw new Error(error.message);
