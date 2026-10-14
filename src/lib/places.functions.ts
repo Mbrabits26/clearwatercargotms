@@ -52,3 +52,15 @@ export const placeDetails = createServerFn({ method: "POST" })
       zip: get("postal_code"),
     };
   });
+
+/** Driving miles between two "City, ST" places via Google Distance Matrix. */
+export const drivingMiles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ origin: z.string().trim().min(3).max(200), dest: z.string().trim().min(3).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    const u = `https://connector-gateway.lovable.dev/google_maps/maps/api/distancematrix/json?units=imperial&origins=${encodeURIComponent(data.origin)}&destinations=${encodeURIComponent(data.dest)}`;
+    const j = (await check(await fetch(u, { headers: creds() }))) as { rows?: { elements?: { status: string; distance?: { value: number } }[] }[] };
+    const el = j.rows?.[0]?.elements?.[0];
+    if (!el || el.status !== "OK" || !el.distance) return { miles: null as number | null };
+    return { miles: Math.round(el.distance.value / 1609.344) };
+  });
