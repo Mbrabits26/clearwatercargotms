@@ -40,3 +40,4 @@
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
+- Internal fleet runs under one carrier record (FLEET_CARRIER_ID in tms.ts); the Fleet tab shows that carrier and its load history (carrier loads + loads with fleet units).
