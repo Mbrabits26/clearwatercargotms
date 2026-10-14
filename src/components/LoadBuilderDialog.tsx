@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { carriersQuery } from "@/lib/queries";
 import { useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EQUIPMENT, type Company, type Load } from "@/lib/tms";
+import { EQUIPMENT, carrierCompliance, type Company, type Load } from "@/lib/tms";
 import { DatePicker } from "@/components/DatePicker";
 import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
 import { extractLoadFromDoc } from "@/lib/extract.functions";
@@ -54,6 +55,8 @@ export function LoadBuilderDialog({
   const [foundIdx, setFoundIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [hint, setHint] = useState<string>("");
+  const [carrier, setCarrier] = useState<ComboValue>({ id: null, name: "" });
+  const { data: carriers = [] } = useQuery(carriersQuery);
   useEffect(() => {
     if (!open || !editLoad) return;
     const s = (v: unknown) => (v == null ? "" : String(v));
