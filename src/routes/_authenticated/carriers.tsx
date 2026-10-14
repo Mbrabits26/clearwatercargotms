@@ -208,6 +208,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           </div>
         )}
       </div>
+      <EditCarrierDialog c={c} open={editing} onOpenChange={setEditing} onDone={refresh} />
     </div>
   );
 }
