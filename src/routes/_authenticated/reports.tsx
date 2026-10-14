@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
@@ -32,14 +33,14 @@ export const Route = createFileRoute("/_authenticated/reports")({
   component: Reports,
 });
 
-type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month";
-type Col = "load" | "status" | "customer" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "revenue" | "cost" | "margin" | "age";
+type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month" | "salesrep";
+type Col = "load" | "status" | "customer" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "revenue" | "cost" | "margin" | "age" | "salesrep" | "commission";
 const COLS: { id: Col; label: string }[] = [
   { id: "load", label: "Load #" }, { id: "status", label: "Status" }, { id: "customer", label: "Customer" },
   { id: "carrier", label: "Carrier / pay to" }, { id: "broker", label: "Broker" }, { id: "lane", label: "Lane" },
   { id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivered" }, { id: "equipment", label: "Equipment" },
   { id: "revenue", label: "Customer amount" }, { id: "cost", label: "Carrier amount" }, { id: "margin", label: "Margin" },
-  { id: "age", label: "Days outstanding" },
+  { id: "age", label: "Days outstanding" }, { id: "salesrep", label: "Customer brought in by" }, { id: "commission", label: "Commission" },
 ];
 type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; needPod?: boolean };
 const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
@@ -47,6 +48,7 @@ const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
   ap: { label: "Outstanding carrier payments", cfg: { statuses: ["delivered", "invoiced"], groupBy: "carrier", cols: ["load", "status", "carrier", "lane", "delivery", "cost", "age"] } },
   broker: { label: "Broker loads booked", cfg: { statuses: ["booked", "dispatched", "rolling", "delivered", "invoiced", "paid", "issue"], groupBy: "broker", cols: ["load", "status", "customer", "lane", "pickup", "revenue", "cost", "margin"] } },
   lane: { label: "Lane profitability", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "lane", cols: ["load", "customer", "carrier", "pickup", "revenue", "cost", "margin"] } },
+  commission: { label: "Customer commissions", cfg: { statuses: ["delivered", "invoiced", "paid"], groupBy: "salesrep", cols: ["load", "customer", "salesrep", "pickup", "revenue", "cost", "margin", "commission"] } },
   custom: { label: "Custom report", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "none", cols: ["load", "status", "customer", "carrier", "broker", "lane", "pickup", "revenue", "cost", "margin"] } },
 };
 
@@ -56,6 +58,8 @@ function Reports() {
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
   const [carrierView, setCarrierView] = useState(false);
+  const { data: comm = [] } = useQuery({ queryKey: ["commissions"], queryFn: async () => (await supabase.from("broker_commissions").select("*")).data ?? [] });
+  const [salesRep, setSalesRep] = useState("all");
   const [preset, setPreset] = useState("ar");
   const [cfg, setCfg] = useState<Cfg>(PRESETS.ar!.cfg);
   const [from, setFrom] = useState("");
@@ -72,6 +76,9 @@ function Reports() {
     const c = carriers.find((x) => x.id === l.carrier_id);
     return c?.factoring_company ? `${c.factoring_company} (${c.legal_name})` : c?.legal_name ?? "—";
   };
+  const repOf = (l: Load) => companies.find((c) => c.id === l.customer_id)?.sales_broker_id ?? null;
+  const repName = (l: Load) => profiles.find((p) => p.id === repOf(l))?.full_name ?? "Not set";
+  const commOf = (l: Load) => { const r = repOf(l); const pct = Number(comm.find((c) => c.user_id === r)?.commission_pct ?? 0); return r ? loadTotals(l).margin * pct / 100 : 0; };
   const brokerName = (l: Load) => profiles.find((p) => p.id === l.broker_id)?.full_name ?? "Unassigned";
   const laneOf = (l: Load) => `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`;
   const age = (l: Load) => (l.delivery_at ? Math.max(0, Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)) : 0);
@@ -87,9 +94,10 @@ function Reports() {
         if (broker !== "all" && l.broker_id !== broker) return false;
         if (customer !== "all" && l.customer_id !== customer) return false;
         if (carrier !== "all" && l.carrier_id !== carrier) return false;
+        if (salesRep !== "all" && (salesRep === "none" ? repOf(l) : repOf(l) !== salesRep)) return false;
         return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""}`.toLowerCase().includes(q.toLowerCase());
       }),
-    [loads, cfg, preset, from, to, broker, customer, carrier, q],
+    [loads, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies],
   );
 
   const keyOf = (l: Load): string => {
@@ -101,6 +109,7 @@ function Reports() {
       case "status": return STATUSES.find((s) => s.value === l.status)!.label;
       case "equipment": return l.equipment;
       case "month": return l.pickup_at ? l.pickup_at.slice(0, 7) : "No date";
+      case "salesrep": return repName(l);
       default: return "All loads";
     }
   };
@@ -127,10 +136,12 @@ function Reports() {
       case "cost": return usd(t.cost);
       case "margin": return `${usd(t.margin)} (${t.pct.toFixed(1)}%)`;
       case "age": return String(age(l));
+      case "salesrep": return repName(l);
+      case "commission": return usd(commOf(l));
     }
   };
-  const money: Col[] = ["revenue", "cost", "margin"];
-  const sum = (ls: Load[], c: Col) => ls.reduce((s, l) => { const t = loadTotals(l); return s + (c === "revenue" ? t.revenue : c === "cost" ? t.cost : t.margin); }, 0);
+  const money: Col[] = ["revenue", "cost", "margin", "commission"];
+  const sum = (ls: Load[], c: Col) => ls.reduce((s, l) => { const t = loadTotals(l); return s + (c === "revenue" ? t.revenue : c === "cost" ? t.cost : c === "commission" ? commOf(l) : t.margin); }, 0);
 
   const exportCsv = () => {
     const grouped = cfg.groupBy !== "none";
@@ -140,6 +151,7 @@ function Reports() {
       return [...(grouped ? [label] : []), ...cfg.cols.map((c, i) => {
         if (c === "revenue") return usd(rev);
         if (c === "cost") return usd(sum(ls, "cost"));
+        if (c === "commission") return usd(sum(ls, "commission"));
         if (c === "margin") return `${usd(mar)} (${(rev ? (mar / rev) * 100 : 0).toFixed(1)}%)`;
         if (i === 0) return grouped ? `${ls.length} loads` : `${label} — ${ls.length} loads`;
         return "";
@@ -176,16 +188,17 @@ function Reports() {
       </div>
       {carrierView ? <div className="rounded-md border bg-card p-4"><CarrierCheck carriers={carriers} /></div> : <>
       <div className="space-y-3 rounded-md border bg-card p-4 print:hidden">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-7">
           <label className="text-xs text-muted-foreground">Pickup from<DatePicker className="mt-1" value={from} onChange={setFrom} /></label>
           <label className="text-xs text-muted-foreground">Pickup to<DatePicker className="mt-1" value={to} onChange={setTo} /></label>
           <Filter label="Broker" value={broker} set={setBroker} opts={profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""])} />
           <Filter label="Customer" value={customer} set={setCustomer} opts={companies.filter((c) => c.kind === "customer").map((c) => [c.id, c.name])} />
+          <Filter label="Customer brought in by" value={salesRep} set={setSalesRep} opts={[["none", "Not set"], ...profiles.map((p): [string, string] => [p.id, p.full_name ?? p.email ?? ""])]} />
           <Filter label="Carrier" value={carrier} set={setCarrier} opts={carriers.map((c) => [c.id, c.legal_name])} />
           <label className="text-xs text-muted-foreground">Group by
             <Select value={cfg.groupBy} onValueChange={(v) => { setPreset("custom"); setCfg((c) => ({ ...c, groupBy: v as GroupBy })); }}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>{["none", "customer", "carrier", "broker", "lane", "status", "equipment", "month"].map((g) => <SelectItem key={g} value={g}>{g === "none" ? "No grouping" : g[0]!.toUpperCase() + g.slice(1)}</SelectItem>)}</SelectContent>
+              <SelectContent>{["none", "customer", "carrier", "broker", "salesrep", "lane", "status", "equipment", "month"].map((g) => <SelectItem key={g} value={g}>{g === "none" ? "No grouping" : g === "salesrep" ? "Customer brought in by" : g[0]!.toUpperCase() + g.slice(1)}</SelectItem>)}</SelectContent>
             </Select>
           </label>
         </div>
