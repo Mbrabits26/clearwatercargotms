@@ -135,6 +135,33 @@ export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) =
 export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?: { pay_terms?: string | null } | null) =>
   payTermsOf(load.pay_terms ?? carrier?.pay_terms);
 
+/** Paste-ready load summary (no money) for texts, emails and load posts. */
+export function loadString(l: Load, names: { customer?: string | null; shipper?: string | null; consignee?: string | null } = {}) {
+  const short = (s: string | null | undefined) => (s ? new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
+  const fac = (name: string | null | undefined, city: string, state: string, addr: string | null | undefined, phone: string | null | undefined, ref: string | null | undefined) =>
+    `${name || `${city}, ${state}`}${addr ? ` — ${addr}` : ""}${phone ? ` · ${phone}` : ""}${ref ? ` · ref ${ref}` : ""}`;
+  const spec = [
+    l.equipment,
+    l.weight_lbs ? `${l.weight_lbs.toLocaleString()} lbs` : null,
+    l.pieces ? `${l.pieces} pcs` : null,
+    l.commodity,
+    l.temperature ? `${l.temperature}°` : null,
+    l.miles ? `${l.miles} mi` : null,
+  ].filter(Boolean).join(" · ");
+  const acc = ((l.accessorials as Accessorial[] | null) ?? []).map((a) => `${a.type} ${usd(a.amount)}`).join(", ");
+  return [
+    `${l.load_number}${l.external_ref ? ` (ITS ${l.external_ref})` : ""} — ${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`,
+    `Pickup ${short(l.pickup_at)}  |  Delivery ${short(l.delivery_at)}`,
+    spec,
+    names.customer ? `Customer: ${names.customer}` : null,
+    `Pickup: ${fac(names.shipper, l.origin_city, l.origin_state, undefined, undefined, l.ship_ref)}`,
+    `Delivery: ${fac(names.consignee, l.dest_city, l.dest_state, undefined, undefined, l.dest_ref)}`,
+    l.pickup_notes ? `Pickup notes: ${l.pickup_notes}` : null,
+    l.delivery_notes ? `Delivery notes: ${l.delivery_notes}` : null,
+    acc ? `Accessorials: ${acc}` : null,
+  ].filter(Boolean).join("\n");
+}
+
 export type CarrierDocRow = { carrier_id: string; kind: string };
 /** Every problem on a carrier, used by the Check carriers report. */
 export function carrierIssues(c: Carrier, docs: CarrierDocRow[]) {
