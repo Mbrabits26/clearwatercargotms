@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useReviewChanges } from "@/components/ReviewChanges";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
@@ -29,6 +30,7 @@ const FIELDS: { key: keyof Carrier; label: string; half?: boolean }[] = [
 export function EditCarrierDialog({ c, open, onOpenChange, onDone }: { c: Carrier; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
   const [f, setF] = useState<Record<string, string>>(() => init(c));
   const [saving, setSaving] = useState(false);
+  const { ask, dialog } = useReviewChanges();
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const save = async () => {
@@ -60,6 +62,9 @@ export function EditCarrierDialog({ c, open, onOpenChange, onDone }: { c: Carrie
       setSaving(false);
       return;
     }
+    const labels: Record<string, string> = { cargo_insurance: "Cargo insurance", auto_liability: "Auto liability", insurance_expires: "Liability expires", cargo_expires: "Cargo expires", pay_terms: "Pay option", authority_status: "Authority status", safety_rating: "Safety rating" };
+    const ok = await ask(Object.entries(patch).map(([k, v]) => ({ label: FIELDS.find((x) => x.key === k)?.label ?? labels[k] ?? k, before: c[k as keyof Carrier], after: v })));
+    if (!ok) { setSaving(false); return; }
     const { error } = await supabase.from("carriers").update(patch as never).eq("id", c.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -71,6 +76,7 @@ export function EditCarrierDialog({ c, open, onOpenChange, onDone }: { c: Carrie
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-auto">
+        {dialog}
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Edit carrier — {c.legal_name}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map(({ key, label, half }) => (

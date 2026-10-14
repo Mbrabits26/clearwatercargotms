@@ -120,4 +120,4 @@
 
 ## Open
 - [x] Google address autofill (directory, carrier edit, new shipper/consignee in load builder)
-- [ ] Full app walkthrough / confirm-before-save review
+- [x] Full walkthrough (all tabs load clean); review-changes step on carrier, company, user, invoice edits; Directory companies now editable

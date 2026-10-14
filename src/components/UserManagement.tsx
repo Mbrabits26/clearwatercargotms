@@ -1,3 +1,4 @@
+import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -161,13 +162,16 @@ function AddUser({ onDone }: { onDone: () => void }) {
 
 function EditUser({ user, onClose, onDone }: { user: Profile | null; onClose: () => void; onDone: () => void }) {
   const upd = useServerFn(updateUser);
+  const { ask, dialog } = useReviewChanges();
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [busy, setBusy] = useState(false);
   const open = !!user;
   if (open && name === "" && email === "") { setName(user.full_name ?? ""); setEmail(user.email ?? ""); }
   const close = () => { setName(""); setEmail(""); onClose(); };
   const save = async () => {
     if (!name.trim() || !email.trim()) return toast.error("Name and email are required.");
-    if (!confirm(`Save ${name.trim()} <${email.trim()}> for this user?`)) return;
+    const changes = diff([{ label: "Full name", before: user!.full_name, after: name.trim() }, { label: "Email (sign-in)", before: user!.email, after: email.trim() }]);
+    if (!changes.length) return toast.info("No changes to save.");
+    if (!(await ask(changes))) return;
     setBusy(true);
     try { await upd({ data: { userId: user!.id, full_name: name.trim(), email: email.trim() } }); toast.success("User updated"); close(); onDone(); }
     catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
@@ -175,6 +179,7 @@ function EditUser({ user, onClose, onDone }: { user: Profile | null; onClose: ()
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="max-w-sm">
+        {dialog}
         <DialogHeader><DialogTitle>Edit user</DialogTitle></DialogHeader>
         <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
         <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
