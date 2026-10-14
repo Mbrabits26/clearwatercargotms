@@ -29,7 +29,7 @@ import { TrackingPanel } from "@/components/TrackingPanel";
 import { LoadNotes } from "@/components/LoadNotes";
 import { OffersPanel } from "@/components/OffersPanel";
 import { RateView } from "@/components/RateView";
-import { fleetQuery, driversQuery } from "@/lib/queries";
+import { fleetQuery, driversQuery, laneHistoryQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
