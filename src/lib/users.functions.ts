@@ -32,7 +32,7 @@ export const createUser = createServerFn({ method: "POST" })
     }, { onConflict: "email" });
     if (approvalError) throw new Error(approvalError.message);
     const { data: created, error } = await admin.auth.admin.createUser({
-      email: normalizedEmail, password: data.password, email_confirm: true, user_metadata: { full_name: data.full_name },
+      email: normalizedEmail, password: data.password, email_confirm: true, user_metadata: { full_name: data.full_name }, app_metadata: { must_change_password: true },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Couldn't create user");
     const id = created.user.id;
