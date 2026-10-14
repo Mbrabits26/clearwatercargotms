@@ -21,17 +21,17 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
-- Outbound emails go through `composeEmail` in src/lib/email.ts: sends directly via the google_mail App User Connector when the user connected Gmail (encrypted keys in app_user_connections, sendGmail in src/lib/gmail.functions.ts), else falls back to a Gmail compose/mailto draft.
+- Outbound emails go through `composeEmail` (src/lib/email.ts): Gmail App User Connector send when connected, else compose/mailto draft.
 - Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
-- Public market rates: getMarketRates (staff-only) searches public pages via Firecrawl, Lovable AI summarizes to strict JSON, cached 24h in market_rate_cache.
+- getMarketRates (staff-only): Firecrawl + Lovable AI, cached 24h in market_rate_cache.
 - Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers see company-wide history, not who earned it.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
 - Carrier duplicate matching/merging (DOT, MC, normalized name; fill blanks only) lives in src/lib/carrierMerge.ts; cross-table merges run in mergeCarriers (carriers.functions.ts) so related rows move atomically server-side.
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
-- Driver ping GPS is reverse geocoded once server-side (geocode.server.ts via the Google Maps connector) and stored in load_tracking_pings.place; the browser map uses only the managed browser key (no browser geocoding/Places).
+- Driver pings are reverse geocoded server-side (geocode.server.ts) into load_tracking_pings.place; the browser map uses only the browser key.
 - Documents preview in-page via `DocPreview`; never auto-download PDFs.
 - AR invoice numbers come from the `assign_invoice_number` trigger on qb_sync (kinds invoice, fleet_invoice); loads with a truck_id bill as fleet_invoice. Carrier bills store gross, quickpay_fee and the net amount.
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
