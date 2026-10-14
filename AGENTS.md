@@ -32,12 +32,11 @@
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
 - Driver ping GPS is reverse geocoded once server-side (geocode.server.ts via the Google Maps connector) and stored in load_tracking_pings.place; the browser map uses only the managed browser key (no browser geocoding/Places).
-- Documents preview in-page through `DocPreview` (signed URLs / blob URLs); never auto-download generated PDFs.
+- Documents preview in-page via `DocPreview`; never auto-download PDFs.
 - AR invoice numbers come from the `assign_invoice_number` trigger on qb_sync (kinds invoice, fleet_invoice); loads with a truck_id bill as fleet_invoice. Carrier bills store gross, quickpay_fee and the net amount.
-- Carrier signature proof lives in carrier_signatures (packet app retired).
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
-- Internal fleet runs under one carrier record (FLEET_CARRIER_ID in tms.ts); the Fleet tab shows that carrier and its load history (carrier loads + loads with fleet units).
+- Internal fleet runs under one carrier record (FLEET_CARRIER_ID in tms.ts); Fleet tab shows it plus its load history.
