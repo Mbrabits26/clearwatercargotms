@@ -136,10 +136,10 @@ export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?:
   payTermsOf(load.pay_terms ?? carrier?.pay_terms);
 
 /** Paste-ready load summary (no money) for texts, emails and load posts. */
-export function loadString(l: Load, names: { customer?: string | null; shipper?: string | null; consignee?: string | null } = {}) {
+export function loadString(l: Load, names: { customer?: string | null; shipper?: Company | null; consignee?: Company | null } = {}) {
   const short = (s: string | null | undefined) => (s ? new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
-  const fac = (name: string | null | undefined, city: string, state: string, addr: string | null | undefined, phone: string | null | undefined, ref: string | null | undefined) =>
-    `${name || `${city}, ${state}`}${addr ? ` — ${addr}` : ""}${phone ? ` · ${phone}` : ""}${ref ? ` · ref ${ref}` : ""}`;
+  const fac = (c: Company | null | undefined, city: string, state: string, ref: string | null | undefined) =>
+    `${c?.name || `${city}, ${state}`}${c?.address ? ` — ${c.address}` : ""}${c?.phone ? ` · ${c.phone}` : ""}${ref ? ` · ref ${ref}` : ""}`;
   const spec = [
     l.equipment,
     l.weight_lbs ? `${l.weight_lbs.toLocaleString()} lbs` : null,
@@ -154,8 +154,8 @@ export function loadString(l: Load, names: { customer?: string | null; shipper?:
     `Pickup ${short(l.pickup_at)}  |  Delivery ${short(l.delivery_at)}`,
     spec,
     names.customer ? `Customer: ${names.customer}` : null,
-    `Pickup: ${fac(names.shipper, l.origin_city, l.origin_state, undefined, undefined, l.ship_ref)}`,
-    `Delivery: ${fac(names.consignee, l.dest_city, l.dest_state, undefined, undefined, l.dest_ref)}`,
+    `Pickup: ${fac(names.shipper, l.origin_city, l.origin_state, l.ship_ref)}`,
+    `Delivery: ${fac(names.consignee, l.dest_city, l.dest_state, l.dest_ref)}`,
     l.pickup_notes ? `Pickup notes: ${l.pickup_notes}` : null,
     l.delivery_notes ? `Delivery notes: ${l.delivery_notes}` : null,
     acc ? `Accessorials: ${acc}` : null,
