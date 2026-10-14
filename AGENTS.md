@@ -25,7 +25,7 @@
 - Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - Public market rates: getMarketRates (staff-only) searches public pages via Firecrawl, Lovable AI summarizes to strict JSON, cached 24h in market_rate_cache.
-- Lane pricing math lives in laneStats/RateView (src/components/RateView.tsx), reused by the dispatch cockpit, quotes and RFP tool.
+- Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers get company-wide history without seeing who earned what.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
 - Carrier duplicate matching/merging (DOT, MC, normalized name; fill blanks only) lives in src/lib/carrierMerge.ts; cross-table merges run in mergeCarriers (carriers.functions.ts) so related rows move atomically server-side.
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.

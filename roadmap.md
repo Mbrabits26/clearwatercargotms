@@ -101,3 +101,6 @@
 - [ ] Due-invoice reminders at admin sign-in with editable timelines
 - [ ] Admin switch: brokers may approve non-compliant carriers (DB-enforced)
 - [ ] Full review + review-changes step before saving edits
+- [x] Lanes run rows clickable → loads list with quick look
+- [x] Brokers see company-wide lane history + rate view (no broker attribution)
+- [x] Customer "brought in by" + Customer commissions report
