@@ -24,15 +24,29 @@ export function DatePicker({ value, onChange, withTime, min, placeholder = "Pick
     if (!date) return onChange("");
     onChange(withTime ? `${date}T${time || "08:00"}` : date);
   };
+  const [text, setText] = useState<string | null>(null);
+  const shown = text ?? (sel ? format(sel, "MM/dd/yyyy") : "");
+  const commit = (t: string) => {
+    setText(null);
+    if (!t.trim()) return emit("", "");
+    for (const f of ["MM/dd/yyyy", "M/d/yyyy", "MM/dd/yy", "M/d/yy", "yyyy-MM-dd", "MMddyyyy"]) {
+      const p = parse(t.trim(), f, new Date());
+      if (isValid(p) && p.getFullYear() > 1900) return emit(format(p, "yyyy-MM-dd"), timePart);
+    }
+  };
   return (
     <div className={cn("flex gap-2", className)}>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className={cn("flex-1 justify-start font-normal", !sel && "text-muted-foreground")}>
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {sel ? format(sel, "EEE, MMM d, yyyy") : placeholder}
-          </Button>
-        </PopoverTrigger>
+        <div className="relative flex-1">
+          <Input value={shown} placeholder={placeholder === "Pick a date" ? "MM/DD/YYYY" : placeholder} className="pr-9"
+            onChange={(e) => setText(e.target.value)} onBlur={(e) => commit(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit((e.target as HTMLInputElement).value); } }} />
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" aria-label="Open calendar" className="absolute right-0 top-0 h-full">
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+        </div>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"

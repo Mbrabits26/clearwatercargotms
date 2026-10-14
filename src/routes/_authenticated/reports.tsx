@@ -133,8 +133,22 @@ function Reports() {
   const sum = (ls: Load[], c: Col) => ls.reduce((s, l) => { const t = loadTotals(l); return s + (c === "revenue" ? t.revenue : c === "cost" ? t.cost : t.margin); }, 0);
 
   const exportCsv = () => {
-    const head = [...(cfg.groupBy !== "none" ? ["Group"] : []), ...cfg.cols.map((c) => COLS.find((x) => x.id === c)!.label)];
-    const lines = [head, ...groups.flatMap(([g, ls]) => ls.map((l) => [...(cfg.groupBy !== "none" ? [g] : []), ...cfg.cols.map((c) => cell(l, c))]))];
+    const grouped = cfg.groupBy !== "none";
+    const head = [...(grouped ? ["Group"] : []), ...cfg.cols.map((c) => COLS.find((x) => x.id === c)!.label)];
+    const totalRow = (label: string, ls: Load[]) => {
+      const rev = sum(ls, "revenue"), mar = sum(ls, "margin");
+      return [...(grouped ? [label] : []), ...cfg.cols.map((c, i) => {
+        if (c === "revenue") return usd(rev);
+        if (c === "cost") return usd(sum(ls, "cost"));
+        if (c === "margin") return `${usd(mar)} (${(rev ? (mar / rev) * 100 : 0).toFixed(1)}%)`;
+        if (i === 0) return grouped ? `${ls.length} loads` : `${label} — ${ls.length} loads`;
+        return "";
+      })];
+    };
+    const lines = [head, ...groups.flatMap(([g, ls]) => [
+      ...ls.map((l) => [...(grouped ? [g] : []), ...cfg.cols.map((c) => cell(l, c))]),
+      ...(grouped ? [totalRow(`${g} TOTAL`, ls), []] : []),
+    ]), totalRow("GRAND TOTAL", rows)];
     const csv = lines.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
