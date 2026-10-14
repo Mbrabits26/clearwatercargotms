@@ -153,7 +153,7 @@ function Directory() {
                 {k.l.slice(0, -1)}
               </label>
             ))}
-          </div>
+          </div>}
           <div className="flex justify-end"><Button onClick={save}>Save</Button></div>
         </DialogContent>
       </Dialog>
