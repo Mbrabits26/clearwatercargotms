@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
+import { ForcePasswordChange } from "@/components/ForcePasswordChange";
 import { DEFAULT_PERMS } from "@/lib/tms";
 
 export const Route = createFileRoute("/_authenticated")({
