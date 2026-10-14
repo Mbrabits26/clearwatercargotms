@@ -117,6 +117,7 @@
 - [x] Admin: edit user name/email; temp-password forces choose-own-password at next sign-in
 - [x] Admin due-invoice reminders banner with editable day thresholds (AR / AP / QuickPay)
 - [x] Admin-granted broker permission "Override carrier compliance" (DB trigger updated; DNU/unauthorized still blocked)
+- [x] One-click copy string on every load (dispatch rows, load cockpit, quick look) — paste-ready details, no rates
 
 ## Open
 - [x] Google address autofill (directory, carrier edit, new shipper/consignee in load builder)
