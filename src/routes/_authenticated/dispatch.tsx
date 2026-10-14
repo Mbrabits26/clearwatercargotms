@@ -511,7 +511,7 @@ function Cockpit({
 
         <Panel title="Rate view & pricing">
           <RateView
-            loads={loads.filter((l) => l.id !== load.id)}
+            loads={laneHist.filter((l) => l.id !== load.id)}
             lane={load}
             onApply={(c, k) => {
               setCustRate(String(c)); setCarrierRate(String(k));
