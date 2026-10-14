@@ -85,3 +85,19 @@
 - [x] michael@clearwatercargo.com promoted to Admin
 - [x] Speed up data loading: dispatch board defaults to last 30 days of loads (checkbox shows older); reports/accounting still read all loads; domain change will NOT help speed
 - [x] Copy a load into multiple loads (Copy load button + Create how many in load builder)
+
+## Polish round (Oct 13)
+- [x] Report CSV: group subtotals + grand total
+- [x] Date boxes: type MM/DD/YYYY or pick from calendar
+- [x] Pickers search by name (not city), A–Z, starts-with first
+- [x] Dispatch search: customer/carrier/shipper/consignee/refs/ITS #, searches all dates
+- [ ] Brokers see all customers/shippers/carriers (verify)
+- [ ] Edit carrier (all fields)
+- [ ] Related loads on carrier/company
+- [ ] Optional carrier section + add-new carrier in load builder
+- [ ] Google address fill check; rate con shipper/receiver addresses
+- [ ] Edit user name/email; temporary password → choose new
+- [ ] Admin-editable invoices (save/print)
+- [ ] Due-invoice reminders at admin sign-in with editable timelines
+- [ ] Admin switch: brokers may approve non-compliant carriers (DB-enforced)
+- [ ] Full review + review-changes step before saving edits
