@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usd, fmtDate, type Load } from "@/lib/tms";
@@ -40,7 +40,7 @@ export function CarrierLanes({ carrierId }: { carrierId: string }) {
             <tr><th>Lane</th><th>Equip</th><th className="text-right">Runs</th><th className="text-right">Avg pay</th><th className="text-right">$/mi</th><th className="text-right">Last</th></tr>
           </thead>
           <tbody>
-            {lanes.map((l) => (<>
+            {lanes.map((l) => (<Fragment key={l.key}>
               <tr key={l.key} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => setOpenLane(openLane === l.key ? null : l.key)}>
                 <td className="text-gold underline-offset-2 hover:underline">{openLane === l.key ? "▾" : "▸"} {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
                 <td>{l.equipment}</td>
@@ -58,7 +58,7 @@ export function CarrierLanes({ carrierId }: { carrierId: string }) {
                   </div>
                 </td></tr>
               )}
-            </>))}
+            </Fragment>))}
           </tbody>
         </table></div>
       )}
