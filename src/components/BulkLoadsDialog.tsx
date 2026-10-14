@@ -208,7 +208,7 @@ export function BulkLoadsDialog({ open, onOpenChange, companies }: { open: boole
                   <td className="p-1 text-muted-foreground">{i + 1}</td>
                   {mode === "each" && <td className="p-1"><Input list="bulk-customers" className="h-8 w-36 text-xs" value={r.customer} onChange={(e) => upd(i, "customer", e.target.value)} /></td>}
                   {COLS.slice(0, 8).map((c) => (
-                    <td key={c.k} className="p-1"><Input type={c.type} className={`h-8 text-xs ${c.w}`} value={r[c.k]} onChange={(e) => upd(i, c.k, e.target.value)} /></td>
+                    <td key={c.k} className="p-1"><Input list={c.k === "shipper" ? "bulk-shippers" : c.k === "consignee" ? "bulk-consignees" : undefined} type={c.type} className={`h-8 text-xs ${c.w}`} value={r[c.k]} onChange={(e) => upd(i, c.k, e.target.value)} /></td>
                   ))}
                   <td className="p-1">
                     <Select value={r.equipment} onValueChange={(v) => upd(i, "equipment", v)}>
@@ -228,6 +228,7 @@ export function BulkLoadsDialog({ open, onOpenChange, companies }: { open: boole
             </tbody>
           </table>
           <datalist id="bulk-customers">{custOpts.map((o) => <option key={o.id} value={o.label} />)}</datalist>
+          <datalist id="bulk-consignees">{companies.filter((c) => c.kind === "consignee").map((c) => <option key={c.id} value={c.name} />)}</datalist>
           <datalist id="bulk-shippers">{companies.filter((c) => c.kind === "shipper").map((c) => <option key={c.id} value={c.name} />)}</datalist>
         </div>
         <div className="flex items-center justify-end gap-2">

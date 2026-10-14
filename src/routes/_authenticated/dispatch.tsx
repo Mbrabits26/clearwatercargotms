@@ -3,7 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft } from "lucide-react";
+import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
+import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
 import { CopyLoadDialog } from "@/components/CopyLoadDialog";
 import { CopyLoadString } from "@/components/CopyLoadString";
 import { BolDialog } from "@/components/BolDialog";
@@ -120,6 +121,7 @@ function Dispatch() {
   const [selectedId, setSelectedId] = useState<string | null>(loads[0]?.id ?? null);
   const [mobileDetail, setMobileDetail] = useState(false);
   const [builder, setBuilder] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const search = Route.useSearch();
   useEffect(() => {
     if (search.load && loads.some((l) => l.id === search.load)) {
