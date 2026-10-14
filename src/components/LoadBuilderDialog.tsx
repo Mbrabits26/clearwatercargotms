@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EQUIPMENT, carrierCompliance, type Company, type Load } from "@/lib/tms";
 import { DatePicker } from "@/components/DatePicker";
 import { EntityCombobox, type ComboValue } from "@/components/EntityCombobox";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { extractLoadFromDoc } from "@/lib/extract.functions";
 import type { Extracted } from "@/lib/extract.server";
 import { cn } from "@/lib/utils";
@@ -227,6 +228,7 @@ export function LoadBuilderDialog({
   };
 
   const combo = (kind: Kind) => (
+    <>
     <EntityCombobox
       value={parties[kind]}
       newLabel={`new ${kind}`}
@@ -239,6 +241,16 @@ export function LoadBuilderDialog({
         if (c && kind === "consignee") setF((p) => ({ ...p, dest_city: c.city ?? p.dest_city ?? "", dest_state: c.state ?? p.dest_state ?? "" }));
       }}
     />
+    {kind !== "customer" && !parties[kind]?.id && parties[kind]?.name?.trim() && (
+      <AddressAutocomplete value={parties[kind]?.address ?? ""} placeholder={`New ${kind} address (Google)`}
+        onChange={(v) => setParties((p) => ({ ...p, [kind]: { ...p[kind], address: v } }))}
+        onPick={(pl) => {
+          setParties((p) => ({ ...p, [kind]: { ...p[kind], address: pl.address, city: pl.city, state: pl.state, zip: pl.zip, phone: p[kind]?.phone || pl.phone } }));
+          if (kind === "shipper") setF((p) => ({ ...p, origin_city: pl.city, origin_state: pl.state }));
+          if (kind === "consignee") setF((p) => ({ ...p, dest_city: pl.city, dest_state: pl.state }));
+        }} />
+    )}
+    </>
   );
 
   return (
