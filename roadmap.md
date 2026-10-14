@@ -119,5 +119,5 @@
 - [x] Admin-granted broker permission "Override carrier compliance" (DB trigger updated; DNU/unauthorized still blocked)
 
 ## Open
-- [ ] Google Places address autofill (needs Places API on the managed browser key)
+- [x] Google address autofill (directory, carrier edit, new shipper/consignee in load builder)
 - [ ] Full app walkthrough / confirm-before-save review
