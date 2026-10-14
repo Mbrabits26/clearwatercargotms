@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Eye, EyeOff, KeyRound, Trash2, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval, setUserAdmin } from "@/lib/users.functions";
+import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval, setUserAdmin, updateUser } from "@/lib/users.functions";
 import { DEFAULT_PERMS, PERMISSIONS, type Profile } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
   const revoke = useServerFn(revokeApproval);
   const setAdmin = useServerFn(setUserAdmin);
   const [pwFor, setPwFor] = useState<Profile | null>(null);
+  const [editFor, setEditFor] = useState<Profile | null>(null);
   const flipAdmin = async (p: Profile, on: boolean) => {
     if (!confirm(on ? `Give ${p.email} full admin access?` : `Turn off admin access for ${p.email}? They become a Broker.`)) return;
     try { await setAdmin({ data: { userId: p.id, admin: on } }); toast.success(on ? "Admin access on" : "Admin access off"); qc.invalidateQueries(); } catch (e) { toast.error((e as Error).message); }
@@ -45,6 +46,7 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
   return (
     <div className="rounded border bg-card p-4">
       <SetPassword user={pwFor} onClose={() => setPwFor(null)} run={(pw) => reset({ data: { userId: pwFor!.id, password: pw } })} />
+      <EditUser user={editFor} onClose={() => setEditFor(null)} onDone={() => qc.invalidateQueries()} />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-display text-xl font-bold uppercase tracking-wider text-gold">Users & permissions</h2>
         <div className="flex flex-wrap gap-2"><ApproveUser onDone={() => qc.invalidateQueries()} /><AddUser onDone={() => qc.invalidateQueries()} /></div>
@@ -69,6 +71,7 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
                     </td>
                   ))}
                   <td className="whitespace-nowrap text-right">
+                    <Button size="sm" variant="ghost" onClick={() => setEditFor(p)} aria-label="Edit name and email"><Pencil className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setPwFor(p)} aria-label="Set password"><KeyRound className="h-4 w-4" /></Button>
                     {p.id !== selfId && <Button size="sm" variant="ghost" onClick={() => remove(p)} aria-label="Delete user"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                   </td>
@@ -156,6 +159,32 @@ function AddUser({ onDone }: { onDone: () => void }) {
   );
 }
 
+function EditUser({ user, onClose, onDone }: { user: Profile | null; onClose: () => void; onDone: () => void }) {
+  const upd = useServerFn(updateUser);
+  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [busy, setBusy] = useState(false);
+  const open = !!user;
+  if (open && name === "" && email === "") { setName(user.full_name ?? ""); setEmail(user.email ?? ""); }
+  const close = () => { setName(""); setEmail(""); onClose(); };
+  const save = async () => {
+    if (!name.trim() || !email.trim()) return toast.error("Name and email are required.");
+    if (!confirm(`Save ${name.trim()} <${email.trim()}> for this user?`)) return;
+    setBusy(true);
+    try { await upd({ data: { userId: user!.id, full_name: name.trim(), email: email.trim() } }); toast.success("User updated"); close(); onDone(); }
+    catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Edit user</DialogTitle></DialogHeader>
+        <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <p className="text-xs text-muted-foreground">Changing the email changes their sign-in email too.</p>
+        <Button disabled={busy} onClick={save}>{busy ? "Saving…" : "Save changes"}</Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SetPassword({ user, onClose, run }: { user: Profile | null; onClose: () => void; run: (pw: string) => Promise<unknown> }) {
   const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [show, setShow] = useState(false); const [busy, setBusy] = useState(false);
   const close = () => { setPw(""); setPw2(""); onClose(); };
@@ -170,7 +199,7 @@ function SetPassword({ user, onClose, run }: { user: Profile | null; onClose: ()
     <Dialog open={!!user} onOpenChange={(o) => !o && close()}>
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Set password</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">{user?.email} — works alongside Google sign-in.</p>
+        <p className="text-sm text-muted-foreground">{user?.email} — works alongside Google sign-in. They'll be asked to choose their own password the next time they sign in.</p>
         <div className="relative"><Input type={show ? "text" : "password"} placeholder="New password (8+ characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
           <button type="button" className="absolute right-2 top-2.5 text-muted-foreground" onClick={() => setShow(!show)} aria-label="Show password">{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
         <Input type={show ? "text" : "password"} placeholder="Type it again" value={pw2} onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
