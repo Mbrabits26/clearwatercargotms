@@ -437,6 +437,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          sales_broker_id: string | null
           state: string | null
           zip: string | null
         }
@@ -452,6 +453,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          sales_broker_id?: string | null
           state?: string | null
           zip?: string | null
         }
@@ -467,6 +469,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          sales_broker_id?: string | null
           state?: string | null
           zip?: string | null
         }
@@ -1432,6 +1435,32 @@ export type Database = {
       import_its_loads: { Args: { rows: Json }; Returns: Json }
       is_approved: { Args: { _uid: string }; Returns: boolean }
       is_staff: { Args: { _uid: string }; Returns: boolean }
+      lane_history_loads: {
+        Args: { _carrier?: string }
+        Returns: {
+          accessorials: Json
+          carrier_id: string
+          carrier_rate: number
+          commodity: string
+          consignee_id: string
+          created_at: string
+          customer_id: string
+          customer_rate: number
+          delivery_at: string
+          dest_city: string
+          dest_state: string
+          equipment: string
+          id: string
+          load_number: string
+          miles: number
+          origin_city: string
+          origin_state: string
+          pickup_at: string
+          shipper_id: string
+          status: Database["public"]["Enums"]["load_status"]
+          weight_lbs: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "broker"

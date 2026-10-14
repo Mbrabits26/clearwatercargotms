@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { FileDown, FileUp, Mail, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { companiesQuery, loadsQuery } from "@/lib/queries";
+import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
 import { EQUIPMENT, usd } from "@/lib/tms";
 import { buildQuotePdf, type Quote } from "@/lib/quote";
 import { composeEmail } from "@/lib/email";
@@ -53,7 +53,7 @@ function QuotesPage() {
 
 function QuoteBuilder() {
   const qc = useQueryClient();
-  const { data: loads = [] } = useQuery(loadsQuery);
+  const { data: loads = [] } = useQuery(laneHistoryQuery());
   const { data: companies = [] } = useQuery(companiesQuery);
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: async () => (await supabase.from("quotes").select("*").order("created_at", { ascending: false })).data ?? [] });
   const [f, setF] = useState(blank);
@@ -182,7 +182,7 @@ const pick = (row: Record<string, unknown>, names: string[]) => {
 };
 
 function RfpTool() {
-  const { data: loads = [] } = useQuery(loadsQuery);
+  const { data: loads = [] } = useQuery(laneHistoryQuery());
   const market = useServerFn(getMarketRates);
   const [lanes, setLanes] = useState<RfpLane[]>([]);
   const [busy, setBusy] = useState(false);

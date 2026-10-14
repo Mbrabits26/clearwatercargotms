@@ -84,3 +84,18 @@ export const driversQuery = queryOptions({
     return data;
   },
 });
+// Company-wide lane history (all brokers' loads, no broker attribution) for rate view + lanes run.
+export const laneHistoryQuery = (carrierId?: string) => queryOptions({
+  queryKey: ["lane-history", carrierId ?? "all"],
+  staleTime: 5 * 60_000,
+  queryFn: async () => {
+    const out: Record<string, any>[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.rpc("lane_history_loads", carrierId ? { _carrier: carrierId } : {}).range(from, from + 999);
+      if (error) throw error;
+      out.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    return out as unknown as import("@/lib/tms").Load[];
+  },
+});

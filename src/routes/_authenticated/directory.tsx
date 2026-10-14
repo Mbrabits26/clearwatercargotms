@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { companiesQuery } from "@/lib/queries";
+import { companiesQuery, profilesQuery } from "@/lib/queries";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "@/components/BulkImportDialog";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/directory")({
       { property: "og:description", content: "Shared customers, shippers and consignees." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(companiesQuery),
+  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(companiesQuery), context.queryClient.ensureQueryData(profilesQuery)]),
   component: Directory,
 });
 
@@ -39,6 +39,13 @@ const FIELDS = [
 function Directory() {
   const { data } = useSuspenseQuery(companiesQuery);
   const qc = useQueryClient();
+  const { data: profiles } = useSuspenseQuery(profilesQuery);
+  const setRep = async (id: string, rep: string) => {
+    const { error } = await supabase.from("companies").update({ sales_broker_id: rep || null }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Saved");
+    qc.invalidateQueries({ queryKey: ["companies"] });
+  };
   const [kind, setKind] = useState<string>("customer");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -80,7 +87,7 @@ function Directory() {
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead><TableHead /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <TableHead>Brought in by</TableHead>}<TableHead /></TableRow></TableHeader>
           <TableBody>
             {rows.map((c) => (
               <TableRow key={c.id}>
@@ -88,10 +95,16 @@ function Directory() {
                 <TableCell>{c.contact_name}</TableCell>
                 <TableCell>{c.phone}</TableCell>
                 <TableCell className="text-muted-foreground">{c.address}, {c.city}, {c.state} {c.zip}</TableCell>
+                {kind === "customer" && <TableCell>
+                  <select className="h-8 rounded border bg-background px-2 text-sm" value={c.sales_broker_id ?? ""} onChange={(e) => setRep(c.id, e.target.value)}>
+                    <option value="">Not set</option>
+                    {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>)}
+                  </select>
+                </TableCell>}
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
-            {!rows.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>

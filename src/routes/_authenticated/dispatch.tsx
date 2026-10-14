@@ -29,7 +29,7 @@ import { TrackingPanel } from "@/components/TrackingPanel";
 import { LoadNotes } from "@/components/LoadNotes";
 import { OffersPanel } from "@/components/OffersPanel";
 import { RateView } from "@/components/RateView";
-import { fleetQuery, driversQuery } from "@/lib/queries";
+import { fleetQuery, driversQuery, laneHistoryQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -294,6 +294,7 @@ function Cockpit({
   isAdmin: boolean;
 }) {
   const qc = useQueryClient();
+  const { data: laneHist = loads } = useQuery(laneHistoryQuery());
   const { user } = useRouteContext({ from: "/_authenticated" });
   const carrier = carriers.find((c) => c.id === load.carrier_id);
   const shipper = companies.find((c) => c.id === load.shipper_id);
@@ -511,7 +512,7 @@ function Cockpit({
 
         <Panel title="Rate view & pricing">
           <RateView
-            loads={loads.filter((l) => l.id !== load.id)}
+            loads={laneHist.filter((l) => l.id !== load.id)}
             lane={load}
             onApply={(c, k) => {
               setCustRate(String(c)); setCarrierRate(String(k));
