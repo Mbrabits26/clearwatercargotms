@@ -44,15 +44,17 @@ export function ChatWidget({ userId }: { userId: string }) {
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [userId, people]);
+  }, [userId]);
   const clearMentions = async () => {
     if (!mentions.length) return;
     await supabase.from("chat_mentions").update({ read: true }).eq("user_id", userId).eq("read", false);
     qc.invalidateQueries({ queryKey: ["chat-mentions"] });
   };
 
+  const peopleRef = useRef(people);
+  peopleRef.current = people;
   const name = (id: string) => {
-    const p = people.find((x) => x.id === id);
+    const p = peopleRef.current.find((x) => x.id === id);
     return p?.full_name || p?.email?.split("@")[0] || "Teammate";
   };
   const readAt = (c: string) => reads.find((r) => r.channel === c)?.last_read_at ?? "1970-01-01";
@@ -84,7 +86,7 @@ export function ChatWidget({ userId }: { userId: string }) {
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [userId, people]);
+  }, [userId]);
 
   const markRead = async (c: string) => {
     await supabase.from("chat_reads").upsert({ user_id: userId, channel: c, last_read_at: new Date().toISOString() });

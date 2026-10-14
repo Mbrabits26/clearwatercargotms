@@ -28,11 +28,8 @@ export async function fetchAllPaged(
 
 export const loadsQuery = queryOptions({
   queryKey: ["loads"],
-  queryFn: async () => {
-    const { data, error } = await supabase.from("loads").select("*").order("pickup_at", { ascending: false });
-    if (error) throw error;
-    return data;
-  },
+  queryFn: async () =>
+    (await fetchAllPaged("loads", "pickup_at", false)) as unknown as import("@/integrations/supabase/types").Tables<"loads">[],
 });
 // Dispatch board default: only the last 30 days (older loads stay in reports/accounting).
 export const recentLoadsQuery = queryOptions({

@@ -9,6 +9,7 @@ import { loadTotals, usd } from "@/lib/tms";
 import { Input } from "@/components/ui/input";
 import { UserManagement } from "@/components/UserManagement";
 import { ItsSync } from "@/components/ItsSync";
+import { SystemDiagnostics } from "@/components/SystemDiagnostics";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -54,6 +55,7 @@ function Admin() {
   return (
     <div className="space-y-6 p-3 sm:p-6">
       <h1 className="text-3xl font-bold uppercase">Admin</h1>
+      <SystemDiagnostics />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[["Gross revenue", totals.rev], ["Gross margin", totals.margin], ["Open AR (invoiced)", ar], ["Carrier AP due", ap]].map(([k, v]) => (
           <div key={k as string} className="rounded border bg-card p-4">
