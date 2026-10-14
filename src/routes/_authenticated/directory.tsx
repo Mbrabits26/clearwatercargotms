@@ -50,18 +50,36 @@ function Directory() {
   const [kind, setKind] = useState<string>("customer");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [f, setF] = useState<Record<string, string>>({});
+  const { ask, dialog } = useReviewChanges();
   const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(q.toLowerCase()));
   const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
+  const editing = editId ? data.find((c) => c.id === editId) : null;
+  const startEdit = (c: (typeof data)[number]) => {
+    setF(Object.fromEntries(FIELDS.map(([k]) => [k, String((c as Record<string, unknown>)[k] ?? "")])));
+    setEditId(c.id); setOpen(true);
+  };
 
   const [also, setAlso] = useState<string[]>([]);
   const save = async () => {
     if (!f.name) return toast.error("Business name is required");
+    const base = { name: f.name, contact_name: f.contact_name, phone: f.phone, email: f.email, address: f.address, city: f.city, state: f.state?.toUpperCase(), zip: f.zip };
+    if (editing) {
+      const changes = diff(FIELDS.map(([k, l]) => ({ label: l, before: (editing as Record<string, unknown>)[k], after: (base as Record<string, unknown>)[k] })));
+      if (!changes.length) return toast.info("No changes to save.");
+      if (!(await ask(changes))) return;
+      const { error } = await supabase.from("companies").update(Object.fromEntries(Object.entries(base).map(([k, v]) => [k, v || null])) as never).eq("id", editing.id);
+      if (error) return toast.error(error.message);
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["companies"] });
+      setF({}); setEditId(null); setOpen(false);
+      return;
+    }
     const kinds = [kind, ...also.filter((k) => k !== kind)];
     const norm = (s?: string | null) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const todo = kinds.filter((k) => !data.some((c) => c.kind === k && norm(c.name) === norm(f.name) && norm(c.city) === norm(f.city)));
     if (!todo.length) return toast.error("Already in the Directory");
-    const base = { name: f.name, contact_name: f.contact_name, phone: f.phone, email: f.email, address: f.address, city: f.city, state: f.state?.toUpperCase(), zip: f.zip };
     const { error } = await supabase.from("companies").insert(todo.map((k) => ({ ...base, kind: k })));
     if (error) return toast.error(error.message);
     toast.success(`Added as ${todo.join(" and ")}`);
