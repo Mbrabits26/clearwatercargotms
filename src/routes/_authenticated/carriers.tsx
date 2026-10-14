@@ -127,7 +127,10 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           <p className="text-muted-foreground">{c.dba && `DBA ${c.dba} · `}MC {c.mc_number} · DOT {c.dot_number} · {c.city}, {c.state} · {c.phone}</p>
           <p className="text-sm text-muted-foreground">{[c.contact_name, c.email, c.address && `${c.address}, ${c.city ?? ""} ${c.state ?? ""} ${c.zip ?? ""}`].filter(Boolean).join(" · ")}</p>
         </div>
-        <StatusPill c={c} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit carrier</Button>
+          <StatusPill c={c} />
+        </div>
       </div>
       {c.status === "dnu" && (
         <div className="rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
