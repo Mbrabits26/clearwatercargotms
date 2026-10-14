@@ -76,6 +76,7 @@ export function EditCarrierDialog({ c, open, onOpenChange, onDone }: { c: Carrie
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-auto">
+        {dialog}
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Edit carrier — {c.legal_name}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map(({ key, label, half }) => (
