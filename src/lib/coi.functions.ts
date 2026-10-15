@@ -21,6 +21,5 @@ export const readCoiDoc = createServerFn({ method: "POST" })
     const patch = coiPatch(p);
     const { error } = await context.supabase.from("carriers").update(patch as never).eq("id", data.carrierId);
     if (error) throw new Error(error.message);
-    if (p.auto_expires) await context.supabase.from("carrier_documents").delete().eq("id", "00000000-0000-0000-0000-000000000000"); // no-op guard
     return { found: Object.keys(patch).length > 1, coi: p };
   });
