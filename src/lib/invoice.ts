@@ -2,17 +2,22 @@ import { jsPDF } from "jspdf";
 import { CW } from "./ratecon";
 import type { Accessorial, Company, Load } from "./tms";
 
+/** Internal fleet billing entity (separate MC/DOT from the brokerage). */
+export const FF = { name: "Foust Farms Truckin LLC", addr1: "1392 Shady Grove Church Road", addr2: "Staley, NC 27355", phone: "336-622-9527", authority: "MC 775739 · USDOT 2271564" };
+
 const money = (n: number) => `$ ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const d = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("en-US") : "");
 
 /** Branded customer invoice (AR) for one load. Amount comes from the queued accounting row. */
-export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null }) {
+export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null; fleet?: boolean }) {
   const { load, billTo } = o;
+  const co = o.fleet ? FF : CW;
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const L = 48, R = 564;
-  if (o.logo) doc.addImage(o.logo, "JPEG", L, 36, 70, 70);
-  doc.setFont("helvetica", "bold").setFontSize(18).text(CW.name, L + 84, 58);
-  doc.setFont("helvetica", "normal").setFontSize(10).text([CW.addr1, CW.addr2, CW.phone], L + 84, 74);
+  const X = o.fleet ? L : L + 84;
+  if (o.logo && !o.fleet) doc.addImage(o.logo, "JPEG", L, 36, 70, 70);
+  doc.setFont("helvetica", "bold").setFontSize(18).text(co.name, X, 58);
+  doc.setFont("helvetica", "normal").setFontSize(10).text([co.addr1, co.addr2, co.phone, ...(o.fleet ? [FF.authority] : [])], X, 74);
   doc.setFont("helvetica", "bold").setFontSize(26).text("INVOICE", R, 58, { align: "right" });
   doc.setFontSize(10).setFont("helvetica", "normal");
   doc.text([`Invoice #: ${o.invoiceNumber}`, `Date: ${new Date().toLocaleDateString("en-US")}`, `Load #: ${load.load_number}`, "Terms: Net 30"], R, 76, { align: "right" });
@@ -37,7 +42,7 @@ export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?:
   for (const [k, v] of rows) { y += 18; doc.text(String(k), L + 8, y).text(money(v), R - 8, y, { align: "right" }); doc.setDrawColor(220).line(L, y + 5, R, y + 5); }
   y += 30;
   doc.setFont("helvetica", "bold").setFontSize(13).text(`TOTAL DUE  ${money(o.amount)}`, R - 8, y, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(9).text(`Please remit to ${CW.name}, ${CW.addr1}, ${CW.addr2}. Reference invoice ${o.invoiceNumber} with payment.`, L, 720);
+  doc.setFont("helvetica", "normal").setFontSize(9).text(`Please remit to ${co.name}, ${co.addr1}, ${co.addr2}. Reference invoice ${o.invoiceNumber} with payment.`, L, 720);
   return doc;
 }
 

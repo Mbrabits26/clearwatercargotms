@@ -32,6 +32,7 @@ type SyncRow = {
   created_at: string;
   sent_at: string | null;
   invoice_number: string | null;
+  qb_class?: string | null;
   gross_amount: number | null;
   quickpay_fee: number;
   carrier_invoice_amount: number | null;
@@ -95,7 +96,7 @@ function Accounting() {
   const invoicePdf = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id);
     if (!l || !s.invoice_number) return null;
-    return buildInvoicePdf({ invoiceNumber: s.invoice_number, load: l, billTo: companies.find((c) => c.id === l.customer_id), amount: Number(s.amount), logo: await loadImage(logo.url) });
+    return buildInvoicePdf({ invoiceNumber: s.invoice_number, load: l, billTo: companies.find((c) => c.id === l.customer_id), amount: Number(s.amount), logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice" });
   };
   const viewInvoice = async (s: SyncRow) => { const d = await invoicePdf(s); if (d) viewer.show(d.output("blob"), `${s.invoice_number}.pdf`); };
   const emailInvoice = async (s: SyncRow) => {
@@ -103,8 +104,8 @@ function Accounting() {
     if (!l || !d) return;
     d.save(`${s.invoice_number}.pdf`);
     const to = companies.find((c) => c.id === l.customer_id)?.email ?? "";
-    await composeEmail(to, `Invoice ${s.invoice_number} — Load ${l.load_number} — Clearwater Cargo`,
-      `Hello,\n\nPlease find invoice ${s.invoice_number} for load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state}) attached. Amount due: ${usd(Number(s.amount))}, Net 30.${l.pod_received ? " The signed POD is on file and available on request." : ""}\n\nThank you,\nClearwater Cargo LLC · 252-497-7916`, getMailClient());
+    await composeEmail(to, `Invoice ${s.invoice_number} — Load ${l.load_number} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
+      `Hello,\n\nPlease find invoice ${s.invoice_number} for load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state}) attached. Amount due: ${usd(Number(s.amount))}, Net 30.${l.pod_received ? " The signed POD is on file and available on request." : ""}\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
     toast.success("Invoice PDF downloaded and email started — attach the PDF.");
   };
   const uploadCarrierInvoice = async (s: SyncRow, file?: File) => {
@@ -210,7 +211,7 @@ function Accounting() {
             <TableBody>
               {sync.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}</TableCell>
+                  <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
                   <TableCell>{loads.find((l) => l.id === s.load_id) ? <LoadQuickLook load={loads.find((l) => l.id === s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
                   <TableCell>{usd(Number(s.amount))}</TableCell>
