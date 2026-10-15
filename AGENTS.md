@@ -17,7 +17,7 @@
 - Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
 - QuickBooks sends are recorded in `qb_sync` (admin-only RLS) as a queue; a future server-side worker delivers queued rows once QuickBooks is connected.
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
-- Rate cons: one jsPDF layout (`buildRateConPdf`) renders both preview and signed copy; the signing link stores a snapshot so the carrier signs exactly what was sent. RC # = load number. Signed PDFs live in the private load-docs bucket under the load id.
+- Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
@@ -32,11 +32,11 @@
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
 - Driver pings are reverse geocoded server-side (geocode.server.ts) into load_tracking_pings.place; the browser map uses only the browser key.
-- Documents preview in-page via `DocPreview`; never auto-download PDFs.
+- Documents preview in-page (`DocPreview`), never auto-download.
 - AR invoice numbers + QuickBooks class come from the `assign_invoice_number` trigger on qb_sync: invoice → INV-, fleet_invoice (loads with truck_id) → FF- and the fleet entity letterhead (FF in invoice.ts). Carrier bills store gross, quickpay_fee and net.
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
-- Internal fleet runs under one carrier record (FLEET_CARRIER_ID in tms.ts); Fleet tab shows it plus its load history.
+- Internal fleet = one carrier record (FLEET_CARRIER_ID in tms.ts).

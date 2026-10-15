@@ -22,10 +22,13 @@ export const getInvite = createServerFn({ method: "GET" })
     if (inv.carrier_id) {
       const { data: c } = await supabaseAdmin
         .from("carriers")
-        .select("legal_name,dba,mc_number,dot_number,phone,email,contact_name,city,state,equipment")
+        .select("legal_name,dba,mc_number,dot_number,phone,email,contact_name,city,state,equipment,pay_terms,factoring_company,factoring_remit,factoring_remit_address")
         .eq("id", inv.carrier_id)
         .single();
-      carrier = c;
+      if (c) {
+        const { factoring_remit_address, ...rest } = c;
+        carrier = { ...rest, factoring_remit: c.factoring_remit_address || c.factoring_remit };
+      }
     }
     return { ok: true as const, email: inv.email, carrier };
   });
@@ -68,9 +71,12 @@ export const submitPacket = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, inv, problem } = await loadInvite(data.token);
     if (problem || !inv) return { ok: false as const, problem: problem ?? "Invalid link" };
+    const factored = data.pay_terms === "factoring" || data.pay_terms === "factored_quickpay";
+    // Only keep files that belong to the chosen pay option (no voided check for factored carriers, no NOA otherwise).
+    data.files = data.files.filter((f) => (f.kind === "noa" ? factored : f.kind === "voided_check" ? !factored : true));
     const kinds = new Set(data.files.map((f) => f.kind));
     if (!kinds.has("w9") || !kinds.has("coi")) return { ok: false as const, problem: "A W-9 and a certificate of insurance are required." };
-    if ((data.factoring_company || data.pay_terms === "factoring" || data.pay_terms === "factored_quickpay") && !kinds.has("noa")) return { ok: false as const, problem: "Please attach your factoring Notice of Assignment." };
+    if (factored && !kinds.has("noa")) return { ok: false as const, problem: "Please attach your factoring Notice of Assignment." };
 
     const i = data.info;
     const fields = {
@@ -79,8 +85,9 @@ export const submitPacket = createServerFn({ method: "POST" })
       state: i.state?.toUpperCase() || null, equipment: i.equipment || null,
       auto_liability: data.insurance.auto_liability, insurance_expires: data.insurance.auto_expires,
       cargo_insurance: data.insurance.cargo_insurance, cargo_expires: data.insurance.cargo_expires,
-      factoring_company: data.factoring_company || null,
-      factoring_remit: data.factoring_remit || null,
+      factoring_company: factored ? data.factoring_company || null : null,
+      factoring_remit: factored ? data.factoring_remit || null : null,
+      factoring_remit_address: factored ? data.factoring_remit || null : null,
       pay_terms: data.pay_terms,
       w9_received: true, coi_received: true, agreement_signed: true,
       noa_received: kinds.has("noa"), voided_check_received: kinds.has("voided_check"),
@@ -118,8 +125,27 @@ export const submitPacket = createServerFn({ method: "POST" })
         expires_on: expires,
       });
     }
+    // Signed PDF of the exact agreement text shown on the portal.
+    const signedAt = new Date().toISOString();
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const ip = (getRequestHeader("cf-connecting-ip") || getRequestHeader("x-forwarded-for") || "").split(",")[0]?.trim() || null;
+    const ua = getRequestHeader("user-agent") || null;
+    const reference = `CWA-${inv.id.slice(0, 8).toUpperCase()}`;
+    let agreementPath = "";
+    try {
+      const { buildAgreementPdf } = await import("./agreementPdf");
+      const pdf = buildAgreementPdf({ ...i, pay_terms: data.pay_terms, signer_name: data.signer_name, signed_at: signedAt, signer_ip: ip, reference });
+      agreementPath = `${carrierId}/agreement-signed-${Date.now()}.pdf`;
+      const { error } = await supabaseAdmin.storage.from("carrier-docs").upload(agreementPath, new Uint8Array(pdf.output("arraybuffer")), { contentType: "application/pdf" });
+      if (error) { console.error(error); agreementPath = ""; }
+    } catch (e) { console.error("Agreement PDF failed", e); agreementPath = ""; }
     await supabaseAdmin.from("carrier_documents").insert({
-      carrier_id: carrierId, kind: "agreement", file_path: "", file_name: `Accepted online by ${data.signer_name} on ${new Date().toISOString().slice(0, 10)}`, source: "carrier portal",
+      carrier_id: carrierId, kind: "agreement", file_path: agreementPath,
+      file_name: `Broker-Carrier Agreement — signed by ${data.signer_name} ${signedAt.slice(0, 10)}.pdf`, source: "carrier portal",
+    });
+    await supabaseAdmin.from("carrier_signatures").insert({
+      carrier_id: carrierId, external_ref: reference, source: "carrier portal", signer_name: data.signer_name,
+      signed_at: signedAt, signer_ip: ip, user_agent: ua, pay_type: data.pay_terms,
     });
     await supabaseAdmin.from("carrier_invites").update({ status: "submitted", submitted_at: new Date().toISOString(), carrier_id: carrierId }).eq("id", inv.id);
     return { ok: true as const };

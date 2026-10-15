@@ -57,9 +57,10 @@ function Portal() {
     if (!files.w9 || !files.coi) return toast.error("Attach your W-9 and certificate of insurance.");
     const factored = f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay";
     if (factored && (!f.factoring_company || !f.factoring_remit)) return toast.error("Enter your factoring company and remit-to address.");
-    if ((f.factoring_company || factored) && !files.noa) return toast.error("Attach your factoring Notice of Assignment.");
+    if (factored && !files.noa) return toast.error("Attach your factoring Notice of Assignment.");
     if (!agree || !f.signer_name) return toast.error("Accept the broker-carrier agreement and type your name to sign.");
-    const list = Object.entries(files) as [Kind, File][];
+    const list = (Object.entries(files) as [Kind, File | undefined][])
+      .filter((e): e is [Kind, File] => !!e[1] && (e[0] === "noa" ? factored : e[0] === "voided_check" ? !factored : true));
     if (list.some(([, x]) => x.size > 10 * 1024 * 1024)) return toast.error("Each file must be under 10 MB.");
     setBusy(true);
     try {
@@ -117,8 +118,12 @@ function Portal() {
     <label className="text-xs text-muted-foreground">{label}<Input className="mt-1" type={type} value={f[k] ?? ""} onChange={set(k)} /></label>
   );
   const fileIn = (k: Kind, label: string, req?: boolean) => (
-    <label className="block text-xs text-muted-foreground">{label}{req && " *"}
-      <Input className="mt-1" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFiles((p) => ({ ...p, [k]: e.target.files?.[0] }))} />
+    <label key={k} className="block text-xs text-muted-foreground">{label}{req && " *"}
+      <Input key={`in-${k}`} className="mt-1" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => {
+        const file = e.target.files?.[0];
+        setFiles((p) => { const n = { ...p }; if (file) n[k] = file; else delete n[k]; return n; });
+      }} />
+      {files[k] && <span className="mt-1 block text-success">Attached: {files[k]!.name} ({Math.ceil(files[k]!.size / 1024)} KB)</span>}
     </label>
   );
 
@@ -146,7 +151,12 @@ function Portal() {
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">3. Tax & payment</h2>
         {fileIn("w9", "W-9", true)}
         <label className="block text-sm">How would you like to be paid?
-          <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => setF((p) => ({ ...p, pay_terms: e.target.value }))}>
+          <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => {
+            const v = e.target.value; const fac = v === "factoring" || v === "factored_quickpay";
+            setF((p) => ({ ...p, pay_terms: v }));
+            // Drop the file that no longer applies so it can't land in the wrong slot.
+            setFiles((p) => { const n = { ...p }; delete n[fac ? "voided_check" : "noa"]; return n; });
+          }}>
             <option value="net30">Net 30 (no fee)</option>
             <option value="quickpay">Quick Pay – 5% fee, paid in 3 days</option>
             <option value="factoring">Factoring – Net 30, paid to my factoring company</option>
@@ -157,7 +167,7 @@ function Portal() {
           {field("factoring_company", "Factoring company *")}
           {field("factoring_remit", "Factoring remit-to address *")}
         </>)}
-        {f.factoring_company || f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay" ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
+        {f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay" ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
       </section>
       <section className="rounded border bg-card p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">4. Broker-carrier agreement</h2>
