@@ -1324,6 +1324,10 @@ export type Database = {
           snapshot: Json
           status: string
           token: string
+          void_note: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           carrier_email?: string | null
@@ -1339,6 +1343,10 @@ export type Database = {
           snapshot: Json
           status?: string
           token?: string
+          void_note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           carrier_email?: string | null
@@ -1354,6 +1362,10 @@ export type Database = {
           snapshot?: Json
           status?: string
           token?: string
+          void_note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
