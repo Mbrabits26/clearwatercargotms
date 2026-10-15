@@ -58,9 +58,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto lg:hidden"><NotificationBell userId={user.id} isAdmin={isAdmin} /></div>
-        <div className="ml-auto hidden shrink-0 items-center gap-2 text-sm lg:flex">
-          <NotificationBell userId={user.id} isAdmin={isAdmin} />
+        <div className="ml-auto shrink-0"><NotificationBell userId={user.id} isAdmin={isAdmin} /></div>
+        <div className="hidden shrink-0 items-center gap-2 text-sm lg:flex">
           <ConnectGmail />
           <select
             value={mail}
