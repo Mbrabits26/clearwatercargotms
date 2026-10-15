@@ -28,22 +28,26 @@ export function FleetPanel({ load }: { load: Load }) {
     qc.invalidateQueries({ queryKey: ["drivers"] });
   };
 
-  const row = (label: string, key: "truck_id" | "trailer_id" | "driver_id", opts: { id: string; label: string; status: string }[], free: string) => (
-    <div className="flex items-center justify-between gap-3 py-1 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <Select value={load[key] ?? "none"} onValueChange={(v) => assign(key, v === "none" ? null : v)}>
-        <SelectTrigger className="h-8 w-60 text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">None</SelectItem>
-          {opts.map((o) => (
-            <SelectItem key={o.id} value={o.id} disabled={o.status !== free && o.id !== load[key]}>
-              {o.label} {o.status !== free && o.id !== load[key] ? `· ${o.status.replace(/_/g, " ")}` : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  const row = (label: string, key: "truck_id" | "trailer_id" | "driver_id", opts: { id: string; label: string; status: string }[], free: string) => {
+    // Trucks & trailers can run several loads at once; only drivers lock to one load.
+    const multi = key !== "driver_id";
+    return (
+      <div className="flex items-center justify-between gap-3 py-1 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <Select value={load[key] ?? "none"} onValueChange={(v) => assign(key, v === "none" ? null : v)}>
+          <SelectTrigger className="h-8 w-60 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {opts.map((o) => (
+              <SelectItem key={o.id} value={o.id} disabled={!multi && o.status !== free && o.id !== load[key]}>
+                {o.label} {o.status !== free && o.id !== load[key] ? `· ${o.status.replace(/_/g, " ")}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   return (
     <div>
