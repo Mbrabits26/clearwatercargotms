@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ConnectGmail } from "@/components/ConnectGmail";
 import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
+        <div className="ml-auto lg:hidden"><NotificationBell userId={user.id} isAdmin={isAdmin} /></div>
         <div className="ml-auto hidden shrink-0 items-center gap-2 text-sm lg:flex">
+          <NotificationBell userId={user.id} isAdmin={isAdmin} />
           <ConnectGmail />
           <select
             value={mail}
