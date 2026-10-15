@@ -78,6 +78,26 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     qc.invalidateQueries({ queryKey: key });
   };
   const pending = reqs.find((r) => r.status === "sent");
+  const hasSigned = load.ratecon_signed || !!load.ratecon_pdf_path || reqs.some((r) => r.status === "signed");
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("Incorrect information");
+  const [voidNote, setVoidNote] = useState("");
+  const [dropCarrier, setDropCarrier] = useState(false);
+  const voidSigned = async () => {
+    if (!voidNote.trim()) return toast.error("Add a note explaining why");
+    const { data: u } = await supabase.auth.getUser();
+    const stamp = { status: "void", void_reason: voidReason, void_note: voidNote.trim(), voided_by: u.user?.id ?? null, voided_at: new Date().toISOString() };
+    const { error } = await supabase.from("ratecon_requests").update(stamp).eq("load_id", load.id).in("status", ["signed", "sent"]);
+    if (error) return toast.error(error.message);
+    const patch: Partial<Load> = { ratecon_signed: false, ratecon_pdf_path: null };
+    if (dropCarrier) patch.carrier_id = null;
+    const { error: e2 } = await supabase.from("loads").update(patch).eq("id", load.id);
+    if (e2) return toast.error(e2.message);
+    if (u.user) await supabase.from("load_notes").insert({ load_id: load.id, author_id: u.user.id, body: `Signed rate con deleted — ${voidReason}: ${voidNote.trim()}${dropCarrier && carrier ? ` (carrier ${carrier.legal_name} removed)` : ""}` });
+    toast.success(dropCarrier ? "Rate con deleted. Assign the new carrier, then send a new rate con." : "Rate con deleted. Edit it and send the revised version.");
+    setVoidOpen(false); setVoidNote(""); setDropCarrier(false); setDraft(null);
+    qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["load_notes", load.id] }); onSaved();
+  };
 
   return (
     <>
@@ -103,15 +123,17 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
         {load.ratecon_pdf_path && (
           <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>
         )}
+        {hasSigned && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setVoidOpen(true)}><Trash2 className="mr-1 h-3.5 w-3.5" />Delete signed rate con</Button>}
       </div>
       <ul className="space-y-1 text-xs">
         {reqs.slice(0, 4).map((r) => (
           <li key={r.id} className="flex items-center justify-between">
             <span>
               <span className={r.status === "signed" ? "text-success" : r.status === "void" ? "text-muted-foreground" : "text-warning"}>
-                <FileSignature className="mr-1 inline h-3 w-3" />{r.status === "sent" ? "Awaiting signature" : r.status}
+                <FileSignature className="mr-1 inline h-3 w-3" />{r.status === "sent" ? "Awaiting signature" : r.status === "void" && r.void_reason ? "deleted" : r.status}
               </span>{" "}
               · sent {fmtDate(r.created_at)}{r.signed_at && ` · signed by ${r.signer_name} ${fmtDate(r.signed_at)}`}
+              {r.void_reason && <span className="block text-muted-foreground">Deleted {fmtDate(r.voided_at)} — {r.void_reason}: {r.void_note}</span>}
             </span>
             {r.status === "sent" && (
               <button className="text-muted-foreground hover:text-foreground" onClick={() => navigator.clipboard.writeText(link(r.token)).then(() => toast.success("Link copied"))}><Copy className="h-3 w-3" /></button>
@@ -119,6 +141,25 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
           </li>
         ))}
       </ul>
+      <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Delete signed rate con · RC #{load.load_number}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-xs text-muted-foreground">The signed copy is taken off the load but kept in the history with your reason. You can then send a revised rate con or assign a different carrier.</p>
+            <label className="block text-xs">Reason
+              <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={voidReason} onChange={(e) => setVoidReason(e.target.value)}>
+                {["Incorrect information", "Additional charges", "Rate change", "Carrier fell off / new carrier", "Load cancelled", "Other"].map((x) => <option key={x}>{x}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs">Note (required)<Textarea rows={3} value={voidNote} onChange={(e) => setVoidNote(e.target.value)} placeholder="What changed and why" /></label>
+            {carrier && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={dropCarrier} onChange={(e) => setDropCarrier(e.target.checked)} />Remove {carrier.legal_name} from this load so I can assign a new carrier</label>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setVoidOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={voidSigned}>Delete rate con</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto">
           <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Edit rate con · RC #{load.load_number}</DialogTitle></DialogHeader>
