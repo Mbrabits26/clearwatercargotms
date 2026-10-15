@@ -53,14 +53,18 @@ export const placeDetails = createServerFn({ method: "POST" })
     };
   });
 
-/** Driving miles between two "City, ST" places via Google Distance Matrix. */
+/** Driving miles between two "City, ST" places via Google Routes API. */
 export const drivingMiles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ origin: z.string().trim().min(3).max(200), dest: z.string().trim().min(3).max(200) }).parse(d))
   .handler(async ({ data }) => {
-    const u = `https://connector-gateway.lovable.dev/google_maps/maps/api/distancematrix/json?units=imperial&origins=${encodeURIComponent(data.origin)}&destinations=${encodeURIComponent(data.dest)}`;
-    const j = (await check(await fetch(u, { headers: creds() }))) as { rows?: { elements?: { status: string; distance?: { value: number } }[] }[] };
-    const el = j.rows?.[0]?.elements?.[0];
-    if (!el || el.status !== "OK" || !el.distance) return { miles: null as number | null };
-    return { miles: Math.round(el.distance.value / 1609.344) };
+    const r = await fetch("https://connector-gateway.lovable.dev/google_maps/routes/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: { ...creds(), "Content-Type": "application/json", "X-Goog-FieldMask": "routes.distanceMeters" },
+      body: JSON.stringify({ origin: { address: data.origin }, destination: { address: data.dest }, travelMode: "DRIVE" }),
+    });
+    const j = (await check(r)) as { routes?: { distanceMeters?: number }[] };
+    const m = j.routes?.[0]?.distanceMeters;
+    if (!m) return { miles: null as number | null };
+    return { miles: Math.round(m / 1609.344) };
   });
