@@ -55,8 +55,10 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
   const send = async () => {
     if (!carrier) return;
+    if (load.ratecon_signed && !confirm("This rate con is already signed. Send a revised one? The carrier will need to sign the new version; the old signed copy stays on file.")) return;
     await saveRefs();
     await supabase.from("ratecon_requests").update({ status: "void" }).eq("load_id", load.id).eq("status", "sent");
+    if (load.ratecon_signed) { await supabase.from("loads").update({ ratecon_signed: false }).eq("id", load.id); onSaved(); }
     const snapshot = rcData();
     const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: recipients().join(", ") || null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);
@@ -92,11 +94,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
         {recipients().length > 1 && <span>{recipients().length} recipients</span>}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={!carrier || load.ratecon_signed} onClick={openEdit}><Pencil className="mr-1 h-3.5 w-3.5" />Edit rate con</Button>
+        <Button size="sm" variant="outline" disabled={!carrier} onClick={openEdit}><Pencil className="mr-1 h-3.5 w-3.5" />Edit rate con</Button>
         <Button size="sm" variant="outline" disabled={!carrier} onClick={preview}><FileText className="mr-1 h-3.5 w-3.5" />Preview PDF</Button>
         {draft && <span className="self-center text-[10px] uppercase text-gold">Edited · <button className="underline" onClick={() => setDraft(null)}>reset</button></span>}
-        <Button size="sm" disabled={!carrier || load.ratecon_signed} onClick={send}>
-          <Mail className="mr-1 h-3.5 w-3.5" />{pending ? "Resend for signature" : "Send for signature"}
+        <Button size="sm" disabled={!carrier} onClick={send}>
+          <Mail className="mr-1 h-3.5 w-3.5" />{load.ratecon_signed ? "Send revised rate con" : pending ? "Resend for signature" : "Send for signature"}
         </Button>
         {load.ratecon_pdf_path && (
           <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>

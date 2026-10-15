@@ -36,7 +36,7 @@ export const signRateCon = createServerFn({ method: "POST" })
     const { supabaseAdmin, req, problem } = await loadRequest(data.token);
     if (problem || !req) return { ok: false as const, problem: problem ?? "Invalid link" };
     const rc = req.snapshot as unknown as RateConData;
-    const path = `${req.load_id}/ratecon-${rc.rc}-signed.pdf`;
+    const path = `${req.load_id}/ratecon-${rc.rc}-signed-${req.id.slice(0, 8)}.pdf`;
     const { error } = await supabaseAdmin.storage
       .from("load-docs")
       .upload(path, Buffer.from(data.pdfBase64, "base64"), { contentType: "application/pdf", upsert: true });
