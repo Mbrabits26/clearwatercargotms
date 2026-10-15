@@ -55,8 +55,10 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
   const send = async () => {
     if (!carrier) return;
+    if (load.ratecon_signed && !confirm("This rate con is already signed. Send a revised one? The carrier will need to sign the new version; the old signed copy stays on file.")) return;
     await saveRefs();
     await supabase.from("ratecon_requests").update({ status: "void" }).eq("load_id", load.id).eq("status", "sent");
+    if (load.ratecon_signed) { await supabase.from("loads").update({ ratecon_signed: false }).eq("id", load.id); onSaved(); }
     const snapshot = rcData();
     const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: recipients().join(", ") || null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);

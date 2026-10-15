@@ -100,9 +100,22 @@ export const submitPacket = createServerFn({ method: "POST" })
       const path = `${carrierId}/${f.kind}-${Date.now()}-${safe}`;
       const { error } = await supabaseAdmin.storage.from("carrier-docs").upload(path, Buffer.from(f.base64, "base64"), { contentType: f.type || "application/octet-stream" });
       if (error) { console.error(error); return { ok: false as const, problem: `Upload failed for ${f.name}.` }; }
+      let expires = f.kind === "coi" ? data.insurance.auto_expires : null;
+      const key = process.env["LOVABLE_API_KEY"];
+      if (f.kind === "coi" && key) {
+        // The certificate itself is the source of truth for limits and dates.
+        try {
+          const { readCoi, coiPatch } = await import("./coi.server");
+          const p = await readCoi(f.base64, f.name, f.type, key);
+          if (p) {
+            await supabaseAdmin.from("carriers").update(coiPatch(p) as never).eq("id", carrierId);
+            expires = p.auto_expires ?? expires;
+          }
+        } catch (e) { console.error("COI read failed", e); }
+      }
       await supabaseAdmin.from("carrier_documents").insert({
         carrier_id: carrierId, kind: f.kind, file_path: path, file_name: f.name, source: "carrier portal",
-        expires_on: f.kind === "coi" ? data.insurance.auto_expires : null,
+        expires_on: expires,
       });
     }
     await supabaseAdmin.from("carrier_documents").insert({

@@ -1,4 +1,6 @@
 import { composeEmail } from "@/lib/email";
+import { useServerFn } from "@tanstack/react-start";
+import { readCoiDoc } from "@/lib/coi.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -54,6 +56,7 @@ export function InsurancePanel({ c, update }: { c: Carrier; update: (p: Partial<
 
 export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<Carrier>, m: string) => void }) {
   const qc = useQueryClient();
+  const readCoi = useServerFn(readCoiDoc);
   const key = ["carrier_docs", c.id];
   const { data: docs = [] } = useQuery({
     queryKey: key,
@@ -69,10 +72,22 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
     const path = `${c.id}/${kind}-${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
     const { error } = await supabase.storage.from("carrier-docs").upload(path, file);
     if (error) { setBusy(false); return toast.error(error.message); }
-    await supabase.from("carrier_documents").insert({ carrier_id: c.id, kind, file_path: path, file_name: file.name, expires_on: kind === "coi" ? c.insurance_expires : null });
-    setBusy(false);
+    const { data: doc } = await supabase.from("carrier_documents").insert({ carrier_id: c.id, kind, file_path: path, file_name: file.name, expires_on: kind === "coi" ? c.insurance_expires : null }).select("id").single();
     qc.invalidateQueries({ queryKey: key });
-    update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
+    if (kind === "coi" && doc) {
+      const t = toast.loading("Reading insurance certificate…");
+      try {
+        const r = await readCoi({ data: { carrierId: c.id, docId: doc.id } });
+        toast.dismiss(t);
+        if (r.found && r.coi) {
+          const p = r.coi;
+          toast.success(`Insurance filled in${p.insurer ? ` (${p.insurer})` : ""}: auto ${p.auto_liability ? "$" + p.auto_liability.toLocaleString() : "—"} exp ${p.auto_expires ?? "—"}, cargo ${p.cargo_insurance ? "$" + p.cargo_insurance.toLocaleString() : "—"} exp ${p.cargo_expires ?? "—"}`);
+        } else toast.warning("Couldn't read the insurance details — please enter them by hand.");
+        qc.invalidateQueries({ queryKey: ["carriers"] });
+      } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the certificate"); }
+      update({ coi_received: true } as Partial<Carrier>, "Document uploaded");
+    } else update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
+    setBusy(false);
   };
   const fileDocs: DocItem[] = docs.filter((d) => d.file_path).map((d) => ({ name: d.file_name ?? d.kind, bucket: "carrier-docs", path: d.file_path }));
 
