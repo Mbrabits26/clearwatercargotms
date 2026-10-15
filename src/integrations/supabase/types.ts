@@ -1162,6 +1162,7 @@ export type Database = {
           kind: string
           load_id: string
           payee: string | null
+          qb_class: string | null
           qb_ref: string | null
           quickpay_fee: number
           sent_at: string | null
@@ -1180,6 +1181,7 @@ export type Database = {
           kind: string
           load_id: string
           payee?: string | null
+          qb_class?: string | null
           qb_ref?: string | null
           quickpay_fee?: number
           sent_at?: string | null
@@ -1198,6 +1200,7 @@ export type Database = {
           kind?: string
           load_id?: string
           payee?: string | null
+          qb_class?: string | null
           qb_ref?: string | null
           quickpay_fee?: number
           sent_at?: string | null
