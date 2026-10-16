@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Send, PlugZap, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
-import { effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
+import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
@@ -40,6 +40,8 @@ type SyncRow = {
   quickpay_fee: number;
   carrier_invoice_amount: number | null;
   carrier_invoice_path: string | null;
+  terms?: string | null;
+  due_date?: string | null;
 };
 type Kind = "invoice" | "fleet_invoice" | "bill";
 const KIND_LABEL: Record<string, string> = { invoice: "Invoice (AR)", fleet_invoice: "Fleet billing (AR)", bill: "Carrier bill (AP)" };
@@ -104,13 +106,17 @@ function Accounting() {
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
   const groupOf = (s: SyncRow) => sync.filter((x) => x.invoice_number && x.invoice_number === s.invoice_number && x.kind === s.kind);
+  const invoiceTerms = (s: SyncRow) => s.terms ?? companies.find((c) => c.id === loads.find((x) => x.id === s.load_id)?.customer_id)?.pay_terms ?? "Net 30";
+  const dueOf = (s: SyncRow) => s.due_date ?? new Date(new Date(s.created_at).getTime() + termsDays(invoiceTerms(s)) * 86_400_000).toISOString().slice(0, 10);
   const invoicePdf = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id);
     if (!l || !s.invoice_number) return null;
     const g = groupOf(s);
     const lines = g.map((x) => ({ load: loads.find((y) => y.id === x.load_id)!, amount: Number(x.amount) })).filter((x) => x.load);
     const amount = g.length > 1 ? lines.reduce((t, x) => t + x.amount, 0) : Number(s.amount);
-    return buildInvoicePdf({ invoiceNumber: s.invoice_number, load: l, billTo: companies.find((c) => c.id === l.customer_id), amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined });
+    const billTo = companies.find((c) => c.id === l.customer_id);
+    const terms = invoiceTerms(s);
+    return buildInvoicePdf({ invoiceNumber: s.invoice_number, terms, dueDate: dueOf(s), invoiceDate: s.created_at, load: l, billTo, amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined });
   };
   const viewInvoice = async (s: SyncRow) => { const d = await invoicePdf(s); if (d) viewer.show(d.output("blob"), `${s.invoice_number}.pdf`); };
   const emailInvoice = async (s: SyncRow) => {
@@ -122,7 +128,7 @@ function Accounting() {
     const amt = g.length > 1 ? g.reduce((t, x) => t + Number(x.amount), 0) : Number(s.amount);
     const to = companies.find((c) => c.id === l.customer_id)?.email ?? "";
     await composeEmail(to, `Invoice ${s.invoice_number} — ${g.length > 1 ? `${g.length} loads` : `Load ${l.load_number}`} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
-      `Hello,\n\nPlease find invoice ${s.invoice_number} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, Net 30.\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
+      `Hello,\n\nPlease find invoice ${s.invoice_number} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, ${invoiceTerms(s)} (due ${new Date(dueOf(s) + "T12:00:00").toLocaleDateString("en-US")}).\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
     toast.success("Invoice PDF downloaded and email started — attach the PDF.");
   };
   const uploadCarrierInvoice = async (s: SyncRow, file?: File) => {
@@ -277,7 +283,7 @@ function Accounting() {
                   <TableCell>{fmtDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" title="Edit amount / payee" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
                       {s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                     </div>
@@ -335,7 +341,7 @@ function Accounting() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
-                        {s && <Button size="icon" variant="ghost" title="Edit amount / payee" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                        {s && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
                         {s && s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                         {s && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                       </div>
@@ -357,22 +363,36 @@ function Accounting() {
 function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClose: () => void; onSaved: () => void }) {
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
+  const [terms, setTerms] = useState("");
+  const [due, setDue] = useState("");
   const [openFor, setOpenFor] = useState<string | null>(null);
+  const isInvoice = row?.kind !== "bill";
   if (row && openFor !== row.id) {
     setOpenFor(row.id);
     setPayee(row.payee ?? "");
     setAmount(String(row.amount));
+    setTerms(row.terms ?? "");
+    setDue(row.due_date ?? "");
   }
+  const pickTerms = (t: string) => {
+    setTerms(t);
+    if (row && t) setDue(new Date(new Date(row.created_at).getTime() + termsDays(t) * 86_400_000).toISOString().slice(0, 10));
+  };
 
   const { ask, dialog } = useReviewChanges();
   const save = async () => {
     if (!row) return;
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt < 0) return toast.error("Enter a valid amount.");
-    const changes = diff([{ label: "Payee / customer", before: row.payee, after: payee.trim() }, { label: "Amount", before: row.amount, after: amt }]);
+    const changes = diff([
+      { label: "Payee / customer", before: row.payee, after: payee.trim() },
+      { label: "Amount", before: row.amount, after: amt },
+      ...(isInvoice ? [{ label: "Payment terms", before: row.terms, after: terms }, { label: "Due date", before: row.due_date, after: due }] : []),
+    ]);
     if (!changes.length) return toast.info("No changes to save.");
     if (!(await ask(changes))) return;
-    const { error } = await supabase.from("qb_sync").update({ payee: payee.trim() || null, amount: amt }).eq("id", row.id);
+    const patch = { payee: payee.trim() || null, amount: amt, ...(isInvoice ? { terms: terms || null, due_date: due || null } : {}) };
+    const { error } = await supabase.from("qb_sync").update(patch).eq("id", row.id);
     if (error) return toast.error(error.message);
     toast.success("Updated.");
     onSaved();
@@ -382,14 +402,25 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     <Dialog open={!!row} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-sm">
         {dialog}
-        <DialogHeader><DialogTitle>Edit {row?.kind === "bill" ? "bill" : "invoice"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Edit {isInvoice ? `invoice ${row?.invoice_number ?? ""}` : "bill"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <label className="text-xs text-muted-foreground">Payee / customer
+          <label className="block text-xs text-muted-foreground">Payee / customer
             <Input className="mt-1" value={payee} onChange={(e) => setPayee(e.target.value)} />
           </label>
-          <label className="text-xs text-muted-foreground">Amount
+          <label className="block text-xs text-muted-foreground">Amount
             <Input className="mt-1" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
+          {isInvoice && <>
+            <label className="block text-xs text-muted-foreground">Payment terms
+              <select className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground" value={terms} onChange={(e) => pickTerms(e.target.value)}>
+                <option value="">Customer default</option>
+                {CUSTOMER_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs text-muted-foreground">Due date
+              <Input className="mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            </label>
+          </>}
           <Button className="w-full" onClick={save}>Save changes</Button>
         </div>
       </DialogContent>

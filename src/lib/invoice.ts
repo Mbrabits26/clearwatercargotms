@@ -9,7 +9,7 @@ const money = (n: number) => `$ ${n.toLocaleString("en-US", { minimumFractionDig
 const d = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("en-US") : "");
 
 /** Branded customer invoice (AR). One load, or — with `lines` — one combined invoice itemized per load. */
-export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null; fleet?: boolean; lines?: { load: Load; amount: number }[] }) {
+export function buildInvoicePdf(o: { invoiceNumber: string; terms?: string; dueDate?: string; invoiceDate?: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null; fleet?: boolean; lines?: { load: Load; amount: number }[] }) {
   const { load, billTo } = o;
   const multi = (o.lines?.length ?? 0) > 1;
   const co = o.fleet ? FF : CW;
@@ -21,7 +21,7 @@ export function buildInvoicePdf(o: { invoiceNumber: string; load: Load; billTo?:
   doc.setFont("helvetica", "normal").setFontSize(10).text([co.addr1, co.addr2, co.phone, ...(o.fleet ? [FF.authority] : [])], X, 74);
   doc.setFont("helvetica", "bold").setFontSize(26).text("INVOICE", R, 58, { align: "right" });
   doc.setFontSize(10).setFont("helvetica", "normal");
-  doc.text([`Invoice #: ${o.invoiceNumber}`, `Date: ${new Date().toLocaleDateString("en-US")}`, multi ? `Loads: ${o.lines!.length}` : `Load #: ${load.load_number}`, "Terms: Net 30"], R, 76, { align: "right" });
+  doc.text([`Invoice #: ${o.invoiceNumber}`, `Date: ${new Date(o.invoiceDate ?? Date.now()).toLocaleDateString("en-US")}`, multi ? `Loads: ${o.lines!.length}` : `Load #: ${load.load_number}`, `Terms: ${o.terms ?? "Net 30"}`, ...(o.dueDate ? [`Due: ${new Date(o.dueDate + "T12:00:00").toLocaleDateString("en-US")}`] : [])], R, 76, { align: "right" });
   let y = 140;
   doc.setFont("helvetica", "bold").text("BILL TO", L, y);
   doc.setFont("helvetica", "normal").text([billTo?.name ?? "—", billTo?.address ?? "", [billTo?.city, billTo?.state, billTo?.zip].filter(Boolean).join(", ")].filter(Boolean), L, y + 14);
