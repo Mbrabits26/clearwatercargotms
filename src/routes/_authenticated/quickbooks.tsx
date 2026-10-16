@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Send, PlugZap, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
-import { effectivePayTerms, fmtDate, loadTotals, usd, type Load } from "@/lib/tms";
+import { effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
+import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
 import { composeEmail, getMailClient } from "@/lib/email";
@@ -85,11 +86,12 @@ function Accounting() {
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
-  // Loads hauled by our own trucks for outside brokerages are billed separately from brokerage customer invoices.
-  const ar = delivered.filter((l) => !l.truck_id);
-  const fleetAr = delivered.filter((l) => !!l.truck_id);
+  // Foust Farms (internal fleet) loads are billed separately from brokerage customer invoices.
+  const ar = delivered.filter((l) => !isFleetLoad(l));
+  const fleetAr = delivered.filter((l) => isFleetLoad(l));
   const ap = loads.filter((l) => l.carrier_id && l.pod_received && ["delivered", "invoiced", "paid"].includes(l.status));
-  const ap0 = ap.filter((l) => !l.truck_id);
+  const ap0 = ap.filter((l) => !isFleetLoad(l));
+  const [batchOpen, setBatchOpen] = useState(false);
   const rows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
   const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
