@@ -145,6 +145,9 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at").in("id", list.map((r) => r.load_id));
   const byId = new Map(((loads ?? []) as LoadLite[]).map((l) => [l.id, l]));
   let sent = 0, failed = 0;
+  // Combined invoices: several rows share one invoice_number → one QuickBooks invoice with a line per load.
+  const made = new Map<string, string>();
+  const laneOf = (x?: LoadLite) => (x ? `${x.load_number}: ${x.origin_city ?? ""}, ${x.origin_state ?? ""} to ${x.dest_city ?? ""}, ${x.dest_state ?? ""}` : "");
   for (const r of list) {
     const l = byId.get(r.load_id);
     try {
@@ -169,19 +172,22 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
         }
       } else {
         const doc = (r.invoice_number ?? l.load_number).slice(0, 21);
+        const group = r.invoice_number ? list.filter((x) => x.kind === r.kind && x.invoice_number === r.invoice_number) : [r];
         const cust = await party(qb, "Customer", r.payee || "Unknown customer");
         const dup = await qb.query<Ref>("Invoice", `where DocNumber = '${esc(doc)}'`);
-        if (dup[0]) ref = dup[0].Id;
+        if (made.has(doc)) ref = made.get(doc)!;
+        else if (dup[0]) ref = dup[0].Id;
         else {
           const item = await freightItem(qb);
           const j = await qb.req<{ Invoice: Ref }>("invoice", {
             CustomerRef: { value: cust }, DocNumber: doc, TxnDate: txnDate, PrivateNote: lane, ...classRef,
             SalesTermRef: undefined,
-            Line: [{ Amount: Number(r.amount), DetailType: "SalesItemLineDetail", Description: `Freight — ${lane}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(r.amount), ...classRef } }],
+            Line: group.map((g) => ({ Amount: Number(g.amount), DetailType: "SalesItemLineDetail", Description: `Freight — ${laneOf(byId.get(g.load_id)) || lane}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(g.amount), ...classRef } })),
           });
           ref = j.Invoice.Id;
         }
       }
+      if (r.kind !== "bill") made.set((r.invoice_number ?? l.load_number).slice(0, 21), ref);
       await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: null, sent_at: new Date().toISOString() }).eq("id", r.id);
       sent++;
     } catch (e) {
