@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { toast } from "sonner";
 import { Plus, Pencil } from "lucide-react";
+import { CUSTOMER_TERMS } from "@/lib/tms";
 import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, profilesQuery } from "@/lib/queries";
@@ -46,6 +47,12 @@ function Directory() {
     const { error } = await supabase.from("companies").update({ sales_broker_id: rep || null }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Saved");
+    qc.invalidateQueries({ queryKey: ["companies"] });
+  };
+  const setTerms = async (id: string, t: string) => {
+    const { error } = await supabase.from("companies").update({ pay_terms: t }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Payment terms saved");
     qc.invalidateQueries({ queryKey: ["companies"] });
   };
   const [kind, setKind] = useState<string>("customer");
@@ -107,7 +114,7 @@ function Directory() {
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <TableHead>Brought in by</TableHead>}<TableHead /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <><TableHead>Payment terms</TableHead><TableHead>Brought in by</TableHead></>}<TableHead /></TableRow></TableHeader>
           <TableBody>
             {rows.map((c) => (
               <TableRow key={c.id}>
@@ -115,6 +122,11 @@ function Directory() {
                 <TableCell>{c.contact_name}</TableCell>
                 <TableCell>{c.phone}</TableCell>
                 <TableCell className="text-muted-foreground">{c.address}, {c.city}, {c.state} {c.zip}</TableCell>
+                {kind === "customer" && <TableCell>
+                  <select aria-label="Payment terms" className="h-8 rounded border bg-background px-2 text-sm" value={c.pay_terms ?? "Net 30"} onChange={(e) => setTerms(c.id, e.target.value)}>
+                    {CUSTOMER_TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </TableCell>}
                 {kind === "customer" && <TableCell>
                   <select className="h-8 rounded border bg-background px-2 text-sm" value={c.sales_broker_id ?? ""} onChange={(e) => setRep(c.id, e.target.value)}>
                     <option value="">Not set</option>
@@ -125,7 +137,7 @@ function Directory() {
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
-            {!rows.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>

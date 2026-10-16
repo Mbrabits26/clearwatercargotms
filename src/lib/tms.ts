@@ -195,3 +195,7 @@ export function carrierIssues(c: Carrier, docs: CarrierDocRow[]) {
   if (!c.phone) add("Phone missing");
   return out;
 }
+
+/** Customer (AR) payment terms; stored as the label on companies.pay_terms / qb_sync.terms. */
+export const CUSTOMER_TERMS = ["Due on receipt", "Net 7", "Net 15", "Net 30", "Net 45", "Net 60"] as const;
+export const termsDays = (t: string | null | undefined) => (t === "Due on receipt" ? 0 : Number(/Net (\d+)/.exec(t ?? "")?.[1] ?? 30));

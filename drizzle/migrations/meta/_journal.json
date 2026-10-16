@@ -204,6 +204,13 @@
       "when": 1792076780965,
       "tag": "0028_ratecon_void_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792186448564,
+      "tag": "0029_customer_invoice_terms",
+      "breakpoints": true
     }
   ]
 }

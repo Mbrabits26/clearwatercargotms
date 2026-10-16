@@ -436,6 +436,7 @@ export type Database = {
           kind: string
           name: string
           notes: string | null
+          pay_terms: string
           phone: string | null
           sales_broker_id: string | null
           state: string | null
@@ -452,6 +453,7 @@ export type Database = {
           kind: string
           name: string
           notes?: string | null
+          pay_terms?: string
           phone?: string | null
           sales_broker_id?: string | null
           state?: string | null
@@ -468,6 +470,7 @@ export type Database = {
           kind?: string
           name?: string
           notes?: string | null
+          pay_terms?: string
           phone?: string | null
           sales_broker_id?: string | null
           state?: string | null
@@ -1212,6 +1215,7 @@ export type Database = {
           carrier_invoice_path: string | null
           created_at: string
           created_by: string | null
+          due_date: string | null
           error: string | null
           gross_amount: number | null
           id: string
@@ -1224,6 +1228,7 @@ export type Database = {
           quickpay_fee: number
           sent_at: string | null
           status: string
+          terms: string | null
         }
         Insert: {
           amount?: number
@@ -1231,6 +1236,7 @@ export type Database = {
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           error?: string | null
           gross_amount?: number | null
           id?: string
@@ -1243,6 +1249,7 @@ export type Database = {
           quickpay_fee?: number
           sent_at?: string | null
           status?: string
+          terms?: string | null
         }
         Update: {
           amount?: number
@@ -1250,6 +1257,7 @@ export type Database = {
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           error?: string | null
           gross_amount?: number | null
           id?: string
@@ -1262,6 +1270,7 @@ export type Database = {
           quickpay_fee?: number
           sent_at?: string | null
           status?: string
+          terms?: string | null
         }
         Relationships: [
           {
