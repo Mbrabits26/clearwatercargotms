@@ -27,6 +27,7 @@ import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
+import { Route as OauthQuickbooksReturnRouteImport } from './routes/oauth/quickbooks/return'
 import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
 
 const IndexRoute = IndexRouteImport.update({
@@ -118,6 +119,11 @@ const OauthGoogle_mailReturnRoute = OauthGoogle_mailReturnRouteImport.update({
   path: '/oauth/google_mail/return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthQuickbooksReturnRoute = OauthQuickbooksReturnRouteImport.update({
+  id: '/oauth/quickbooks/return',
+  path: '/oauth/quickbooks/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksCarrierRecheckRoute =
   ApiPublicHooksCarrierRecheckRouteImport.update({
     id: '/api/public/hooks/carrier-recheck',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRoutesByTo {
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRoutesById {
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
+  '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
 }
 export interface FileRouteTypes {
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
   id:
     | '__root__'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/track/$token'
     | '/oauth/google_mail/return'
+    | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   SignTokenRoute: typeof SignTokenRoute
   TrackTokenRoute: typeof TrackTokenRoute
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
+  OauthQuickbooksReturnRoute: typeof OauthQuickbooksReturnRoute
   ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
 }
 
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthGoogle_mailReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/oauth/quickbooks/return': {
+      id: '/oauth/quickbooks/return'
+      path: '/oauth/quickbooks/return'
+      fullPath: '/oauth/quickbooks/return'
+      preLoaderRoute: typeof OauthQuickbooksReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/carrier-recheck': {
       id: '/api/public/hooks/carrier-recheck'
       path: '/api/public/hooks/carrier-recheck'
@@ -439,6 +459,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignTokenRoute: SignTokenRoute,
   TrackTokenRoute: TrackTokenRoute,
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
+  OauthQuickbooksReturnRoute: OauthQuickbooksReturnRoute,
   ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
 }
 export const routeTree = rootRouteImport

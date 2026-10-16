@@ -15,7 +15,7 @@
 - Account admission is admin-approved through `approved_users`; roles remain in `user_roles` with `has_role()` so unapproved identities receive no app access.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so no client can bypass it.
 - Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
-- QuickBooks sends are recorded in `qb_sync` (admin-only RLS) as a queue; a future server-side worker delivers queued rows once QuickBooks is connected.
+- QuickBooks: `qb_sync` (admin-only RLS) is the queue; quickbooks.server.ts delivers rows via Intuit OAuth tokens in server-only `qb_connection` (no client grants), deduping by DocNumber; the redirect URI is fixed to the published domain.
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
