@@ -32,7 +32,7 @@
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
 - Driver pings are reverse geocoded server-side (geocode.server.ts) into load_tracking_pings.place; the browser map uses only the browser key.
-- Documents preview in-page (`DocPreview`), never auto-download.
+- Docs preview in-page (`DocPreview`).
 - AR invoice numbers + QuickBooks class come from the `assign_invoice_number` trigger on qb_sync: invoice → INV-, fleet_invoice (loads with truck_id) → FF- and the fleet entity letterhead (FF in invoice.ts). Carrier bills store gross, quickpay_fee and net.
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
@@ -40,4 +40,4 @@
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
 - Internal fleet = one carrier record (FLEET_CARRIER_ID in tms.ts).
-- Batch invoicing (`src/lib/batchInvoice.ts`): a combined invoice = several qb_sync rows sharing one invoice_number; quickbooks.server.ts sends them as one multi-line QuickBooks invoice. Foust Farms loads (`isFleetLoad`) are excluded from brokerage reports and shown only in the fleet report view.
+- Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads stay out of brokerage reports.
