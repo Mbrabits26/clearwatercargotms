@@ -40,3 +40,4 @@
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
 - Internal fleet = one carrier record (FLEET_CARRIER_ID in tms.ts).
+- Batch invoicing (`src/lib/batchInvoice.ts`): a combined invoice = several qb_sync rows sharing one invoice_number; quickbooks.server.ts sends them as one multi-line QuickBooks invoice. Foust Farms loads (`isFleetLoad`) are excluded from brokerage reports and shown only in the fleet report view.
