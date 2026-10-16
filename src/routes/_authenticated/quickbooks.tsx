@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { cn } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
+import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
 
 type SyncRow = {
   id: string;
@@ -74,6 +76,12 @@ function Accounting() {
   const [tab, setTab] = useState<Kind | "log">("invoice");
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<SyncRow | null>(null);
+  const qbStatusFn = useServerFn(qbStatus);
+  const qbStart = useServerFn(qbStartConnect);
+  const qbOff = useServerFn(qbDisconnect);
+  const qbSync = useServerFn(qbSyncNow);
+  const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
+  const [syncing, setSyncing] = useState(false);
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
@@ -152,6 +160,28 @@ function Accounting() {
     toast.success(`${chosen.length} ${kind === "bill" ? "bill(s)" : "invoice(s)"} queued for QuickBooks`);
     setPicked([]);
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
+    if (qbs?.connected) syncNow();
+  };
+
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const r = await qbSync({ data: {} });
+      if (r.sent || r.failed) toast[r.failed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}`);
+      else toast.info("Nothing waiting to send.");
+    } catch (e) { toast.error((e as Error).message); }
+    setSyncing(false);
+    qc.invalidateQueries({ queryKey: ["qb_sync"] });
+  };
+  const connect = async () => {
+    if (!window.location.hostname.endsWith("clearwatercargotms.lovable.app")) {
+      return toast.info("Connect QuickBooks from your live site (clearwatercargotms.lovable.app) — Intuit only allows that address.");
+    }
+    try { const { url } = await qbStart(); window.location.href = url; } catch (e) { toast.error((e as Error).message); }
+  };
+  const disconnect = async () => {
+    if (!confirm("Disconnect QuickBooks? Nothing already sent is changed.")) return;
+    await qbOff(); refetchQb();
   };
 
   const remove = async (s: SyncRow) => {
@@ -187,10 +217,20 @@ function Accounting() {
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
         {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
       </div>
-      <div className="flex items-center gap-3 rounded border border-warning/50 bg-warning/10 p-3 text-sm">
-        <PlugZap className="h-4 w-4 text-warning" />
-        <span>QuickBooks isn't connected yet. Items you send wait in the queue and go out automatically once your QuickBooks account is linked.</span>
-      </div>
+      {qbs?.connected ? (
+        <div className="flex flex-wrap items-center gap-3 rounded border border-primary/50 bg-primary/10 p-3 text-sm">
+          <PlugZap className="h-4 w-4 text-primary" />
+          <span className="flex-1">Connected to QuickBooks{qbs.company ? ` — ${qbs.company}` : ""}. Queued invoices and bills are sent when you queue them, or click Sync now.</span>
+          <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
+          <Button size="sm" variant="ghost" onClick={disconnect}>Disconnect</Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3 rounded border border-warning/50 bg-warning/10 p-3 text-sm">
+          <PlugZap className="h-4 w-4 text-warning" />
+          <span className="flex-1">QuickBooks isn't connected yet. Items you send wait in the queue and go out once it's linked.</span>
+          <Button size="sm" onClick={connect}>Connect QuickBooks</Button>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <Aging k="Receivables — owed to us (AR)" b={arB} />
         <Aging k="Payables — we owe carriers (AP)" b={apB} />
