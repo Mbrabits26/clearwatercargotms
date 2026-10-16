@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
+import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
+import { invoiceable } from "@/lib/batchInvoice";
 import { CopyLoadDialog } from "@/components/CopyLoadDialog";
 import { CopyLoadString } from "@/components/CopyLoadString";
 import { BolDialog } from "@/components/BolDialog";
@@ -133,6 +135,8 @@ function Dispatch() {
   const [mobileDetail, setMobileDetail] = useState(false);
   const [builder, setBuilder] = useState(false);
   const [bulk, setBulk] = useState(false);
+  const [pick, setPick] = useState<string[]>([]);
+  const [invOpen, setInvOpen] = useState(false);
   const search = Route.useSearch();
   useEffect(() => {
     if (search.load && loads.some((l) => l.id === search.load)) {
@@ -179,6 +183,8 @@ function Dispatch() {
               <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {isAdmin && pick.length > 0 && <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => setInvOpen(true)}><DollarSign className="mr-1 h-3.5 w-3.5" />Invoice {pick.length} selected</Button>}
+          <BatchInvoiceDialog open={invOpen} onOpenChange={setInvOpen} loads={loads.filter((l) => pick.includes(l.id))} companies={companies} onDone={() => setPick([])} />
           <Button size="sm" variant="outline" onClick={() => setBulk(true)}><Layers className="mr-1 h-3.5 w-3.5" />Bulk loads</Button>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
@@ -227,6 +233,10 @@ function Dispatch() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1">
+                      {isAdmin && invoiceable(l) && (
+                        <input type="checkbox" title="Select to invoice" className="accent-gold" checked={pick.includes(l.id)} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setPick((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
+                      )}
                       <span className="truncate font-mono text-xs text-gold">{l.load_number}</span>
                       <CopyLoadString load={l} companies={companies} />
                     </span>

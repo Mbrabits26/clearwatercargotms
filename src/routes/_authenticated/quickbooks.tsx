@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Send, PlugZap, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
-import { effectivePayTerms, fmtDate, loadTotals, usd, type Load } from "@/lib/tms";
+import { effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
+import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
 import { composeEmail, getMailClient } from "@/lib/email";
@@ -85,11 +86,12 @@ function Accounting() {
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
-  // Loads hauled by our own trucks for outside brokerages are billed separately from brokerage customer invoices.
-  const ar = delivered.filter((l) => !l.truck_id);
-  const fleetAr = delivered.filter((l) => !!l.truck_id);
+  // Foust Farms (internal fleet) loads are billed separately from brokerage customer invoices.
+  const ar = delivered.filter((l) => !isFleetLoad(l));
+  const fleetAr = delivered.filter((l) => isFleetLoad(l));
   const ap = loads.filter((l) => l.carrier_id && l.pod_received && ["delivered", "invoiced", "paid"].includes(l.status));
-  const ap0 = ap.filter((l) => !l.truck_id);
+  const ap0 = ap.filter((l) => !isFleetLoad(l));
+  const [batchOpen, setBatchOpen] = useState(false);
   const rows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
   const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
@@ -101,19 +103,26 @@ function Accounting() {
   };
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
+  const groupOf = (s: SyncRow) => sync.filter((x) => x.invoice_number && x.invoice_number === s.invoice_number && x.kind === s.kind);
   const invoicePdf = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id);
     if (!l || !s.invoice_number) return null;
-    return buildInvoicePdf({ invoiceNumber: s.invoice_number, load: l, billTo: companies.find((c) => c.id === l.customer_id), amount: Number(s.amount), logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice" });
+    const g = groupOf(s);
+    const lines = g.map((x) => ({ load: loads.find((y) => y.id === x.load_id)!, amount: Number(x.amount) })).filter((x) => x.load);
+    const amount = g.length > 1 ? lines.reduce((t, x) => t + x.amount, 0) : Number(s.amount);
+    return buildInvoicePdf({ invoiceNumber: s.invoice_number, load: l, billTo: companies.find((c) => c.id === l.customer_id), amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined });
   };
   const viewInvoice = async (s: SyncRow) => { const d = await invoicePdf(s); if (d) viewer.show(d.output("blob"), `${s.invoice_number}.pdf`); };
   const emailInvoice = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id); const d = await invoicePdf(s);
     if (!l || !d) return;
     d.save(`${s.invoice_number}.pdf`);
+    const g = groupOf(s);
+    const nums = g.map((x) => loads.find((y) => y.id === x.load_id)?.load_number).filter(Boolean).join(", ");
+    const amt = g.length > 1 ? g.reduce((t, x) => t + Number(x.amount), 0) : Number(s.amount);
     const to = companies.find((c) => c.id === l.customer_id)?.email ?? "";
-    await composeEmail(to, `Invoice ${s.invoice_number} — Load ${l.load_number} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
-      `Hello,\n\nPlease find invoice ${s.invoice_number} for load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state}) attached. Amount due: ${usd(Number(s.amount))}, Net 30.${l.pod_received ? " The signed POD is on file and available on request." : ""}\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
+    await composeEmail(to, `Invoice ${s.invoice_number} — ${g.length > 1 ? `${g.length} loads` : `Load ${l.load_number}`} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
+      `Hello,\n\nPlease find invoice ${s.invoice_number} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, Net 30.\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
     toast.success("Invoice PDF downloaded and email started — attach the PDF.");
   };
   const uploadCarrierInvoice = async (s: SyncRow, file?: File) => {
@@ -215,8 +224,14 @@ function Accounting() {
     <div className="space-y-5 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
-        {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
+        <div className="flex flex-wrap gap-2">
+          {(tab === "invoice" || tab === "fleet_invoice") && (
+            <Button variant="outline" onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</Button>
+          )}
+          {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
+        </div>
       </div>
+      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.connected) syncNow(); }} />
       {qbs?.connected ? (
         <div className="flex flex-wrap items-center gap-3 rounded border border-primary/50 bg-primary/10 p-3 text-sm">
           <PlugZap className="h-4 w-4 text-primary" />

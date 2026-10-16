@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
-import { STATUSES, fmtDate, loadTotals, usd, type Load, type LoadStatus } from "@/lib/tms";
+import { STATUSES, isFleetLoad, fmtDate, loadTotals, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
@@ -58,6 +58,7 @@ function Reports() {
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
   const [carrierView, setCarrierView] = useState(false);
+  const [fleetView, setFleetView] = useState(false);
   const { data: comm = [] } = useQuery({ queryKey: ["commissions"], queryFn: async () => (await supabase.from("broker_commissions").select("*")).data ?? [] });
   const [salesRep, setSalesRep] = useState("all");
   const [preset, setPreset] = useState("ar");
@@ -86,6 +87,8 @@ function Reports() {
   const rows = useMemo(
     () =>
       loads.filter((l) => {
+        // Foust Farms loads never mix into brokerage money/margin reports; they have their own view.
+        if (isFleetLoad(l) !== fleetView) return false;
         if (!cfg.statuses.includes(l.status)) return false;
         if (preset === "ap" && !l.carrier_id) return false;
         const d = l.pickup_at ? l.pickup_at.slice(0, 10) : "";
@@ -97,7 +100,7 @@ function Reports() {
         if (salesRep !== "all" && (salesRep === "none" ? repOf(l) : repOf(l) !== salesRep)) return false;
         return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""}`.toLowerCase().includes(q.toLowerCase());
       }),
-    [loads, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies],
+    [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies],
   );
 
   const keyOf = (l: Load): string => {
@@ -164,7 +167,7 @@ function Reports() {
     const csv = lines.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `clearwater-${preset}-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${fleetView ? "foust-fleet" : "clearwater"}-${preset}-report-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
   };
 
@@ -182,8 +185,9 @@ function Reports() {
       </div>
       <div className="flex flex-wrap gap-2 print:hidden">
         {Object.entries(PRESETS).map(([k, p]) => (
-          <button key={k} onClick={() => { setCarrierView(false); choose(k); }} className={cn("rounded-md border px-3 py-1.5 text-sm", !carrierView && preset === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>{p.label}</button>
+          <button key={k} onClick={() => { setCarrierView(false); setFleetView(false); choose(k); }} className={cn("rounded-md border px-3 py-1.5 text-sm", !carrierView && !fleetView && preset === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>{p.label}</button>
         ))}
+        <button onClick={() => { setCarrierView(false); setFleetView(true); choose("custom"); }} className={cn("rounded-md border px-3 py-1.5 text-sm", fleetView && !carrierView ? "border-teal bg-teal/15 text-teal" : "text-muted-foreground hover:text-foreground")}>Internal fleet records (Foust Farms)</button>
         <button onClick={() => setCarrierView(true)} className={cn("rounded-md border px-3 py-1.5 text-sm", carrierView ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>Carrier check</button>
       </div>
       {carrierView ? <div className="rounded-md border bg-card p-4"><CarrierCheck carriers={carriers} /></div> : <>
@@ -207,6 +211,7 @@ function Reports() {
         <Chips title="Columns" items={COLS.map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
       </div>
 
+      {fleetView && <div className="rounded border border-teal/50 bg-teal/10 p-2 text-sm text-teal">Showing Foust Farms internal fleet loads only. These are excluded from every brokerage report.</div>}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[["Loads", String(rows.length)], ["Customer amount", usd(sum(rows, "revenue"))], ["Carrier amount", usd(sum(rows, "cost"))], ["Margin", usd(sum(rows, "margin"))]].map(([k, v]) => (
           <div key={k} className="rounded border bg-card p-4">

@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight } from "lucide-react";
-import { carriersQuery, companiesQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, driversQuery, fleetQuery } from "@/lib/queries";
 import { CopyLoadString } from "@/components/CopyLoadString";
 import { fmtDate, loadTotals, statusMeta, usd, type Load } from "@/lib/tms";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,7 +37,18 @@ export function LoadQuickLookDialog({ load, open, onOpenChange }: { load: Load; 
   const t = loadTotals(load);
   const m = statusMeta(load.status);
   const customer = companies.find((c) => c.id === load.customer_id)?.name ?? "—";
-  const carrier = carriers.find((c) => c.id === load.carrier_id)?.legal_name ?? "—";
+  const carrierRow = carriers.find((c) => c.id === load.carrier_id);
+  const carrier = carrierRow?.legal_name ?? "—";
+  const { data: drivers = [] } = useQuery({ ...driversQuery, enabled: open });
+  const { data: units = [] } = useQuery({ ...fleetQuery, enabled: open });
+  const { data: tok } = useQuery({
+    queryKey: ["quicklook-driver", load.id], enabled: open,
+    queryFn: async () => (await supabase.from("load_tracking_tokens").select("driver_name, driver_phone").eq("load_id", load.id).order("created_at", { ascending: false }).limit(1).maybeSingle()).data,
+  });
+  const drv = (drivers as { id: string; full_name: string; phone: string | null }[]).find((d) => d.id === load.driver_id);
+  const unit = (id: string | null) => (units as { id: string; unit_number: string }[]).find((u) => u.id === id)?.unit_number;
+  const driverName = drv?.full_name ?? tok?.driver_name ?? null;
+  const driverPhone = drv?.phone ?? tok?.driver_phone ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,6 +74,23 @@ export function LoadQuickLookDialog({ load, open, onOpenChange }: { load: Load; 
             <Row k="Carrier cost" v={usd(t.cost)} />
             <Row k="Margin" v={`${usd(t.margin)} (${t.pct.toFixed(1)}%)`} />
           </div>
+          {(carrierRow || driverName || load.truck_id) && (
+            <div className="space-y-1 rounded border bg-muted/40 p-2 text-xs">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Contacts</div>
+              {carrierRow && (
+                <div>
+                  <span className="font-medium">{carrierRow.contact_name || carrierRow.legal_name}</span>
+                  {carrierRow.phone && <> · <a className="text-gold underline" href={`tel:${carrierRow.phone}`}>{carrierRow.phone}</a></>}
+                  {carrierRow.email && <> · <a className="text-gold underline" href={`mailto:${carrierRow.email}`}>{carrierRow.email}</a></>}
+                  {!carrierRow.phone && !carrierRow.email && <span className="text-muted-foreground"> · no phone/email on file</span>}
+                </div>
+              )}
+              {driverName && (
+                <div>Driver: <span className="font-medium">{driverName}</span>{driverPhone && <> · <a className="text-gold underline" href={`tel:${driverPhone}`}>{driverPhone}</a></>}</div>
+              )}
+              {(load.truck_id || load.trailer_id) && <div>Truck {unit(load.truck_id) ?? "—"}{load.trailer_id ? ` · Trailer ${unit(load.trailer_id) ?? "—"}` : ""}</div>}
+            </div>
+          )}
         </div>
         <div className="mt-2 flex gap-2">
           <Button
