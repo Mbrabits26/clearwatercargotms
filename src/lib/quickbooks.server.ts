@@ -102,13 +102,13 @@ async function party(qb: Qb, entity: "Customer" | "Vendor", name: string) {
   const found = await qb.query<Ref>(entity, `where DisplayName = '${esc(n)}'`);
   if (found[0]) return found[0].Id;
   const j = await qb.req<Record<string, Ref>>(entity.toLowerCase(), { DisplayName: n });
-  return j[entity].Id;
+  return j[entity]!.Id;
 }
 async function account(qb: Qb, types: string[]) {
   for (const t of types) {
     const a = await qb.query<Ref>("Account", `where AccountType = '${t}' and Active = true`);
     const freight = a.find((x) => /freight|haul|transport/i.test(x.Name ?? ""));
-    if (freight || a[0]) return (freight ?? a[0]).Id;
+    const hit = freight ?? a[0]; if (hit) return hit.Id;
   }
   throw new Error(`No ${types.join("/")} account found in QuickBooks.`);
 }
