@@ -224,8 +224,14 @@ function Accounting() {
     <div className="space-y-5 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
-        {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
+        <div className="flex flex-wrap gap-2">
+          {(tab === "invoice" || tab === "fleet_invoice") && (
+            <Button variant="outline" onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</Button>
+          )}
+          {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
+        </div>
       </div>
+      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.connected) syncNow(); }} />
       {qbs?.connected ? (
         <div className="flex flex-wrap items-center gap-3 rounded border border-primary/50 bg-primary/10 p-3 text-sm">
           <PlugZap className="h-4 w-4 text-primary" />
