@@ -1148,6 +1148,63 @@ export type Database = {
         }
         Relationships: []
       }
+      qb_connection: {
+        Row: {
+          access_expires_at: string
+          access_token: string
+          company_name: string | null
+          connected_at: string
+          connected_by: string | null
+          id: number
+          realm_id: string
+          refresh_expires_at: string | null
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_expires_at: string
+          access_token: string
+          company_name?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          id?: number
+          realm_id: string
+          refresh_expires_at?: string | null
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_expires_at?: string
+          access_token?: string
+          company_name?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          id?: number
+          realm_id?: string
+          refresh_expires_at?: string | null
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qb_oauth_state: {
+        Row: {
+          created_at: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       qb_sync: {
         Row: {
           amount: number
