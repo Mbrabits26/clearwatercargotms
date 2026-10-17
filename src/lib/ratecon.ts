@@ -13,6 +13,7 @@ export type RateConData = {
   consignee: { name: string; addr: string; cityLine: string; phone: string };
   commodity: string; type: string; weight: number | null; qty: number | null; hazmat: string;
   notes: string;
+  tracking?: boolean;
 };
 export type Signature = { name: string; title?: string; signedAt: string };
 
@@ -47,6 +48,8 @@ export function buildRateConData(o: { load: Load; carrier: Carrier; shipper?: Co
     notes,
   };
 }
+
+export const TRACKING_CLAUSE = `DRIVER TRACKING REQUIRED: The driver must use the ${CW.name} tracking link sent for this load to share location and status updates (arrived at shipper, loaded, arrived at receiver, delivered) from pickup through delivery, and must upload the signed BOL/POD through that link at delivery. Failure to use the tracking link will result in a deduction from the carrier's pay on this load.`;
 
 const LEGAL = `All accessorials or additional services not on this confirmation require a prior authorization code. Call ${CW.phone} to receive this code. All accessorials or additional services must be clearly marked and signed on the Bill of Lading including in/out times if detention occurs. Any charges not on this confirmation that are billed to ${CW.name} must have an accompanying authorization code in order for payment to be remitted. Receipts are required for lumpers. This document is intended to satisfy the requirements contained in 49 CFR-1-53.1. ${CW.name} tenders this freight with the express understanding that company employees or permanently leased owner-operators will transport these goods. ${CW.name} does not extend authority to the contract carrier to trip-lease or re-broker the freight.`;
 
@@ -163,6 +166,17 @@ export function buildRateConPdf(r: RateConData, sig?: Signature): jsPDF {
   font(8.5); doc.text(noteLines, L + 2, y + 30, { lineHeightFactor: 1.3 });
   y += nh + 18;
   font(10); doc.text(`ANY QUESTIONS ABOUT THE LOAD OR RATE CALL ${CW.phone}`, (L + R) / 2, y, { align: "center" });
+
+  // Tracking requirement
+  if (r.tracking) {
+    y += 10;
+    font(8, true);
+    const tl = doc.splitTextToSize(TRACKING_CLAUSE, W - 8);
+    const th = tl.length * 10 + 12;
+    box(L - 4, y, W + 8, th);
+    doc.text(tl, L + 2, y + 12, { lineHeightFactor: 1.25 });
+    y += th;
+  }
 
   // Legal
   y += 10;
