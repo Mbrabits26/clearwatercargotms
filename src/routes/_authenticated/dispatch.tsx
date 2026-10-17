@@ -67,7 +67,7 @@ function StatusSelect({ load }: { load: Load }) {
         if (v === "delivered" && !load.pod_received && !window.confirm("No POD on file for this load yet. Mark it Delivered anyway?")) return;
         const patch: Partial<Load> = { status: v as LoadStatus };
         const { error } = await supabase.from("loads").update(patch).eq("id", load.id);
-        if (error) toast.error(error.message.replace(/^.*?:\s*/, "") || error.message);
+        if (error) toast.error(error.message);
         qc.invalidateQueries({ queryKey: ["load_notes"] });
         qc.invalidateQueries({ queryKey: ["loads"] });
       }}
