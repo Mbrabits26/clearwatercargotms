@@ -372,7 +372,7 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
   const [due, setDue] = useState("");
   const [openFor, setOpenFor] = useState<string | null>(null);
   const [deds, setDeds] = useState<Deduction[]>([]);
-  const [dLabel, setDLabel] = useState(DEDUCTION_PRESETS[0]);
+  const [dLabel, setDLabel] = useState<string>(DEDUCTION_PRESETS[0] ?? "QuickPay fee");
   const [dOther, setDOther] = useState("");
   const [dPct, setDPct] = useState("");
   const isInvoice = row?.kind !== "bill";
@@ -387,7 +387,7 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
   const addDed = () => {
     const pct = Number(dPct);
     if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return toast.error("Enter a percentage between 0 and 100.");
-    const label = dLabel === "Other" ? dOther.trim() || "Deduction" : dLabel;
+    const label: string = dLabel === "Other" ? dOther.trim() || "Deduction" : (dLabel ?? "Deduction");
     setDeds([...deds, { label, pct }]); setDPct(""); setDOther("");
   };
   const fmtDeds = (v: unknown) => parseDeductions(v).map((d) => `${d.label} ${d.pct}%`).join(", ") || "None";
