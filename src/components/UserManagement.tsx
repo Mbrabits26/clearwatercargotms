@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, KeyRound, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval, setUserAdmin, updateUser } from "@/lib/users.functions";
+import { approveUser, createUser, deleteUser, resetUserPassword, revokeApproval, setUserAccountant, setUserAdmin, updateUser } from "@/lib/users.functions";
 import { DEFAULT_PERMS, PERMISSIONS, type Profile } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,10 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
   const reset = useServerFn(resetUserPassword);
   const revoke = useServerFn(revokeApproval);
   const setAdmin = useServerFn(setUserAdmin);
+  const setAcct = useServerFn(setUserAccountant);
+  const flipAcct = async (p: Profile, on: boolean) => {
+    try { await setAcct({ data: { userId: p.id, on } }); toast.success(on ? "Accountant access on" : "Accountant access off"); qc.invalidateQueries(); } catch (e) { toast.error((e as Error).message); }
+  };
   const [pwFor, setPwFor] = useState<Profile | null>(null);
   const [editFor, setEditFor] = useState<Profile | null>(null);
   const flipAdmin = async (p: Profile, on: boolean) => {
@@ -65,7 +69,8 @@ export function UserManagement({ profiles, roles, selfId }: { profiles: Profile[
               return (
                 <tr key={p.id} className="border-t">
                   <td className="py-1"><div>{p.full_name}</div><div className="text-xs text-muted-foreground">{p.email}</div></td>
-                  <td><label className="flex items-center gap-2 text-xs"><Switch checked={admin} disabled={p.id === selfId} onCheckedChange={(v) => flipAdmin(p, v)} aria-label="Admin access" />{admin ? "Admin" : "Broker"}</label></td>
+                  <td><label className="flex items-center gap-2 text-xs"><Switch checked={admin} disabled={p.id === selfId} onCheckedChange={(v) => flipAdmin(p, v)} aria-label="Admin access" />{admin ? "Admin" : "Broker"}</label>
+                    <label className="mt-1 flex items-center gap-2 text-xs"><Switch checked={roles.some((r) => r.user_id === p.id && r.role === "accountant")} onCheckedChange={(v) => flipAcct(p, v)} aria-label="Accountant access" />Accountant</label></td>
                   {PERMISSIONS.map((k) => (
                     <td key={k.key} className="text-center">
                       <input type="checkbox" disabled={admin} checked={admin || mine.includes(k.key)} onChange={() => toggle(p.id, k.key)} />
