@@ -38,7 +38,7 @@
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
-- Data API caps reads at 1000 rows; paginate (fetchAllPaged).
+- Data API caps reads at 1000 rows; paginate.
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
-- Customer invoice % deductions live in qb_sync.deductions ([{label,pct}]); amount stays gross, net via invoiceNet (invoiceDeductions.ts), sent to QuickBooks as negative lines.
+- Invoice % deductions: qb_sync.deductions; amount stays gross, net = invoiceNet; QB gets negative lines.
