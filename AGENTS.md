@@ -21,10 +21,9 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER: `lookupFmcsa` (staff-only server fn, FMCSA_WEBKEY) → carriers.authority_status/safety_rating.
-- Outbound email: `composeEmail` (src/lib/email.ts), Gmail else mailto.
-- Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name.
+- Outbound email: `composeEmail`.
+- Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name. getMarketRates: Firecrawl + AI, cached 24h.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
-- getMarketRates: Firecrawl + AI, cached 24h.
 - Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers see company-wide history, not who earned it.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
 - Carrier duplicate matching/merging (DOT, MC, normalized name; fill blanks only) lives in src/lib/carrierMerge.ts; cross-table merges run in mergeCarriers (carriers.functions.ts) so related rows move atomically server-side.
