@@ -2,9 +2,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-async function requireAdmin(ctx: { supabase: { rpc: (...a: never[]) => unknown }; userId: string }) {
-  const { data } = (await (ctx.supabase as unknown as { rpc: (f: string, a: object) => Promise<{ data: boolean }> }).rpc("has_role", { _user_id: ctx.userId, _role: "admin" }));
-  if (!data) throw new Error("Admins only.");
+type Rpc = { rpc: (f: string, a: object) => Promise<{ data: boolean }> };
+/** Connect/disconnect: admins and accountants only. */
+async function requireAdmin(ctx: { supabase: unknown; userId: string }) {
+  const { data } = await (ctx.supabase as Rpc).rpc("is_finance", { _uid: ctx.userId });
+  if (!data) throw new Error("Admins or accountants only.");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+/** Status + sending queued invoices/bills: any staff member (brokers included). */
+async function requireStaff(ctx: { supabase: unknown; userId: string }) {
+  const { data } = await (ctx.supabase as Rpc).rpc("is_staff", { _uid: ctx.userId });
+  if (!data) throw new Error("Staff only.");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
