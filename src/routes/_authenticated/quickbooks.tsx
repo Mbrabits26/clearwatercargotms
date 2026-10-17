@@ -65,6 +65,7 @@ export const Route = createFileRoute("/_authenticated/quickbooks")({
 });
 
 function Accounting() {
+  const { isFinance } = useRouteContext({ from: "/_authenticated" });
   const { data: loads } = useSuspenseQuery(loadsQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: carriers } = useSuspenseQuery(carriersQuery);
@@ -240,13 +241,13 @@ function Accounting() {
           <PlugZap className="h-4 w-4 text-primary" />
           <span className="flex-1">Connected to QuickBooks{qbs.company ? ` — ${qbs.company}` : ""}. Queued invoices and bills are sent when you queue them, or click Sync now.</span>
           <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
-          <Button size="sm" variant="ghost" onClick={disconnect}>Disconnect</Button>
+          {isFinance && <Button size="sm" variant="ghost" onClick={disconnect}>Disconnect</Button>}
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3 rounded border border-warning/50 bg-warning/10 p-3 text-sm">
           <PlugZap className="h-4 w-4 text-warning" />
           <span className="flex-1">QuickBooks isn't connected yet. Items you send wait in the queue and go out once it's linked.</span>
-          <Button size="sm" onClick={connect}>Connect QuickBooks</Button>
+          {isFinance ? <Button size="sm" onClick={connect}>Connect QuickBooks</Button> : <span className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</span>}
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
@@ -280,9 +281,9 @@ function Accounting() {
                   <TableCell>{fmtDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      {isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
                       {s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                      <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                      {isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -338,9 +339,9 @@ function Accounting() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
-                        {s && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                        {s && isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
                         {s && s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                        {s && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
+                        {s && isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -183,7 +183,7 @@ function Dispatch() {
               <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {isAdmin && pick.length > 0 && <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => setInvOpen(true)}><DollarSign className="mr-1 h-3.5 w-3.5" />Invoice {pick.length} selected</Button>}
+          {pick.length > 0 && <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => setInvOpen(true)}><DollarSign className="mr-1 h-3.5 w-3.5" />Invoice {pick.length} selected</Button>}
           <BatchInvoiceDialog open={invOpen} onOpenChange={setInvOpen} loads={loads.filter((l) => pick.includes(l.id))} companies={companies} onDone={() => setPick([])} />
           <Button size="sm" variant="outline" onClick={() => setBulk(true)}><Layers className="mr-1 h-3.5 w-3.5" />Bulk loads</Button>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
@@ -233,7 +233,7 @@ function Dispatch() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1">
-                      {isAdmin && invoiceable(l) && (
+                      {invoiceable(l) && (
                         <input type="checkbox" title="Select to invoice" className="accent-gold" checked={pick.includes(l.id)} onClick={(e) => e.stopPropagation()}
                           onChange={(e) => setPick((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
                       )}
