@@ -1,0 +1,2 @@
+ALTER TABLE public.qb_sync ADD COLUMN IF NOT EXISTS deductions jsonb NOT NULL DEFAULT '[]'::jsonb;
+COMMENT ON COLUMN public.qb_sync.deductions IS 'Customer invoice percentage deductions: [{label, pct}] applied to amount (gross) at send time.';

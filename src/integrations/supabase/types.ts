@@ -1224,6 +1224,7 @@ export type Database = {
           carrier_invoice_path: string | null
           created_at: string
           created_by: string | null
+          deductions: Json
           due_date: string | null
           error: string | null
           gross_amount: number | null
@@ -1245,6 +1246,7 @@ export type Database = {
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
+          deductions?: Json
           due_date?: string | null
           error?: string | null
           gross_amount?: number | null
@@ -1266,6 +1268,7 @@ export type Database = {
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
+          deductions?: Json
           due_date?: string | null
           error?: string | null
           gross_amount?: number | null

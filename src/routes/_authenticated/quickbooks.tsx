@@ -9,6 +9,7 @@ import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
+import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
 import { composeEmail, getMailClient } from "@/lib/email";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
@@ -22,6 +23,9 @@ import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
+
+/** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
+const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
 
 type SyncRow = {
   id: string;
@@ -38,6 +42,7 @@ type SyncRow = {
   qb_class?: string | null;
   gross_amount: number | null;
   quickpay_fee: number;
+  deductions?: unknown;
   carrier_invoice_amount: number | null;
   carrier_invoice_path: string | null;
   terms?: string | null;
@@ -112,11 +117,11 @@ function Accounting() {
     const l = loads.find((x) => x.id === s.load_id);
     if (!l || !s.invoice_number) return null;
     const g = groupOf(s);
-    const lines = g.map((x) => ({ load: loads.find((y) => y.id === x.load_id)!, amount: Number(x.amount) })).filter((x) => x.load);
+    const lines = g.map((x) => ({ load: loads.find((y) => y.id === x.load_id)!, amount: Number(x.amount), deductions: x.deductions })).filter((x) => x.load);
     const amount = g.length > 1 ? lines.reduce((t, x) => t + x.amount, 0) : Number(s.amount);
     const billTo = companies.find((c) => c.id === l.customer_id);
     const terms = invoiceTerms(s);
-    return buildInvoicePdf({ invoiceNumber: s.invoice_number, terms, dueDate: dueOf(s), invoiceDate: s.created_at, load: l, billTo, amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined });
+    return buildInvoicePdf({ invoiceNumber: s.invoice_number, terms, dueDate: dueOf(s), invoiceDate: s.created_at, load: l, billTo, amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined, deductions: s.deductions });
   };
   const viewInvoice = async (s: SyncRow) => { const d = await invoicePdf(s); if (d) viewer.show(d.output("blob"), `${s.invoice_number}.pdf`); };
   const emailInvoice = async (s: SyncRow) => {
@@ -125,7 +130,7 @@ function Accounting() {
     d.save(`${s.invoice_number}.pdf`);
     const g = groupOf(s);
     const nums = g.map((x) => loads.find((y) => y.id === x.load_id)?.load_number).filter(Boolean).join(", ");
-    const amt = g.length > 1 ? g.reduce((t, x) => t + Number(x.amount), 0) : Number(s.amount);
+    const amt = g.reduce((t, x) => t + owed(x), 0);
     const to = companies.find((c) => c.id === l.customer_id)?.email ?? "";
     await composeEmail(to, `Invoice ${s.invoice_number} — ${g.length > 1 ? `${g.length} loads` : `Load ${l.load_number}`} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
       `Hello,\n\nPlease find invoice ${s.invoice_number} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, ${invoiceTerms(s)} (due ${new Date(dueOf(s) + "T12:00:00").toLocaleDateString("en-US")}).\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
@@ -219,7 +224,7 @@ function Accounting() {
   const age = (s: SyncRow) => { const l = loadOf(s.load_id); return l ? ageDays(l) ?? 0 : 0; };
   const bucket = (list: SyncRow[]) => {
     const open = list.filter((s) => !paidStatus(loadOf(s.load_id)));
-    const sum = (f: (a: number) => boolean) => open.filter((s) => f(age(s))).reduce((t, s) => t + Number(s.amount), 0);
+    const sum = (f: (a: number) => boolean) => open.filter((s) => f(age(s))).reduce((t, s) => t + owed(s), 0);
     return { total: sum(() => true), a: sum((a) => a <= 30), b: sum((a) => a > 30 && a <= 60), c: sum((a) => a > 60) };
   };
   const arB = bucket(sync.filter((s) => s.kind !== "bill"));
@@ -275,7 +280,7 @@ function Accounting() {
                   <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
                   <TableCell>{loads.find((l) => l.id === s.load_id) ? <LoadQuickLook load={loads.find((l) => l.id === s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
-                  <TableCell>{usd(Number(s.amount))}</TableCell>
+                  <TableCell>{usd(owed(s))}{s.kind !== "bill" && parseDeductions(s.deductions).length > 0 && <div className="text-[10px] text-muted-foreground">of {usd(Number(s.amount))} · {parseDeductions(s.deductions).map((d) => `${d.label} ${d.pct}%`).join(", ")}</div>}</TableCell>
                   <TableCell>
                     <Pill status={s.status} />
                     {s.error && <div className="mt-1 max-w-56 text-[10px] text-destructive">{s.error}</div>}
@@ -366,6 +371,10 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
   const [terms, setTerms] = useState("");
   const [due, setDue] = useState("");
   const [openFor, setOpenFor] = useState<string | null>(null);
+  const [deds, setDeds] = useState<Deduction[]>([]);
+  const [dLabel, setDLabel] = useState<string>(DEDUCTION_PRESETS[0] ?? "QuickPay fee");
+  const [dOther, setDOther] = useState("");
+  const [dPct, setDPct] = useState("");
   const isInvoice = row?.kind !== "bill";
   if (row && openFor !== row.id) {
     setOpenFor(row.id);
@@ -373,7 +382,15 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     setAmount(String(row.amount));
     setTerms(row.terms ?? "");
     setDue(row.due_date ?? "");
+    setDeds(parseDeductions(row.deductions));
   }
+  const addDed = () => {
+    const pct = Number(dPct);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return toast.error("Enter a percentage between 0 and 100.");
+    const label: string = dLabel === "Other" ? dOther.trim() || "Deduction" : (dLabel ?? "Deduction");
+    setDeds([...deds, { label, pct }]); setDPct(""); setDOther("");
+  };
+  const fmtDeds = (v: unknown) => parseDeductions(v).map((d) => `${d.label} ${d.pct}%`).join(", ") || "None";
   const pickTerms = (t: string) => {
     setTerms(t);
     if (row && t) setDue(new Date(new Date(row.created_at).getTime() + termsDays(t) * 86_400_000).toISOString().slice(0, 10));
@@ -387,11 +404,11 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     const changes = diff([
       { label: "Payee / customer", before: row.payee, after: payee.trim() },
       { label: "Amount", before: row.amount, after: amt },
-      ...(isInvoice ? [{ label: "Payment terms", before: row.terms, after: terms }, { label: "Due date", before: row.due_date, after: due }] : []),
+      ...(isInvoice ? [{ label: "Payment terms", before: row.terms, after: terms }, { label: "Due date", before: row.due_date, after: due }, { label: "Deductions", before: fmtDeds(row.deductions), after: fmtDeds(deds) }] : []),
     ]);
     if (!changes.length) return toast.info("No changes to save.");
     if (!(await ask(changes))) return;
-    const patch = { payee: payee.trim() || null, amount: amt, ...(isInvoice ? { terms: terms || null, due_date: due || null } : {}) };
+    const patch = { payee: payee.trim() || null, amount: amt, ...(isInvoice ? { terms: terms || null, due_date: due || null, deductions: deds } : {}) };
     const { error } = await supabase.from("qb_sync").update(patch).eq("id", row.id);
     if (error) return toast.error(error.message);
     toast.success("Updated.");
@@ -420,6 +437,24 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
             <label className="block text-xs text-muted-foreground">Due date
               <Input className="mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
             </label>
+            <div className="rounded border p-2 text-xs">
+              <div className="mb-1 text-muted-foreground">Percentage deductions (taken off what the customer owes)</div>
+              {deds.map((d, i) => (
+                <div key={i} className="flex items-center justify-between py-0.5">
+                  <span>{d.label} · {d.pct}% <span className="text-muted-foreground">(−{usd((Number(amount) || 0) * d.pct / 100)})</span></span>
+                  <button className="text-destructive" onClick={() => setDeds(deds.filter((_, j) => j !== i))}>remove</button>
+                </div>
+              ))}
+              <div className="mt-1 flex gap-1">
+                <select className="h-8 flex-1 rounded border bg-background px-1 text-foreground" value={dLabel} onChange={(e) => setDLabel(e.target.value)}>
+                  {DEDUCTION_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <Input className="h-8 w-16" type="number" min="0" max="100" step="0.1" placeholder="%" value={dPct} onChange={(e) => setDPct(e.target.value)} />
+                <Button size="sm" variant="secondary" onClick={addDed}>Add</Button>
+              </div>
+              {dLabel === "Other" && <Input className="mt-1 h-8" placeholder="Deduction name" value={dOther} onChange={(e) => setDOther(e.target.value)} />}
+              <div className="mt-2 flex justify-between font-semibold"><span>Customer owes</span><span className="text-gold">{usd(invoiceNet(Number(amount) || 0, deds))}</span></div>
+            </div>
           </>}
           <Button className="w-full" onClick={save}>Save changes</Button>
         </div>
