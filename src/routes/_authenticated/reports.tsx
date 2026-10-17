@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useRouteContext, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
@@ -53,6 +53,7 @@ const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
 };
 
 function Reports() {
+  const { isAdmin } = useRouteContext({ from: "/_authenticated" });
   const { data: loads } = useSuspenseQuery(loadsQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: carriers } = useSuspenseQuery(carriersQuery);
@@ -184,7 +185,7 @@ function Reports() {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 print:hidden">
-        {Object.entries(PRESETS).map(([k, p]) => (
+        {Object.entries(PRESETS).filter(([k]) => k !== "commission" || isAdmin).map(([k, p]) => (
           <button key={k} onClick={() => { setCarrierView(false); setFleetView(false); choose(k); }} className={cn("rounded-md border px-3 py-1.5 text-sm", !carrierView && !fleetView && preset === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground hover:text-foreground")}>{p.label}</button>
         ))}
         <button onClick={() => { setCarrierView(false); setFleetView(true); choose("custom"); }} className={cn("rounded-md border px-3 py-1.5 text-sm", fleetView && !carrierView ? "border-teal bg-teal/15 text-teal" : "text-muted-foreground hover:text-foreground")}>Internal fleet records (Foust Farms)</button>
