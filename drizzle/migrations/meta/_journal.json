@@ -232,6 +232,13 @@
       "when": 1792246796737,
       "tag": "0032_load_status_rules_and_history",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792249246932,
+      "tag": "0033_batch_load_operational_closeout",
+      "breakpoints": true
     }
   ]
 }
