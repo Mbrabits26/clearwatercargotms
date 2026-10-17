@@ -1,3 +1,4 @@
+import { deductionLines } from "./invoiceDeductions";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
 export const QB_REDIRECT_URI = "https://clearwatercargotms.lovable.app/oauth/quickbooks/return";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -130,7 +131,7 @@ async function klass(qb: Qb, name: string | null) {
   }
 }
 
-type SyncRow = { id: string; kind: string; payee: string | null; amount: number; invoice_number: string | null; qb_class: string | null; qb_ref: string | null; load_id: string };
+type SyncRow = { id: string; kind: string; payee: string | null; amount: number; invoice_number: string | null; qb_class: string | null; qb_ref: string | null; load_id: string; deductions?: unknown };
 type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null };
 
 export async function deliverQueued(admin: Admin, ids?: string[]) {
@@ -182,7 +183,11 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
           const j = await qb.req<{ Invoice: Ref }>("invoice", {
             CustomerRef: { value: cust }, DocNumber: doc, TxnDate: txnDate, PrivateNote: lane, ...classRef,
             SalesTermRef: undefined,
-            Line: group.map((g) => ({ Amount: Number(g.amount), DetailType: "SalesItemLineDetail", Description: `Freight — ${laneOf(byId.get(g.load_id)) || lane}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(g.amount), ...classRef } })),
+            // Freight line per load, then each percentage deduction as a negative line so QuickBooks totals what the customer owes.
+            Line: group.flatMap((g) => [
+              { Amount: Number(g.amount), DetailType: "SalesItemLineDetail", Description: `Freight — ${laneOf(byId.get(g.load_id)) || lane}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(g.amount), ...classRef } },
+              ...deductionLines(Number(g.amount), g.deductions).map((d) => ({ Amount: d.amount, DetailType: "SalesItemLineDetail", Description: `${d.label} — ${byId.get(g.load_id)?.load_number ?? ""}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: d.amount, ...classRef } })),
+            ]),
           });
           ref = j.Invoice.Id;
         }

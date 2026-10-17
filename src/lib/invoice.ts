@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { CW } from "./ratecon";
 import type { Accessorial, Company, Load } from "./tms";
+import { deductionLines } from "./invoiceDeductions";
 
 /** Internal fleet billing entity (separate MC/DOT from the brokerage). */
 export const FF = { name: "Foust Farms Truckin LLC", addr1: "1392 Shady Grove Church Road", addr2: "Staley, NC 27355", phone: "336-622-9527", authority: "MC 775739 · USDOT 2271564" };
@@ -9,7 +10,7 @@ const money = (n: number) => `$ ${n.toLocaleString("en-US", { minimumFractionDig
 const d = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("en-US") : "");
 
 /** Branded customer invoice (AR). One load, or — with `lines` — one combined invoice itemized per load. */
-export function buildInvoicePdf(o: { invoiceNumber: string; terms?: string; dueDate?: string; invoiceDate?: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null; fleet?: boolean; lines?: { load: Load; amount: number }[] }) {
+export function buildInvoicePdf(o: { invoiceNumber: string; terms?: string; dueDate?: string; invoiceDate?: string; load: Load; billTo?: Company; amount: number; logoUrl?: string; logo?: HTMLImageElement | null; fleet?: boolean; lines?: { load: Load; amount: number; deductions?: unknown }[]; deductions?: unknown }) {
   const { load, billTo } = o;
   const multi = (o.lines?.length ?? 0) > 1;
   const co = o.fleet ? FF : CW;
@@ -46,13 +47,19 @@ export function buildInvoicePdf(o: { invoiceNumber: string; terms?: string; dueD
     const accSum = acc.reduce((s, a) => s + Number(a.amount || 0), 0);
     rows = [["Linehaul", o.amount - accSum], ...acc.map((a) => [a.type || "Accessorial", Number(a.amount || 0)] as [string, number])];
   }
+  // Percentage deductions (per load on combined invoices) print as negative lines.
+  const ded: [string, number][] = multi
+    ? o.lines!.flatMap((x) => deductionLines(x.amount, x.deductions).map((dl) => [`${dl.label} — ${x.load.load_number}`, dl.amount] as [string, number]))
+    : deductionLines(o.amount, o.deductions).map((dl) => [dl.label, dl.amount] as [string, number]);
+  rows = [...rows, ...ded];
+  const totalDue = Math.max(0, rows.reduce((s, [, v]) => s + v, 0));
   y += 20;
   for (const [k, v] of rows) {
     if (y > 680) { doc.addPage(); y = 60; }
     y += 18; doc.text(String(k).slice(0, 95), L + 8, y).text(money(v), R - 8, y, { align: "right" }); doc.setDrawColor(220).line(L, y + 5, R, y + 5);
   }
   y += 30;
-  doc.setFont("helvetica", "bold").setFontSize(13).text(`TOTAL DUE  ${money(o.amount)}`, R - 8, y, { align: "right" });
+  doc.setFont("helvetica", "bold").setFontSize(13).text(`TOTAL DUE  ${money(ded.length ? totalDue : o.amount)}`, R - 8, y, { align: "right" });
   doc.setFont("helvetica", "normal").setFontSize(9).text(`Please remit to ${co.name}, ${co.addr1}, ${co.addr2}. Reference invoice ${o.invoiceNumber} with payment.`, L, 720);
   return doc;
 }
