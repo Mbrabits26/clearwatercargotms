@@ -1515,6 +1515,7 @@ export type Database = {
       }
       import_its_loads: { Args: { rows: Json }; Returns: Json }
       is_approved: { Args: { _uid: string }; Returns: boolean }
+      is_finance: { Args: { _uid: string }; Returns: boolean }
       is_staff: { Args: { _uid: string }; Returns: boolean }
       lane_history_loads: {
         Args: { _carrier?: string }
@@ -1544,7 +1545,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "broker"
+      app_role: "admin" | "broker" | "accountant"
       carrier_status: "pending" | "vetted" | "dnu"
       load_status:
         | "available"
@@ -1684,7 +1685,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "broker"],
+      app_role: ["admin", "broker", "accountant"],
       carrier_status: ["pending", "vetted", "dnu"],
       load_status: [
         "available",

@@ -11,17 +11,17 @@
 
 # AGENTS.md
 
-- Browser data access uses RLS; broker-pay privacy and load visibility belong in database policies, not UI.
-- Admission requires `approved_users`; roles use `user_roles`/`has_role()` to block unapproved identities.
-- Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so no client can bypass it.
-- Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
+- Browser data access uses RLS; pay privacy and load visibility live in DB policies, not UI.
+- Admission requires `approved_users`; roles (admin/broker/accountant, multiple per user) live in `user_roles`; `is_staff()`/`is_finance()` gate RLS. All staff share loads + qb_sync (insert/send); invoice edit/delete, QB connect and due reminders need is_finance; commissions admin/self-only.
+- Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so clients can't bypass it.
+- Shared types/helpers: `src/lib/tms.ts`; query options: `src/lib/queries.ts`; PDFs: client-side jsPDF in `src/lib/`.
 - QuickBooks: `qb_sync` (admin-only RLS) is the queue; quickbooks.server.ts delivers rows via Intuit OAuth tokens in server-only `qb_connection` (no client grants), deduping by DocNumber; the redirect URI is fixed to the published domain.
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
-- Outbound emails go through `composeEmail` (src/lib/email.ts): Gmail App User Connector send when connected, else compose/mailto draft.
+- Outbound email goes through `composeEmail` (src/lib/email.ts): Gmail connector, else mailto draft.
 - Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - getMarketRates (staff-only): Firecrawl + Lovable AI, cached 24h in market_rate_cache.
@@ -38,6 +38,5 @@
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
-- Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
-- Internal fleet = one carrier record (FLEET_CARRIER_ID in tms.ts).
-- Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads stay out of brokerage reports.
+- Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate.
+- Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.

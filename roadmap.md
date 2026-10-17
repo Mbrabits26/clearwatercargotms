@@ -125,3 +125,6 @@
 - [x] Full walkthrough (all tabs load clean); review-changes step on carrier, company, user, invoice edits; Directory companies now editable
 - [x] Onboarding: signed broker-carrier agreement PDF saved to carrier docs (11 past signers backfilled); file slots follow pay option; pay terms/remit pre-fill + sync
 - [x] Delete a signed rate con with reason + note (kept in history), optional remove carrier, then send revised
+
+- [x] Shared broker loads, broker invoicing/QuickBooks send, Accountant role (Eric)
+- [ ] Workflow 2 QA: customers/shippers, addresses, credit limits

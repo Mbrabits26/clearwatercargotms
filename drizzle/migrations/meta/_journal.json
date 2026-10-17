@@ -211,6 +211,20 @@
       "when": 1792186448564,
       "tag": "0029_customer_invoice_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792245611537,
+      "tag": "0030_add_accountant_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792245635606,
+      "tag": "0031_shared_loads_broker_invoicing_accountant",
+      "breakpoints": true
     }
   ]
 }
