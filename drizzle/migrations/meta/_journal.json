@@ -225,6 +225,13 @@
       "when": 1792245635606,
       "tag": "0031_shared_loads_broker_invoicing_accountant",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792246796737,
+      "tag": "0032_load_status_rules_and_history",
+      "breakpoints": true
     }
   ]
 }
