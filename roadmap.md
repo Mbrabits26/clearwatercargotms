@@ -120,7 +120,7 @@
 - [x] One-click copy string on every load (dispatch rows, load cockpit, quick look) — paste-ready details, no rates
 
 ## Open
-- [ ] Add admin/broker unfinished-load notices and batch invoice/deliver/closeout actions for older imported loads; verify with tests and signed-in walkthrough.
+- [x] Admin/broker unfinished-load notices and batch invoice/deliver/operational-closeout actions across all dates; 13 tests passed and two temporary old-dated loads verified through delivery, invoicing, closeout, and UI readback, then removed.
 - [x] Verify RC tracking splits $1,500 into $1,300 linehaul + $200 tracking; total unchanged, edits and checkbox reversible.
 - [x] Google address autofill (directory, carrier edit, new shipper/consignee in load builder)
 - [x] Full walkthrough (all tabs load clean); review-changes step on carrier, company, user, invoice edits; Directory companies now editable
