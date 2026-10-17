@@ -2,14 +2,15 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Globe, RefreshCw } from "lucide-react";
 import { getMarketRates, type MarketRate } from "@/lib/market.functions";
-import { loadTotals, usd, type Load } from "@/lib/tms";
+import { isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export type Lane = { origin_city?: string | null; origin_state: string; dest_city?: string | null; dest_state: string; equipment: string; miles?: number | null };
 
 export function laneStats(loads: Load[], lane: Lane, exactCity: boolean) {
-  const same = loads.filter((l) =>
+  // Company-truck (Foust Farms) loads have no carrier cost/margin, so they stay out of lane pricing.
+  const same = loads.filter((l) => !isFleetLoad(l) &&
     l.origin_state === lane.origin_state && l.dest_state === lane.dest_state && Number(l.customer_rate) > 0 &&
     (!exactCity || ((!lane.origin_city || l.origin_city.toLowerCase() === lane.origin_city.toLowerCase()) && (!lane.dest_city || l.dest_city.toLowerCase() === lane.dest_city.toLowerCase()))),
   );

@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { setUserAdmin } from "@/lib/users.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { loadsQuery, profilesQuery } from "@/lib/queries";
-import { loadTotals, usd } from "@/lib/tms";
+import { isFleetLoad, loadTotals, usd } from "@/lib/tms";
 import { Input } from "@/components/ui/input";
 import { UserManagement } from "@/components/UserManagement";
 import { ItsSync } from "@/components/ItsSync";
@@ -39,9 +39,11 @@ function Admin() {
   const { data: roles = [] } = useQuery({ queryKey: ["roles"], queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [] });
   const { data: comm = [] } = useQuery({ queryKey: ["commissions"], queryFn: async () => (await supabase.from("broker_commissions").select("*")).data ?? [] });
 
-  const totals = loads.reduce((a, l) => { const t = loadTotals(l); return { rev: a.rev + t.revenue, margin: a.margin + t.margin }; }, { rev: 0, margin: 0 });
-  const ar = loads.filter((l) => l.status === "invoiced").reduce((s, l) => s + loadTotals(l).revenue, 0);
-  const ap = loads.filter((l) => ["delivered", "invoiced"].includes(l.status) && l.pod_received).reduce((s, l) => s + loadTotals(l).cost, 0);
+  // Brokerage figures only; Foust Farms company-truck loads carry no margin or carrier AP.
+  const brokerage = loads.filter((l) => !isFleetLoad(l));
+  const totals = brokerage.reduce((a, l) => { const t = loadTotals(l); return { rev: a.rev + t.revenue, margin: a.margin + t.margin }; }, { rev: 0, margin: 0 });
+  const ar = brokerage.filter((l) => l.status === "invoiced").reduce((s, l) => s + loadTotals(l).revenue, 0);
+  const ap = brokerage.filter((l) => ["delivered", "invoiced"].includes(l.status) && l.pod_received).reduce((s, l) => s + loadTotals(l).cost, 0);
 
   const setAdmin = useServerFn(setUserAdmin);
   const setRole = async (userId: string, role: "admin" | "broker") => {
@@ -71,7 +73,7 @@ function Admin() {
           <TableHeader><TableRow><TableHead>Team member</TableHead><TableHead>Role</TableHead><TableHead>Loads</TableHead><TableHead>Margin</TableHead><TableHead>Commission %</TableHead><TableHead>Commission earned</TableHead></TableRow></TableHeader>
           <TableBody>
             {profiles.map((p) => {
-              const mine = loads.filter((l) => l.broker_id === p.id);
+              const mine = brokerage.filter((l) => l.broker_id === p.id);
               const margin = mine.reduce((s, l) => s + loadTotals(l).margin, 0);
               const pct = Number(comm.find((c) => c.user_id === p.id)?.commission_pct ?? 0);
               const role = roles.find((r) => r.user_id === p.id)?.role ?? "broker";

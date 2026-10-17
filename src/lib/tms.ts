@@ -44,9 +44,14 @@ export function loadTotals(l: Load) {
   const acc = accessorialTotal(l);
   const revenue = Number(l.customer_rate) + acc;
   const cost = Number(l.carrier_rate) + acc;
-  const margin = revenue - cost;
-  return { acc, revenue, cost, margin, pct: revenue ? (margin / revenue) * 100 : 0 };
+  // Foust Farms (company truck) loads are asset-based: they never carry a brokerage margin.
+  const fleet = isFleetLoad(l);
+  const margin = fleet ? 0 : revenue - cost;
+  return { acc, revenue, cost, margin, pct: !fleet && revenue ? (margin / revenue) * 100 : 0, fleet };
 }
+/** Margin text for display; company-truck loads show no margin. */
+export const marginText = (t: { margin: number; pct: number; fleet: boolean }) =>
+  t.fleet ? "No margin — company truck" : `${usd(t.margin)} (${t.pct.toFixed(1)}%)`;
 
 export function carrierCompliance(c: Carrier) {
   const issues: string[] = [];
