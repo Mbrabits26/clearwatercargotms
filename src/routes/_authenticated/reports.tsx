@@ -209,7 +209,7 @@ function Reports() {
         </div>
         <Input placeholder="Search load #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
         <Chips title="Statuses" items={STATUSES.map((s) => [s.value, s.label])} on={cfg.statuses} toggle={(v) => toggleStatus(v as LoadStatus)} />
-        <Chips title="Columns" items={COLS.map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
+        <Chips title="Columns" items={COLS.filter((c) => c.id !== "commission" || isAdmin).map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
       </div>
 
       {fleetView && <div className="rounded border border-teal/50 bg-teal/10 p-2 text-sm text-teal">Showing Foust Farms internal fleet loads only. These are excluded from every brokerage report.</div>}
