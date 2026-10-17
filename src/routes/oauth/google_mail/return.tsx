@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/oauth/google_mail/return")({
-  head: () => ({ meta: [{ title: "Connecting Gmail — Clearwater Cargo TMS" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Connecting Gmail — Clearwater Cargo TMS" }, { name: "description", content: "Finishing your Gmail connection for Clearwater Cargo." }, { property: "og:title", content: "Connecting Gmail — Clearwater Cargo TMS" }, { property: "og:description", content: "Finishing your Gmail connection for Clearwater Cargo." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: OAuthReturn,
 });
 

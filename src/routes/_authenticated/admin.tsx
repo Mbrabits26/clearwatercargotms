@@ -20,6 +20,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { name: "description", content: "Company financials, broker roles and commission." },
       { property: "og:title", content: "Admin — Clearwater Cargo TMS" },
       { property: "og:description", content: "Company financials, broker roles and commission." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   beforeLoad: ({ context }) => {

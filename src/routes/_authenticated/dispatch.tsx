@@ -222,7 +222,7 @@ function Dispatch() {
               <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={(value) => { setStatus(value); setPick([]); if (["delivery", "invoice", "closeout", "closed"].includes(value)) setShowAll(true); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">All active</SelectItem>
@@ -237,7 +237,7 @@ function Dispatch() {
               {status !== defStatus && (
                 <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={saveDefault} title="Open the board on this view every time">Make default</Button>
               )}
-              <Select value={broker} onValueChange={setBroker}>
+              <Select value={broker} onValueChange={(value) => { setBroker(value); setPick([]); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All brokers</SelectItem>

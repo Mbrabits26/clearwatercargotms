@@ -21,6 +21,8 @@ export const Route = createFileRoute("/_authenticated/reports")({
       { name: "description", content: "Outstanding invoices, carrier payables and broker reports." },
       { property: "og:title", content: "Reports — Clearwater Cargo TMS" },
       { property: "og:description", content: "Outstanding invoices, carrier payables and broker reports." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) =>

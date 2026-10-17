@@ -23,6 +23,8 @@ export const Route = createFileRoute("/_authenticated/fleet")({
       { name: "description", content: "Clearwater Cargo trucks, trailers and drivers with availability and assignments." },
       { property: "og:title", content: "Internal Fleet — Clearwater Cargo TMS" },
       { property: "og:description", content: "Trucks, trailers and drivers with availability and assignments." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) =>

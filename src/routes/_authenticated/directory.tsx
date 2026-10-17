@@ -23,6 +23,8 @@ export const Route = createFileRoute("/_authenticated/directory")({
       { name: "description", content: "Shared customers, shippers and consignees." },
       { property: "og:title", content: "Directory — Clearwater Cargo TMS" },
       { property: "og:description", content: "Shared customers, shippers and consignees." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(companiesQuery), context.queryClient.ensureQueryData(profilesQuery)]),
