@@ -41,3 +41,4 @@
 - Data API caps reads at 1000 rows; paginate (fetchAllPaged).
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
+- Customer invoice % deductions live in qb_sync.deductions ([{label,pct}]); amount stays gross, net via invoiceNet (invoiceDeductions.ts), sent to QuickBooks as negative lines.
