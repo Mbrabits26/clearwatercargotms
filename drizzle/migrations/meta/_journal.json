@@ -239,6 +239,13 @@
       "when": 1792249246932,
       "tag": "0033_batch_load_operational_closeout",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792251107174,
+      "tag": "0034_invoice_percentage_deductions",
+      "breakpoints": true
     }
   ]
 }
