@@ -12,7 +12,7 @@
 # AGENTS.md
 
 - Browser data access uses RLS; broker-pay privacy and load visibility belong in database policies, not UI.
-- Admission requires `approved_users`; roles use `user_roles`/`has_role()` to block unapproved identities.
+- Admission requires `approved_users`; roles (admin/broker/accountant, multiple per user) live in `user_roles`; `is_staff()`/`is_finance()` gate RLS. All staff share loads + qb_sync (insert/send); invoice edit/delete, QB connect and due reminders need is_finance; commissions stay admin/self-only.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so no client can bypass it.
 - Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
 - QuickBooks: `qb_sync` (admin-only RLS) is the queue; quickbooks.server.ts delivers rows via Intuit OAuth tokens in server-only `qb_connection` (no client grants), deduping by DocNumber; the redirect URI is fixed to the published domain.
