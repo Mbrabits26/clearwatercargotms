@@ -31,6 +31,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [work, setWork] = useState<RateConData | null>(null);
   useEffect(() => { setDraft(null); }, [load.id, carrier?.id]);
   const [ccMe, setCcMe] = useState(true);
+  const [tracking, setTracking] = useState(true);
   const [myEmail, setMyEmail] = useState("");
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyEmail(data.user?.email ?? "")); }, []);
   const recipients = () => email.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
@@ -44,7 +45,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   };
   const rcData = () => {
     const base = buildRateConData({ load: current(), carrier: carrier!, shipper, consignee, customer });
-    return draft ? { ...draft, rc: base.rc, date: base.date, shipRef: shipRef, destRef: destRef } : base;
+    return { ...(draft ? { ...draft, rc: base.rc, date: base.date, shipRef: shipRef, destRef: destRef } : base), tracking };
   };
   const viewer = useBlobViewer();
   const preview = () => {
@@ -111,6 +112,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <label className="flex items-center gap-1"><input type="checkbox" checked={ccMe} onChange={(e) => setCcMe(e.target.checked)} />Send a copy to me{myEmail && ` (${myEmail})`}</label>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />Include driver tracking requirement (deduction if not used)</label>
         {recipients().length > 1 && <span>{recipients().length} recipients</span>}
       </div>
       <div className="flex flex-wrap gap-2">
