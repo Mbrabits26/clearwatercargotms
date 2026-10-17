@@ -213,8 +213,8 @@ export function LoadBuilderDialog({
       const num = (k: string) => (f[k] ? Number(f[k]) : null);
       const row = {
         customer_id: customer_id ?? null, shipper_id: shipper_id ?? null, consignee_id: consignee_id ?? null,
-        origin_city: f.origin_city, origin_state: f.origin_state.toUpperCase(),
-        dest_city: f.dest_city, dest_state: f.dest_state.toUpperCase(),
+        origin_city: f.origin_city!, origin_state: f.origin_state!.toUpperCase(),
+        dest_city: f.dest_city!, dest_state: f.dest_state!.toUpperCase(),
         pickup_at: f.pickup_at ? new Date(f.pickup_at).toISOString() : null,
         delivery_at: f.delivery_at ? new Date(f.delivery_at).toISOString() : null,
         equipment: f.equipment ?? "Dry Van", commodity: f.commodity || null,
