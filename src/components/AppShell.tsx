@@ -1,5 +1,6 @@
 import { DEFAULT_PERMS } from "@/lib/tms";
 import { DueReminders } from "@/components/DueReminders";
+import { LoadWorkNotice } from "@/components/LoadWorkNotice";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal } from "lucide-react";
@@ -80,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">{(isAdmin || isAccountant) && <DueReminders />}{children}</main>
+      <main className="min-h-0 flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"><LoadWorkNotice />{(isAdmin || isAccountant) && <DueReminders />}{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
         {nav.filter((n) => ["/dispatch", "/carriers", "/directory"].includes(n.to)).map((n) => (
           <Link key={n.to} to={n.to} className="flex min-h-11 flex-col items-center justify-center gap-1 text-[11px] text-sidebar-foreground/70" activeProps={{ className: "text-gold bg-sidebar-accent" }}>

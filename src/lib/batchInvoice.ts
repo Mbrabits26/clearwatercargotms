@@ -21,11 +21,14 @@ export function consolidateProblem(loads: Load[]): string | null {
  * have an invoice are skipped so nothing is duplicated. Marks delivered loads as invoiced.
  */
 export async function queueInvoices(loads: Load[], companies: Company[], mode: InvoiceMode) {
-  const { data: existing } = await supabase.from("qb_sync").select("load_id, kind").in("load_id", loads.map((l) => l.id)).in("kind", ["invoice", "fleet_invoice"]);
+  if (!loads.length) return { queued: 0, skipped: 0, numbers: [] as string[] };
+  if (loads.some((load) => !invoiceable(load) || load.closed_at)) throw new Error("Only delivered or invoiced, open loads can be invoiced.");
+  const { data: existing, error: lookupError } = await supabase.from("qb_sync").select("load_id, kind").in("load_id", loads.map((l) => l.id)).in("kind", ["invoice", "fleet_invoice"]);
+  if (lookupError) throw lookupError;
   const done = new Set((existing ?? []).map((e) => e.load_id));
   const todo = loads.filter((l) => !done.has(l.id));
   if (!todo.length) return { queued: 0, skipped: loads.length, numbers: [] as string[] };
-  if (mode === "consolidated") { const p = consolidateProblem(todo); if (p) throw new Error(p); }
+  if (mode === "consolidated" && todo.length > 1) { const p = consolidateProblem(todo); if (p) throw new Error(p); }
   const row = (l: Load, invoice_number?: string) => ({
     load_id: l.id,
     kind: invoiceKind(l),
@@ -37,11 +40,13 @@ export async function queueInvoices(loads: Load[], companies: Company[], mode: I
     ...(invoice_number ? { invoice_number } : {}),
   });
   const numbers: string[] = [];
-  if (mode === "consolidated") {
+  if (mode === "consolidated" && todo.length > 1) {
     const [first, ...rest] = todo;
-    const { data, error } = await supabase.from("qb_sync").insert(row(first!)).select("invoice_number").single();
+    if (!first) throw new Error("No loads selected.");
+    const { data, error } = await supabase.from("qb_sync").insert(row(first)).select("invoice_number").single();
     if (error) throw error;
-    const num = data.invoice_number!;
+    const num = data.invoice_number;
+    if (!num) throw new Error("Invoice number was not assigned.");
     if (rest.length) { const { error: e2 } = await supabase.from("qb_sync").insert(rest.map((l) => row(l, num))); if (e2) throw e2; }
     numbers.push(num);
   } else {
@@ -50,6 +55,9 @@ export async function queueInvoices(loads: Load[], companies: Company[], mode: I
     numbers.push(...(data ?? []).map((d) => d.invoice_number ?? ""));
   }
   const toMark = todo.filter((l) => l.status === "delivered").map((l) => l.id);
-  if (toMark.length) await supabase.from("loads").update({ status: "invoiced" }).in("id", toMark);
+  if (toMark.length) {
+    const { error } = await supabase.from("loads").update({ status: "invoiced" }).in("id", toMark).eq("status", "delivered");
+    if (error) throw new Error(`Invoices created, but load status could not update: ${error.message}. Do not create them again; refresh Accounting.`);
+  }
   return { queued: todo.length, skipped: loads.length - todo.length, numbers };
 }

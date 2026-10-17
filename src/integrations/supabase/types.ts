@@ -930,6 +930,9 @@ export type Database = {
           cancelled_by: string | null
           carrier_id: string | null
           carrier_rate: number
+          closed_at: string | null
+          closed_by: string | null
+          closeout_note: string | null
           commodity: string | null
           consignee_id: string | null
           created_at: string
@@ -976,6 +979,9 @@ export type Database = {
           cancelled_by?: string | null
           carrier_id?: string | null
           carrier_rate?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closeout_note?: string | null
           commodity?: string | null
           consignee_id?: string | null
           created_at?: string
@@ -1022,6 +1028,9 @@ export type Database = {
           cancelled_by?: string | null
           carrier_id?: string | null
           carrier_rate?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closeout_note?: string | null
           commodity?: string | null
           consignee_id?: string | null
           created_at?: string
@@ -1506,6 +1515,10 @@ export type Database = {
       }
     }
     Functions: {
+      batch_load_action: {
+        Args: { _action: string; _ids: string[]; _note?: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

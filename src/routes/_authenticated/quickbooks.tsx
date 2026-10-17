@@ -53,6 +53,8 @@ export const Route = createFileRoute("/_authenticated/quickbooks")({
       { name: "description", content: "Customer invoices (AR), carrier bills (AP) and the QuickBooks Online sync queue." },
       { property: "og:title", content: "Accounting — Clearwater Cargo TMS" },
       { property: "og:description", content: "Customer invoices (AR), carrier bills (AP) and the QuickBooks Online sync queue." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) =>

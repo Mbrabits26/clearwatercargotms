@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { qbFinishConnect } from "@/lib/quickbooks.functions";
 
 export const Route = createFileRoute("/oauth/quickbooks/return")({
-  head: () => ({ meta: [{ title: "Connecting QuickBooks — Clearwater Cargo TMS" }, { name: "description", content: "Finishing the QuickBooks Online connection." }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Connecting QuickBooks — Clearwater Cargo TMS" }, { name: "description", content: "Finishing the QuickBooks Online connection." }, { property: "og:title", content: "Connecting QuickBooks — Clearwater Cargo TMS" }, { property: "og:description", content: "Finishing the QuickBooks Online connection." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: QbReturn,
 });
 

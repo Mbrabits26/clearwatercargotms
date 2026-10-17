@@ -20,6 +20,10 @@ import { LoadCancelDelete } from "@/components/LoadCancelDelete";
 import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
+import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { loadWorkQuery } from "@/lib/loadWorkQuery";
+import { batchEligible, needsWork, type WorkFilter } from "@/lib/loadWork";
 import { invoiceable } from "@/lib/batchInvoice";
 import { CopyLoadDialog } from "@/components/CopyLoadDialog";
 import { CopyLoadString } from "@/components/CopyLoadString";
@@ -42,9 +46,15 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
       { name: "description", content: "Active load queue and load cockpit." },
       { property: "og:title", content: "Dispatch Board — Clearwater Cargo TMS" },
       { property: "og:description", content: "Active load queue and load cockpit." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>): { load?: string } => (typeof s.load === "string" ? { load: s.load } : {}),
+  validateSearch: (s: Record<string, unknown>): { load?: string; work?: WorkFilter; owner?: string } => ({
+    load: typeof s.load === "string" ? s.load : undefined,
+    work: ["delivery", "invoice", "closeout", "closed"].includes(String(s.work)) ? s.work as WorkFilter : undefined,
+    owner: typeof s.owner === "string" ? s.owner : undefined,
+  }),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(recentLoadsQuery),
@@ -110,6 +120,8 @@ function exportCsv(loads: Load[], format: "dat" | "truckstop") {
 const datEquip = (e: string) => ({ "Dry Van": "V", Reefer: "R", Flatbed: "F", "Step Deck": "SD", "Power Only": "PO", Conestoga: "CN", Hotshot: "HS", "Box Truck": "SB" })[e] ?? "V";
 
 function Dispatch() {
+  const qc = useQueryClient();
+  const { data: workData } = useQuery(loadWorkQuery);
   const { data: recentLoads } = useSuspenseQuery(recentLoadsQuery);
   const [showAll, setShowAll] = useState(false);
   const { data: allLoads } = useQuery({ ...loadsQuery, enabled: showAll });
@@ -139,7 +151,11 @@ function Dispatch() {
   const [bulk, setBulk] = useState(false);
   const [pick, setPick] = useState<string[]>([]);
   const [invOpen, setInvOpen] = useState(false);
+  const [batchAction, setBatchAction] = useState<"delivered" | "closeout" | null>(null);
   const search = Route.useSearch();
+  useEffect(() => {
+    if (search.work) { setShowAll(true); setStatus(search.work); setBroker(search.owner ?? "all"); setPick([]); }
+  }, [search.work, search.owner]);
   useEffect(() => {
     if (search.load && loads.some((l) => l.id === search.load)) {
       setSelectedId(search.load);
@@ -153,15 +169,22 @@ function Dispatch() {
     const kName = new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`]));
     const needle = q.trim().toLowerCase();
     return loads.filter((l) => {
+      if (["delivery", "invoice", "closeout", "closed"].includes(status)) {
+        if (!workData || !needsWork(l, status as WorkFilter, workData.invoiceIds)) return false;
+      } else {
+      if (l.closed_at && status === "active") return false;
       if (!needle && status === "active" && ["paid", "cancelled"].includes(l.status)) return false;
       if (status !== "active" && status !== "all" && l.status !== status) return false;
+      }
       if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
       if (!needle) return true;
       const hay = [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref,
         cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase();
       return hay.includes(needle);
     });
-  }, [loads, q, status, broker, companies, carriers]);
+  }, [loads, q, status, broker, companies, carriers, workData]);
+  const pickedLoads = loads.filter((load) => pick.includes(load.id));
+  const invoiceLoads = pickedLoads.filter((load) => invoiceable(load) && !load.closed_at && !workData?.invoiceIds.has(load.id));
   // Searching always looks through every load, not just the last 30 days.
   useEffect(() => { if (q.trim().length >= 2 && !showAll) setShowAll(true); }, [q, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
@@ -185,8 +208,8 @@ function Dispatch() {
               <DropdownMenuItem onClick={() => exportCsv(loads, "truckstop")}>Truckstop CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {pick.length > 0 && <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => setInvOpen(true)}><DollarSign className="mr-1 h-3.5 w-3.5" />Invoice {pick.length} selected</Button>}
-          <BatchInvoiceDialog open={invOpen} onOpenChange={setInvOpen} loads={loads.filter((l) => pick.includes(l.id))} companies={companies} onDone={() => setPick([])} />
+          <BatchInvoiceDialog open={invOpen} onOpenChange={setInvOpen} loads={invoiceLoads} companies={companies} onDone={() => setPick([])} />
+          <BatchLoadActionDialog key={batchAction ?? "none"} action={batchAction} loads={pickedLoads} onClose={() => setBatchAction(null)} onDone={(ids) => setPick((previous) => previous.filter((id) => !ids.includes(id)))} />
           <Button size="sm" variant="outline" onClick={() => setBulk(true)}><Layers className="mr-1 h-3.5 w-3.5" />Bulk loads</Button>
           <Button size="sm" onClick={() => setBuilder(true)}><Plus className="mr-1 h-3.5 w-3.5" />New load</Button>
         </div>
@@ -199,18 +222,22 @@ function Dispatch() {
               <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={(value) => { setStatus(value); setPick([]); if (["delivery", "invoice", "closeout", "closed"].includes(value)) setShowAll(true); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">All active</SelectItem>
                   <SelectItem value="all">Everything</SelectItem>
+                  <SelectItem value="delivery">Delivery overdue</SelectItem>
+                  <SelectItem value="invoice">Needs invoicing</SelectItem>
+                  <SelectItem value="closeout">Ready for closeout</SelectItem>
+                  <SelectItem value="closed">Closed out</SelectItem>
                   {STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               {status !== defStatus && (
                 <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={saveDefault} title="Open the board on this view every time">Make default</Button>
               )}
-              <Select value={broker} onValueChange={setBroker}>
+              <Select value={broker} onValueChange={(value) => { setBroker(value); setPick([]); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All brokers</SelectItem>
@@ -224,6 +251,16 @@ function Dispatch() {
               Show loads older than 30 days
             </label>
           </div>
+          <div className="flex flex-wrap items-center gap-2 border-b p-3 text-xs">
+            <label className="flex items-center gap-2"><Checkbox aria-label="Select all visible loads" checked={filtered.some((l) => !l.closed_at && l.status !== "cancelled") && filtered.filter((l) => !l.closed_at && l.status !== "cancelled").every((l) => pick.includes(l.id))} onCheckedChange={(checked) => setPick(checked === true ? filtered.filter((l) => !l.closed_at && l.status !== "cancelled").map((l) => l.id) : [])} />Select visible</label>
+            <span>{pick.length} selected</span>
+            {!!pick.length && <>
+              <Button size="sm" variant="outline" disabled={!invoiceLoads.length} onClick={() => setInvOpen(true)}>Invoice {invoiceLoads.length}</Button>
+              <Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "delivered"))} onClick={() => setBatchAction("delivered")}>Mark delivered</Button>
+              <Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "closeout"))} onClick={() => setBatchAction("closeout")}>Close out</Button>
+              <Button size="sm" variant="ghost" onClick={() => setPick([])}>Clear</Button>
+            </>}
+          </div>
           <ul className="min-h-0 flex-1 overflow-auto">
             {filtered.map((l) => {
               const t = loadTotals(l);
@@ -235,14 +272,14 @@ function Dispatch() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1">
-                      {invoiceable(l) && (
-                        <input type="checkbox" title="Select to invoice" className="accent-gold" checked={pick.includes(l.id)} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setPick((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
+                      {!l.closed_at && l.status !== "cancelled" && (
+                        <Checkbox aria-label={`Select ${l.load_number}`} checked={pick.includes(l.id)} onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={(checked) => setPick((p) => (checked === true ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
                       )}
                       <span className="truncate font-mono text-xs text-gold">{l.load_number}</span>
                       <CopyLoadString load={l} companies={companies} />
                     </span>
-                    <StatusSelect load={l} />
+                    {l.closed_at ? <span className="text-xs text-muted-foreground">Closed out · {l.status}</span> : <StatusSelect load={l} />}
                   </div>
                   <div className="mt-1 font-display text-lg font-semibold leading-tight">
                     {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}
@@ -383,6 +420,7 @@ function Cockpit({
           {load.status === "cancelled" && <div className="mt-1 text-xs text-destructive">Cancelled{load.cancel_reason ? ` — ${load.cancel_reason}` : ""}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {load.closed_at && <><span className="text-xs text-warning">Closed out · {load.closeout_note}</span><Button size="sm" variant="outline" onClick={() => update({ closed_at: null, closed_by: null, closeout_note: null }, "Load reopened")}>Reopen load</Button></>}
           <StatusSelect load={load} />
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit load</Button>
           <CopyLoadDialog load={load} />

@@ -32,6 +32,8 @@ export const Route = createFileRoute("/_authenticated/carriers")({
       { name: "description", content: "Carrier vetting, compliance and Do Not Use list." },
       { property: "og:title", content: "Carriers — Clearwater Cargo TMS" },
       { property: "og:description", content: "Carrier vetting, compliance and Do Not Use list." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(carriersQuery),
