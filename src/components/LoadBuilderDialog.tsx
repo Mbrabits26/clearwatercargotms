@@ -196,7 +196,14 @@ export function LoadBuilderDialog({
   const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); setCarrier({ id: null, name: "" }); };
 
   const save = async () => {
-    if (!f.origin_city || !f.origin_state || !f.dest_city || !f.dest_state) return toast.error("Origin and destination are required.");
+    const missing = [["origin city", f.origin_city], ["origin state", f.origin_state], ["destination city", f.dest_city], ["destination state", f.dest_state]]
+      .filter(([, v]) => !String(v ?? "").trim()).map(([k]) => k);
+    if (missing.length) return toast.error(`Missing: ${missing.join(", ")}`);
+    if (f.pickup_at && f.delivery_at && new Date(f.delivery_at) < new Date(f.pickup_at)) return toast.error("Delivery date can't be before the pickup date.");
+    const cr = Number(f.customer_rate || 0), pr = Number(f.carrier_rate || 0);
+    if (cr < 0 || pr < 0) return toast.error("Rates can't be negative.");
+    const warns = [cr === 0 ? "Customer rate is $0." : "", pr > cr && cr > 0 ? `Carrier pay ($${pr}) is more than the customer rate ($${cr}) — this load loses money.` : ""].filter(Boolean);
+    if (warns.length && !window.confirm(`${warns.join("\n")}\n\nSave anyway?`)) return;
     setSaving(true);
     try {
       const [customer_id, shipper_id, consignee_id] = await Promise.all([
@@ -206,8 +213,8 @@ export function LoadBuilderDialog({
       const num = (k: string) => (f[k] ? Number(f[k]) : null);
       const row = {
         customer_id: customer_id ?? null, shipper_id: shipper_id ?? null, consignee_id: consignee_id ?? null,
-        origin_city: f.origin_city, origin_state: f.origin_state.toUpperCase(),
-        dest_city: f.dest_city, dest_state: f.dest_state.toUpperCase(),
+        origin_city: f.origin_city!, origin_state: f.origin_state!.toUpperCase(),
+        dest_city: f.dest_city!, dest_state: f.dest_state!.toUpperCase(),
         pickup_at: f.pickup_at ? new Date(f.pickup_at).toISOString() : null,
         delivery_at: f.delivery_at ? new Date(f.delivery_at).toISOString() : null,
         equipment: f.equipment ?? "Dry Van", commodity: f.commodity || null,

@@ -20,23 +20,24 @@
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
-- FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
-- Outbound email goes through `composeEmail` (src/lib/email.ts): Gmail connector, else mailto draft.
-- Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
+- FMCSA/SAFER: `lookupFmcsa` (staff-only server fn, FMCSA_WEBKEY) → carriers.authority_status/safety_rating.
+- Outbound email: `composeEmail` (src/lib/email.ts), Gmail else mailto.
+- Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
-- getMarketRates (staff-only): Firecrawl + Lovable AI, cached 24h in market_rate_cache.
+- getMarketRates: Firecrawl + AI, cached 24h.
 - Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers see company-wide history, not who earned it.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
 - Carrier duplicate matching/merging (DOT, MC, normalized name; fill blanks only) lives in src/lib/carrierMerge.ts; cross-table merges run in mergeCarriers (carriers.functions.ts) so related rows move atomically server-side.
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Document AI reads share `readDocJson` in extract.server.ts; carrier packets use `extractCarrierPacket` and a review step before writing to carriers.
-- Driver pings are reverse geocoded server-side (geocode.server.ts) into load_tracking_pings.place; the browser map uses only the browser key.
-- Docs preview in-page (`DocPreview`). RC tracking uses `applyTrackingFee` before snapshots; edits hold unsplit rates to prevent double deductions.
+- Driver pings reverse-geocode server-side (geocode.server.ts); browser map uses the browser key only.
+- `DocPreview` previews docs in-page. RC tracking: `applyTrackingFee` before snapshots; editors hold unsplit rates.
 - AR invoice numbers + QuickBooks class come from the `assign_invoice_number` trigger on qb_sync: invoice → INV-, fleet_invoice (loads with truck_id) → FF- and the fleet entity letterhead (FF in invoice.ts). Carrier bills store gross, quickpay_fee and net.
 - Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
-- Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate.
+- Data API caps reads at 1000 rows; paginate (fetchAllPaged).
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
+- Load status/date/rate rules live in the `enforce_load_rules` trigger (admins bypass steps, ITS skipped); `log_load_status` notes changes.
