@@ -23,9 +23,15 @@ export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDon
       toast.success(r.queued ? `Created ${r.numbers.filter(Boolean).join(", ")}${r.skipped ? ` · ${r.skipped} already invoiced, skipped` : ""}` : "All selected loads already have invoices.");
       qc.invalidateQueries({ queryKey: ["qb_sync"] });
       qc.invalidateQueries({ queryKey: ["loads"] });
+      qc.invalidateQueries({ queryKey: ["load-work"] });
       onOpenChange(false);
       onDone?.();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      qc.invalidateQueries({ queryKey: ["qb_sync"] });
+      qc.invalidateQueries({ queryKey: ["loads"] });
+      qc.invalidateQueries({ queryKey: ["load-work"] });
+      toast.error((e as Error).message);
+    }
     setBusy(false);
   };
 
