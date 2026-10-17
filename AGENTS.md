@@ -11,7 +11,7 @@
 
 # AGENTS.md
 
-- Browser data access uses RLS; broker-pay privacy and load visibility belong in database policies, not UI.
+- Browser data access uses RLS; pay privacy and load visibility live in DB policies, not UI.
 - Admission requires `approved_users`; roles (admin/broker/accountant, multiple per user) live in `user_roles`; `is_staff()`/`is_finance()` gate RLS. All staff share loads + qb_sync (insert/send); invoice edit/delete, QB connect and due reminders need is_finance; commissions stay admin/self-only.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so no client can bypass it.
 - Shared TMS types/helpers live in `src/lib/tms.ts`; query options in `src/lib/queries.ts`; PDFs generated client-side with jsPDF in `src/lib/`.
@@ -21,7 +21,7 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER lookups run in `lookupFmcsa` (server fn, staff-only) using the FMCSA_WEBKEY secret; results map to carriers.authority_status/safety_rating.
-- Outbound emails go through `composeEmail` (src/lib/email.ts): Gmail App User Connector send when connected, else compose/mailto draft.
+- Outbound email goes through `composeEmail` (src/lib/email.ts): Gmail connector, else mailto draft.
 - Team chat uses chat_messages channels ('team' or 'dm:<idA>:<idB>' sorted); RLS checks membership from the channel name.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - getMarketRates (staff-only): Firecrawl + Lovable AI, cached 24h in market_rate_cache.
@@ -38,6 +38,6 @@
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
-- Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate so rows past the cap don't vanish.
+- Data API reads cap at 1000 rows; companiesQuery (fetchAllPaged) and bulk-import dedup paginate.
 - Internal fleet = one carrier record (FLEET_CARRIER_ID in tms.ts).
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads stay out of brokerage reports.
