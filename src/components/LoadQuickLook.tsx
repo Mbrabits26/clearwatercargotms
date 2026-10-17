@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight } from "lucide-react";
 import { carriersQuery, companiesQuery, driversQuery, fleetQuery } from "@/lib/queries";
 import { CopyLoadString } from "@/components/CopyLoadString";
-import { fmtDate, loadTotals, statusMeta, usd, type Load } from "@/lib/tms";
+import { fmtDate, loadTotals, marginText, statusMeta, usd, type Load } from "@/lib/tms";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,7 @@ export function LoadQuickLookDialog({ load, open, onOpenChange }: { load: Load; 
             <Row k="Commodity" v={load.commodity ?? "—"} />
             <Row k="Customer amount" v={usd(t.revenue)} />
             <Row k="Carrier cost" v={usd(t.cost)} />
-            <Row k="Margin" v={`${usd(t.margin)} (${t.pct.toFixed(1)}%)`} />
+            <Row k="Margin" v={marginText(t)} />
           </div>
           {(carrierRow || driverName || load.truck_id) && (
             <div className="space-y-1 rounded border bg-muted/40 p-2 text-xs">

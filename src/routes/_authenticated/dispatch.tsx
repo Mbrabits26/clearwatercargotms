@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
   PAY_TERMS, effectivePayTerms,
-  STATUSES, statusMeta, usd, fmtDate, loadTotals, carrierCompliance, checkCallOverdue,
+  STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
 import { RateConPanel } from "@/components/RateConPanel";
@@ -390,7 +390,7 @@ function Cockpit({
   };
 
   const lane = useMemo(() => {
-    const same = loads.filter((l) => l.origin_state === load.origin_state && l.dest_state === load.dest_state && l.dest_city === load.dest_city && Number(l.carrier_rate) > 0);
+    const same = loads.filter((l) => l.origin_state === load.origin_state && l.dest_state === load.dest_state && l.dest_city === load.dest_city && Number(l.carrier_rate) > 0 && !isFleetLoad(l));
     const win = (days: number) => {
       const s = same.filter((l) => l.pickup_at && Date.now() - new Date(l.pickup_at).getTime() < days * 86400_000);
       if (!s.length) return null;
@@ -568,7 +568,7 @@ function Cockpit({
           <div className="mt-3 border-t pt-2">
             <KV k="Revenue" v={usd(t.revenue)} />
             <KV k="Carrier cost" v={usd(t.cost)} />
-            <KV k="Margin" v={<b className={t.margin >= 0 ? "text-success" : "text-destructive"}>{usd(t.margin)} ({t.pct.toFixed(1)}%)</b>} />
+            <KV k="Margin" v={t.fleet ? <span className="text-muted-foreground">{marginText(t)}</span> : <b className={t.margin >= 0 ? "text-success" : "text-destructive"}>{marginText(t)}</b>} />
           </div>
           <div className="mt-3 rounded bg-muted p-3 text-sm">
             <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Carrier AP · QuickPay & advance</div>

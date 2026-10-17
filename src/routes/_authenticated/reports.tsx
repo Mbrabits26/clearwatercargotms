@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
-import { STATUSES, isFleetLoad, fmtDate, loadTotals, usd, type Load, type LoadStatus } from "@/lib/tms";
+import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
@@ -140,7 +140,7 @@ function Reports() {
       case "equipment": return l.equipment;
       case "revenue": return usd(t.revenue);
       case "cost": return usd(t.cost);
-      case "margin": return `${usd(t.margin)} (${t.pct.toFixed(1)}%)`;
+      case "margin": return marginText(t);
       case "age": return String(age(l));
       case "salesrep": return repName(l);
       case "commission": return usd(commOf(l));
@@ -158,7 +158,7 @@ function Reports() {
         if (c === "revenue") return usd(rev);
         if (c === "cost") return usd(sum(ls, "cost"));
         if (c === "commission") return usd(sum(ls, "commission"));
-        if (c === "margin") return `${usd(mar)} (${(rev ? (mar / rev) * 100 : 0).toFixed(1)}%)`;
+        if (c === "margin") return fleetView ? "No margin — company truck" : `${usd(mar)} (${(rev ? (mar / rev) * 100 : 0).toFixed(1)}%)`;
         if (i === 0) return grouped ? `${ls.length} loads` : `${label} — ${ls.length} loads`;
         return "";
       })];
@@ -216,7 +216,7 @@ function Reports() {
 
       {fleetView && <div className="rounded border border-teal/50 bg-teal/10 p-2 text-sm text-teal">Showing Foust Farms internal fleet loads only. These are excluded from every brokerage report.</div>}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {[["Loads", String(rows.length)], ["Customer amount", usd(sum(rows, "revenue"))], ["Carrier amount", usd(sum(rows, "cost"))], ["Margin", usd(sum(rows, "margin"))]].map(([k, v]) => (
+        {[["Loads", String(rows.length)], ["Customer amount", usd(sum(rows, "revenue"))], ["Carrier amount", usd(sum(rows, "cost"))], ["Margin", fleetView ? "None (company trucks)" : usd(sum(rows, "margin"))]].map(([k, v]) => (
           <div key={k} className="rounded border bg-card p-4">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
             <div className="font-display text-3xl text-gold">{v}</div>
