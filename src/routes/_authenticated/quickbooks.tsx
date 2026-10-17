@@ -55,9 +55,6 @@ export const Route = createFileRoute("/_authenticated/quickbooks")({
       { property: "og:description", content: "Customer invoices (AR), carrier bills (AP) and the QuickBooks Online sync queue." },
     ],
   }),
-  beforeLoad: ({ context }) => {
-    if (!context.isAdmin) throw redirect({ to: "/dispatch" });
-  },
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(loadsQuery),

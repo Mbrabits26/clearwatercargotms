@@ -15,9 +15,10 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth", search: { access: "pending" } });
     }
     const isAdmin = !!roles?.some((r) => r.role === "admin");
+    const isAccountant = !!roles?.some((r) => r.role === "accountant");
     const { data: pr } = await supabase.from("user_permissions").select("perms").eq("user_id", data.user.id).maybeSingle();
     const perms: string[] = isAdmin ? DEFAULT_PERMS : pr?.perms ?? DEFAULT_PERMS;
-    return { user: data.user, isAdmin, perms };
+    return { user: data.user, isAdmin, isAccountant, isFinance: isAdmin || isAccountant, perms };
   },
   component: function AuthedLayout() {
     const { user } = Route.useRouteContext();

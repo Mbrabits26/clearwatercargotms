@@ -153,9 +153,25 @@ export const setUserAdmin = createServerFn({ method: "POST" })
       if ((admins ?? []).filter((a) => a.user_id !== data.userId).length === 0) throw new Error("There must always be at least one admin.");
     }
     const role = data.admin ? "admin" : "broker";
-    await admin.from("user_roles").delete().eq("user_id", data.userId);
+    // Only swap admin/broker; an Accountant role on the same user is kept.
+    await admin.from("user_roles").delete().eq("user_id", data.userId).in("role", ["admin", "broker"]);
     const { error } = await admin.from("user_roles").insert({ user_id: data.userId, role });
     if (error) throw new Error(error.message);
     await admin.from("approved_users").update({ role }).eq("user_id", data.userId);
+    return { ok: true };
+  });
+
+/** Adds/removes the Accountant role (Accounting access, no Admin tab). Admin-only. */
+export const setUserAccountant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid(), on: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context);
+    if (data.on) {
+      const { error } = await admin.from("user_roles").upsert({ user_id: data.userId, role: "accountant" }, { onConflict: "user_id,role" });
+      if (error) throw new Error(error.message);
+    } else {
+      await admin.from("user_roles").delete().eq("user_id", data.userId).eq("role", "accountant");
+    }
     return { ok: true };
   });
