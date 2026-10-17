@@ -112,7 +112,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <label className="flex items-center gap-1"><input type="checkbox" checked={ccMe} onChange={(e) => setCcMe(e.target.checked)} />Send a copy to me{myEmail && ` (${myEmail})`}</label>
-        <label className="flex items-center gap-1"><input type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />Include driver tracking requirement (deduction if not used)</label>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />Include driver tracking requirement ($200 deduction if not used)</label>
         {recipients().length > 1 && <span>{recipients().length} recipients</span>}
       </div>
       <div className="flex flex-wrap gap-2">
