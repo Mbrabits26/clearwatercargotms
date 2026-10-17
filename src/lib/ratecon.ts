@@ -49,7 +49,23 @@ export function buildRateConData(o: { load: Load; carrier: Carrier; shipper?: Co
   };
 }
 
-export const TRACKING_CLAUSE = `DRIVER TRACKING REQUIRED: The driver must use the ${CW.name} tracking link sent for this load to share location and status updates (arrived at shipper, loaded, arrived at receiver, delivered) from pickup through delivery, and must upload the signed BOL/POD through that link at delivery. Failure to use the tracking link will result in a $200.00 deduction from the carrier's pay on this load.`;
+export const TRACKING_FEE = 200;
+
+/** Split the agreed linehaul without increasing the carrier total. Safe to reapply. */
+export function applyTrackingFee(r: RateConData, tracking: boolean): RateConData {
+  const lines = r.lines.map((line) => ({ ...line }));
+  const linehaul = lines.find((line) => line.label.trim().toLowerCase() === "linehaul");
+  if (!linehaul) return { ...r, tracking: false, lines, total: lines.reduce((sum, line) => sum + line.amount, 0) };
+  linehaul.amount += lines.filter((line) => line.label.trim().toLowerCase() === "tracking fee").reduce((sum, line) => sum + line.amount, 0);
+  const result = lines.filter((line) => line.label.trim().toLowerCase() !== "tracking fee");
+  if (tracking) {
+    linehaul.amount = Math.round((linehaul.amount - TRACKING_FEE) * 100) / 100;
+    result.splice(result.indexOf(linehaul) + 1, 0, { label: "Tracking fee", amount: TRACKING_FEE });
+  }
+  return { ...r, tracking, lines: result, total: Math.round(result.reduce((sum, line) => sum + line.amount, 0) * 100) / 100 };
+}
+
+export const TRACKING_CLAUSE = `DRIVER TRACKING REQUIRED: The total carrier rate includes a $200.00 tracking fee, shown separately from linehaul. The driver must use the ${CW.name} tracking link sent for this load to share location and status updates (arrived at shipper, loaded, arrived at receiver, delivered) from pickup through delivery, and must upload the signed BOL/POD through that link at delivery. Failure to use the tracking link will forfeit the $200.00 tracking fee, resulting in a $200.00 deduction from the total carrier pay on this load.`;
 
 const LEGAL = `All accessorials or additional services not on this confirmation require a prior authorization code. Call ${CW.phone} to receive this code. All accessorials or additional services must be clearly marked and signed on the Bill of Lading including in/out times if detention occurs. Any charges not on this confirmation that are billed to ${CW.name} must have an accompanying authorization code in order for payment to be remitted. Receipts are required for lumpers. This document is intended to satisfy the requirements contained in 49 CFR-1-53.1. ${CW.name} tenders this freight with the express understanding that company employees or permanently leased owner-operators will transport these goods. ${CW.name} does not extend authority to the contract carrier to trip-lease or re-broker the freight.`;
 

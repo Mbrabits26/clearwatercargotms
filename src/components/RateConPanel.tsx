@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Download, FileSignature, FileText, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { buildRateConData, buildRateConPdf, type RateConData } from "@/lib/ratecon";
+import { applyTrackingFee, buildRateConData, buildRateConPdf, type RateConData } from "@/lib/ratecon";
 import { composeEmail, getMailClient } from "@/lib/email";
 import { fmtDate, type Carrier, type Company, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -44,15 +44,16 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     onSaved();
   };
   const rcData = () => {
-    const base = buildRateConData({ load: current(), carrier: carrier!, shipper, consignee, customer });
-    return { ...(draft ? { ...draft, rc: base.rc, date: base.date, shipRef: shipRef, destRef: destRef } : base), tracking };
+    if (!carrier) throw new Error("Assign a carrier before creating a rate con.");
+    const base = buildRateConData({ load: current(), carrier, shipper, consignee, customer });
+    return applyTrackingFee(draft ? { ...draft, rc: base.rc, date: base.date, shipRef, destRef } : base, tracking);
   };
   const viewer = useBlobViewer();
   const preview = () => {
     if (!carrier) return;
     viewer.show(buildRateConPdf(rcData()).output("blob"), `RateCon-${load.load_number}.pdf`);
   };
-  const openEdit = () => { if (!carrier) return; setWork(structuredClone(rcData())); setEditOpen(true); };
+  const openEdit = () => { if (!carrier) return; setWork(applyTrackingFee(rcData(), false)); setEditOpen(true); };
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
   const send = async () => {
     if (!carrier) return;
@@ -112,7 +113,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <label className="flex items-center gap-1"><input type="checkbox" checked={ccMe} onChange={(e) => setCcMe(e.target.checked)} />Send a copy to me{myEmail && ` (${myEmail})`}</label>
-        <label className="flex items-center gap-1"><input type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />Include driver tracking requirement ($200 deduction if not used)</label>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />Include $200 tracking fee within agreed rate ($200 deduction if not used)</label>
         {recipients().length > 1 && <span>{recipients().length} recipients</span>}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -193,7 +194,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
                 <label>Hazmat<Input value={work.hazmat} onChange={(e) => W("hazmat", e.target.value)} /></label>
               </div>
               <div>
-                <div className="mb-1 font-semibold uppercase text-gold">Carrier pay</div>
+                <div className="mb-1 font-semibold uppercase text-gold">Carrier pay · agreed rates</div>
                 {work.lines.map((l, i) => (
                   <div key={i} className="mb-1 flex gap-2">
                     <Input value={l.label} onChange={(e) => W("lines", work.lines.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
@@ -202,12 +203,13 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
                   </div>
                 ))}
                 <Button size="sm" variant="ghost" onClick={() => W("lines", [...work.lines, { label: "", amount: 0 }])}><Plus className="mr-1 h-3.5 w-3.5" />Add line</Button>
+                {tracking && <div className="mt-2 flex justify-between text-muted-foreground"><span>RC linehaul ${applyTrackingFee(work, true).lines.find((line) => line.label.trim().toLowerCase() === "linehaul")?.amount.toFixed(2) ?? "—"}</span><span>Tracking fee $200.00</span></div>}
                 <div className="text-right font-semibold">Total ${work.lines.reduce((s2, l) => s2 + l.amount, 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
               </div>
               <label className="block">Notes / instructions<Textarea rows={4} value={work.notes} onChange={(e) => W("notes", e.target.value)} /></label>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                <Button variant="secondary" onClick={() => viewer.show(buildRateConPdf({ ...work, total: work.lines.reduce((a, l) => a + l.amount, 0) }).output("blob"), `RateCon-${load.load_number}.pdf`)}>Preview</Button>
+                <Button variant="secondary" onClick={() => viewer.show(buildRateConPdf(applyTrackingFee(work, tracking)).output("blob"), `RateCon-${load.load_number}.pdf`)}>Preview</Button>
                 <Button onClick={() => { setDraft({ ...work, lines: work.lines.filter((l) => l.label.trim()), total: work.lines.filter((l) => l.label.trim()).reduce((a, l) => a + l.amount, 0) }); setEditOpen(false); toast.success("Rate con updated. Send it for signature when ready."); }}>Save rate con</Button>
               </div>
             </div>
