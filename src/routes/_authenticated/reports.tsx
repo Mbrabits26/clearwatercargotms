@@ -13,6 +13,7 @@ import { CarrierCheck } from "@/components/CarrierCheck";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
@@ -68,6 +69,7 @@ function Reports() {
   const [cfg, setCfg] = useState<Cfg>(PRESETS.ar!.cfg);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [range, setRange] = useState<RangeKey>("all");
   const [broker, setBroker] = useState("all");
   const [customer, setCustomer] = useState("all");
   const [carrier, setCarrier] = useState("all");
@@ -196,8 +198,14 @@ function Reports() {
       {carrierView ? <div className="rounded-md border bg-card p-4"><CarrierCheck carriers={carriers} /></div> : <>
       <div className="space-y-3 rounded-md border bg-card p-4 print:hidden">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-7">
-          <label className="text-xs text-muted-foreground">Pickup from<DatePicker className="mt-1" value={from} onChange={setFrom} /></label>
-          <label className="text-xs text-muted-foreground">Pickup to<DatePicker className="mt-1" value={to} onChange={setTo} /></label>
+          <label className="text-xs text-muted-foreground">Date range
+            <Select value={range} onValueChange={(v) => { setRange(v as RangeKey); const r = rangeFor(v as RangeKey); if (r) { setFrom(r[0]); setTo(r[1]); } }}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>{rangeOptions().map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </label>
+          <label className="text-xs text-muted-foreground">Pickup from<DatePicker className="mt-1" value={from} onChange={(v) => { setRange("custom"); setFrom(v); }} /></label>
+          <label className="text-xs text-muted-foreground">Pickup to<DatePicker className="mt-1" value={to} onChange={(v) => { setRange("custom"); setTo(v); }} /></label>
           <Filter label="Broker" value={broker} set={setBroker} opts={profiles.map((p) => [p.id, p.full_name ?? p.email ?? ""])} />
           <Filter label="Customer" value={customer} set={setCustomer} opts={companies.filter((c) => c.kind === "customer").map((c) => [c.id, c.name])} />
           <Filter label="Customer brought in by" value={salesRep} set={setSalesRep} opts={[["none", "Not set"], ...profiles.map((p): [string, string] => [p.id, p.full_name ?? p.email ?? ""])]} />
