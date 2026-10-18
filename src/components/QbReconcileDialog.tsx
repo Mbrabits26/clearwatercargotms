@@ -60,8 +60,8 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
         <DialogHeader className="flex-row items-center gap-2 pr-8"><DialogTitle className="min-w-0 flex-1 truncate">Match QuickBooks invoices to loads</DialogTitle>
           <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setFull((f) => !f)} aria-label={full ? "Exit full screen" : "Full screen"}>{full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
-        <div className="flex flex-wrap items-end gap-2">
+        <p className="shrink-0 text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
+        <div className="flex shrink-0 flex-wrap items-end gap-2">
           <label className="text-xs text-muted-foreground">Dates
             <Select value={range} onValueChange={(v) => pickRange(v as RangeKey)}>
               <SelectTrigger className="mt-1 w-48"><SelectValue /></SelectTrigger>
@@ -74,7 +74,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
           <Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button>
         </div>
         {invoices && (
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border [&_[data-slot=table-container]]:overflow-visible">
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border [&>div]:overflow-visible">
           <Table className="min-w-[900px]">
             <TableHeader className="sticky top-0 z-10 bg-background"><TableRow><TableHead>QuickBooks invoice</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Suggested load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
