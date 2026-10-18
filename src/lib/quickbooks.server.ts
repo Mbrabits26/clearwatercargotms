@@ -202,3 +202,28 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   }
   return { sent, failed };
 }
+
+type RawInv = { Id: string; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
+/** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
+export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean) {
+  const c = await getConn(admin);
+  if (!c) throw new Error("QuickBooks isn't connected.");
+  const qb = new Qb(c);
+  const where: string[] = [];
+  if (from) where.push(`TxnDate >= '${from}'`);
+  if (to) where.push(`TxnDate <= '${to}'`);
+  if (openOnly) where.push(`Balance > '0'`);
+  const out: RawInv[] = [];
+  for (let start = 1; start <= 2000; start += 500) {
+    const q = encodeURIComponent(`select * from Invoice ${where.length ? "where " + where.join(" and ") : ""} startposition ${start} maxresults 500`);
+    const j = await qb.req<{ QueryResponse: { Invoice?: RawInv[] } }>(`query?query=${q}`);
+    const page = j.QueryResponse?.Invoice ?? [];
+    out.push(...page);
+    if (page.length < 500) break;
+  }
+  return out.map((i) => {
+    const lines = (i.Line ?? []).filter((l) => l.DetailType !== "SubTotalLineDetail").map((l) => ({ amount: Number(l.Amount ?? 0), description: l.Description ?? "" }));
+    const text = [i.PrivateNote, i.CustomerMemo?.value, ...lines.map((l) => l.description), ...Object.values(i.ShipAddr ?? {})].filter(Boolean).join(" ");
+    return { id: i.Id, docNumber: i.DocNumber ?? null, date: i.TxnDate ?? null, customer: i.CustomerRef?.name ?? "", total: Number(i.TotalAmt ?? 0), balance: Number(i.Balance ?? 0), lines, text };
+  });
+}
