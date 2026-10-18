@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { qbScanInvoices, qbLinkInvoice } from "@/lib/quickbooks.functions";
@@ -27,6 +28,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
   const [invoices, setInvoices] = useState<QbInvoice[] | null>(null);
   const [manual, setManual] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [full, setFull] = useState(false);
 
   const candidates: MatchLoad[] = useMemo(() => {
     const linked = new Set(sync.filter((s) => s.qb_ref && s.kind !== "bill").map((s) => s.load_id));
@@ -54,8 +56,10 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Match QuickBooks invoices to loads</DialogTitle></DialogHeader>
+      <DialogContent className={full ? "flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden sm:max-w-none sm:rounded-none" : "flex h-[90dvh] max-h-[90dvh] w-[96vw] max-w-none flex-col overflow-hidden sm:max-w-[96vw]"}>
+        <DialogHeader className="flex-row items-center gap-2 pr-8"><DialogTitle className="min-w-0 flex-1 truncate">Match QuickBooks invoices to loads</DialogTitle>
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setFull((f) => !f)} aria-label={full ? "Exit full screen" : "Full screen"}>{full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
+        </DialogHeader>
         <p className="text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-muted-foreground">Dates
@@ -70,8 +74,9 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
           <Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button>
         </div>
         {invoices && (
-          <Table>
-            <TableHeader><TableRow><TableHead>QuickBooks invoice</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Suggested load</TableHead><TableHead /></TableRow></TableHeader>
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border [&_[data-slot=table-container]]:overflow-visible">
+          <Table className="min-w-[900px]">
+            <TableHeader className="sticky top-0 z-10 bg-background"><TableRow><TableHead>QuickBooks invoice</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Suggested load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {invoices.filter((i) => !done.has(i.id)).map((inv) => {
                 const m = bestMatches(inv, candidates);
@@ -100,6 +105,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
               {invoices.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No unlinked invoices in this range.</TableCell></TableRow>}
             </TableBody>
           </Table>
+          </div>
         )}
       </DialogContent>
     </Dialog>
