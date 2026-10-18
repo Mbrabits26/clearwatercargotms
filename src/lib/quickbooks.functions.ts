@@ -67,3 +67,32 @@ export const qbSyncNow = createServerFn({ method: "POST" })
     const { deliverQueued } = await import("./quickbooks.server");
     return deliverQueued(admin, data.ids);
   });
+
+export const qbScanInvoices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ from: z.string().max(10), to: z.string().max(10), openOnly: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context as never);
+    const { scanInvoices } = await import("./quickbooks.server");
+    const { data: linked } = await admin.from("qb_sync").select("qb_ref").not("qb_ref", "is", null);
+    const used = new Set((linked ?? []).map((r) => String((r as { qb_ref: string }).qb_ref)));
+    const invoices = await scanInvoices(admin, data.from, data.to, data.openOnly);
+    return { invoices: invoices.filter((i) => !used.has(i.id)), alreadyLinked: invoices.length - invoices.filter((i) => !used.has(i.id)).length };
+  });
+
+/** Links an existing QuickBooks invoice to a load without creating anything in QuickBooks. */
+export const qbLinkInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ loadId: z.string().uuid(), qbId: z.string().min(1).max(40), amount: z.number(), paid: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context as never);
+    const now = new Date().toISOString();
+    const { data: ex } = await admin.from("qb_sync").select("id").eq("load_id", data.loadId).in("kind", ["invoice", "fleet_invoice"]).maybeSingle();
+    if (ex) await admin.from("qb_sync").update({ qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
+    else {
+      const { error } = await admin.from("qb_sync").insert({ load_id: data.loadId, kind: "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never);
+      if (error) throw new Error(error.message);
+    }
+    const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["delivered", "invoiced"]);
+    return { ok: true, statusNote: le?.message ?? null };
+  });

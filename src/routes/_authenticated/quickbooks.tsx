@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
+import { QbReconcileDialog } from "@/components/QbReconcileDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
@@ -90,6 +91,7 @@ function Accounting() {
   const qbSync = useServerFn(qbSyncNow);
   const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
   const [syncing, setSyncing] = useState(false);
+  const [reconOpen, setReconOpen] = useState(false);
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
@@ -248,7 +250,9 @@ function Accounting() {
           <PlugZap className="h-4 w-4 text-primary" />
           <span className="flex-1">Connected to QuickBooks{qbs.company ? ` — ${qbs.company}` : ""}. Queued invoices and bills are sent when you queue them, or click Sync now.</span>
           <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
+          {isFinance && <Button size="sm" variant="outline" onClick={() => setReconOpen(true)}>Match QuickBooks invoices</Button>}
           {isFinance && <Button size="sm" variant="ghost" onClick={disconnect}>Disconnect</Button>}
+          <QbReconcileDialog open={reconOpen} onOpenChange={setReconOpen} loads={loads} companies={companies} sync={sync} />
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3 rounded border border-warning/50 bg-warning/10 p-3 text-sm">
