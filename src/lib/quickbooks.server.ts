@@ -53,6 +53,9 @@ const toRow = (t: Awaited<ReturnType<typeof tokenCall>>) => ({
 });
 
 export async function exchangeCode(admin: Admin, code: string, realmId: string, userId: string, entity: QbEntity = "brokerage") {
+  // Keep the books separate: the same QuickBooks company can't fill both slots.
+  const { data: other } = await admin.from("qb_connection" as never).select("realm_id").eq("id", entityId(entity === "fleet" ? "brokerage" : "fleet")).maybeSingle();
+  if ((other as { realm_id?: string } | null)?.realm_id === realmId) throw new Error(`That QuickBooks company is already connected as ${entity === "fleet" ? "Clearwater Cargo" : "Foust Farms"}. Pick the other company when QuickBooks asks.`);
   const t = await tokenCall({ grant_type: "authorization_code", code, redirect_uri: QB_REDIRECT_URI });
   const row = { id: entityId(entity), realm_id: realmId, connected_by: userId, connected_at: new Date().toISOString(), ...toRow(t) };
   let company: string | null = null;
