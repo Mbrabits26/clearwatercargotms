@@ -15,7 +15,7 @@
 - Admission requires `approved_users`; roles (admin/broker/accountant, multiple per user) live in `user_roles`; `is_staff()`/`is_finance()` gate RLS. All staff share loads + qb_sync (insert/send); invoice edit/delete, QB connect and due reminders need is_finance; commissions admin/self-only.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so clients can't bypass it.
 - Shared types/helpers: `src/lib/tms.ts`; query options: `src/lib/queries.ts`; PDFs: client-side jsPDF in `src/lib/`.
-- QuickBooks: shared staff `qb_sync` queue; quickbooks.server.ts sends via private Intuit tokens, deduping DocNumber; redirect URI uses the published domain.
+- QuickBooks: two companies in qb_connection (id 1 Clearwater brokerage, id 2 Foust Farms fleet); `entityForKind` routes fleet_invoice → fleet, else brokerage; OAuth state carries the entity. Shared staff `qb_sync` queue, private Intuit tokens, DocNumber dedupe; redirect URI uses the published domain.
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
