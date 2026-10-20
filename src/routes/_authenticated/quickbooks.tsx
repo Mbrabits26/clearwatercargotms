@@ -182,7 +182,7 @@ function Accounting() {
     toast.success(`${chosen.length} ${kind === "bill" ? "bill(s)" : "invoice(s)"} queued for QuickBooks`);
     setPicked([]);
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
-    if (qbs?.connected) syncNow();
+    if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow();
   };
 
   const syncNow = async () => {
@@ -195,15 +195,15 @@ function Accounting() {
     setSyncing(false);
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
   };
-  const connect = async () => {
+  const connect = async (entity: "brokerage" | "fleet" = "brokerage") => {
     if (!window.location.hostname.endsWith("clearwatercargotms.lovable.app")) {
       return toast.info("Connect QuickBooks from your live site (clearwatercargotms.lovable.app) — Intuit only allows that address.");
     }
-    try { const { url } = await qbStart(); window.location.href = url; } catch (e) { toast.error((e as Error).message); }
+    try { const { url } = await qbStart({ data: { entity } }); window.location.href = url; } catch (e) { toast.error((e as Error).message); }
   };
-  const disconnect = async () => {
-    if (!confirm("Disconnect QuickBooks? Nothing already sent is changed.")) return;
-    await qbOff(); refetchQb();
+  const disconnect = async (entity: "brokerage" | "fleet" = "brokerage") => {
+    if (!confirm(`Disconnect ${entity === "fleet" ? "Foust Farms" : "Clearwater Cargo"} QuickBooks? Nothing already sent is changed.`)) return;
+    await qbOff({ data: { entity } }); refetchQb();
   };
 
   const remove = async (s: SyncRow) => {
@@ -244,23 +244,32 @@ function Accounting() {
           {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
         </div>
       </div>
-      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.connected) syncNow(); }} />
-      {qbs?.connected ? (
-        <div className="flex flex-wrap items-center gap-3 rounded border border-primary/50 bg-primary/10 p-3 text-sm">
-          <PlugZap className="h-4 w-4 text-primary" />
-          <span className="flex-1">Connected to QuickBooks{qbs.company ? ` — ${qbs.company}` : ""}. Queued invoices and bills are sent when you queue them, or click Sync now.</span>
+      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow(); }} />
+      <div className="grid gap-3 md:grid-cols-2">
+        {([["brokerage", "Clearwater Cargo", "Customer invoices (AR) and carrier bills (AP)"], ["fleet", "Foust Farms Trucking", "Fleet billing (FF- invoices)"]] as const).map(([ent, name, what]) => {
+          const st = qbs?.[ent];
+          return (
+            <div key={ent} className={`flex flex-wrap items-center gap-2 rounded border p-3 text-sm ${st?.connected ? "border-primary/50 bg-primary/10" : "border-warning/50 bg-warning/10"}`}>
+              <PlugZap className={`h-4 w-4 ${st?.connected ? "text-primary" : "text-warning"}`} />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">{name} QuickBooks</div>
+                <div className="text-xs text-muted-foreground">{what} · {st?.connected ? `Connected${st.company ? ` — ${st.company}` : ""}` : "Not connected — items wait in the queue"}</div>
+              </div>
+              {isFinance && (st?.connected
+                ? <Button size="sm" variant="ghost" onClick={() => disconnect(ent)}>Disconnect</Button>
+                : <Button size="sm" onClick={() => connect(ent)}>Connect</Button>)}
+            </div>
+          );
+        })}
+      </div>
+      {(qbs?.brokerage.connected || qbs?.fleet.connected) ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="flex-1 text-muted-foreground">Queued items go to the matching company's QuickBooks automatically.</span>
           <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
           {isFinance && <Button size="sm" variant="outline" onClick={() => setReconOpen(true)}>Match QuickBooks invoices</Button>}
-          {isFinance && <Button size="sm" variant="ghost" onClick={disconnect}>Disconnect</Button>}
-          <QbReconcileDialog open={reconOpen} onOpenChange={setReconOpen} loads={loads} companies={companies} sync={sync} />
+          <QbReconcileDialog open={reconOpen} onOpenChange={setReconOpen} loads={loads} companies={companies} sync={sync} available={{ brokerage: !!qbs?.brokerage.connected, fleet: !!qbs?.fleet.connected }} />
         </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3 rounded border border-warning/50 bg-warning/10 p-3 text-sm">
-          <PlugZap className="h-4 w-4 text-warning" />
-          <span className="flex-1">QuickBooks isn't connected yet. Items you send wait in the queue and go out once it's linked.</span>
-          {isFinance ? <Button size="sm" onClick={connect}>Connect QuickBooks</Button> : <span className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</span>}
-        </div>
-      )}
+      ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <Aging k="Receivables — owed to us (AR)" b={arB} />
         <Aging k="Payables — we owe carriers (AP)" b={apB} />
