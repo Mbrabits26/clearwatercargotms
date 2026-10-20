@@ -25,7 +25,7 @@ function QbReturn() {
       if (!data.session) { setMsg("Please sign in to the TMS first, then click Connect QuickBooks again."); return; }
       try {
         const r = await finish({ data: { code, state, realmId } });
-        setMsg(`Connected${r.company ? ` to ${r.company}` : ""}! Taking you back to Accounting…`);
+        setMsg(`Connected ${r.entity === "fleet" ? "Foust Farms" : "Clearwater Cargo"}${r.company ? ` to ${r.company}` : ""}! Taking you back to Accounting…`);
         setTimeout(() => nav({ to: "/quickbooks" }), 1500);
       } catch (e) { setMsg((e as Error).message); }
     })();
