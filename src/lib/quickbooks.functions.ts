@@ -22,17 +22,21 @@ export const qbStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await requireStaff(context as never);
-    const { data } = await admin.from("qb_connection" as never).select("company_name, connected_at, refresh_expires_at").eq("id", 1).maybeSingle();
-    const d = data as { company_name: string | null; connected_at: string; refresh_expires_at: string | null } | null;
-    return { connected: !!d, company: d?.company_name ?? null, connectedAt: d?.connected_at ?? null, keysSaved: !!process.env["QUICKBOOKS_CLIENT_ID"] };
+    const { data } = await admin.from("qb_connection" as never).select("id, company_name, connected_at").in("id", [1, 2]);
+    const rows = (data ?? []) as { id: number; company_name: string | null; connected_at: string }[];
+    const one = (id: number) => { const d = rows.find((r) => r.id === id); return { connected: !!d, company: d?.company_name ?? null, connectedAt: d?.connected_at ?? null }; };
+    const brokerage = one(1), fleet = one(2);
+    return { ...brokerage, brokerage, fleet, keysSaved: !!process.env["QUICKBOOKS_CLIENT_ID"] };
   });
 
 export const qbStartConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d) => z.object({ entity: z.enum(["brokerage", "fleet"]).default("brokerage") }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context as never);
     const { authorizeUrl } = await import("./quickbooks.server");
-    const state = crypto.randomUUID();
+    // The target company rides in the state value so the return page knows which slot to fill.
+    const state = `${data.entity}:${crypto.randomUUID()}`;
     await admin.from("qb_oauth_state" as never).insert({ state, user_id: context.userId } as never);
     return { url: authorizeUrl(state) };
   });
@@ -47,15 +51,17 @@ export const qbFinishConnect = createServerFn({ method: "POST" })
     await admin.from("qb_oauth_state" as never).delete().eq("state", data.state);
     if (!s || s.user_id !== context.userId || Date.now() - new Date(s.created_at).getTime() > 15 * 60_000) throw new Error("This QuickBooks sign-in link expired. Please click Connect again.");
     const { exchangeCode } = await import("./quickbooks.server");
-    const company = await exchangeCode(admin, data.code, data.realmId, context.userId);
-    return { company };
+    const entity = data.state.startsWith("fleet:") ? "fleet" : "brokerage";
+    const company = await exchangeCode(admin, data.code, data.realmId, context.userId, entity);
+    return { company, entity };
   });
 
 export const qbDisconnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d) => z.object({ entity: z.enum(["brokerage", "fleet"]).default("brokerage") }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context as never);
-    await admin.from("qb_connection" as never).delete().eq("id", 1);
+    await admin.from("qb_connection" as never).delete().eq("id", data.entity === "fleet" ? 2 : 1);
     return { ok: true };
   });
 
@@ -70,27 +76,28 @@ export const qbSyncNow = createServerFn({ method: "POST" })
 
 export const qbScanInvoices = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ from: z.string().max(10), to: z.string().max(10), openOnly: z.boolean() }).parse(d))
+  .inputValidator((d) => z.object({ from: z.string().max(10), to: z.string().max(10), openOnly: z.boolean(), entity: z.enum(["brokerage", "fleet"]).default("brokerage") }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context as never);
     const { scanInvoices } = await import("./quickbooks.server");
-    const { data: linked } = await admin.from("qb_sync").select("qb_ref").not("qb_ref", "is", null);
+    // QuickBooks ids are only unique within one company, so compare against that company's rows.
+    const { data: linked } = await admin.from("qb_sync").select("qb_ref").not("qb_ref", "is", null).eq("kind", data.entity === "fleet" ? "fleet_invoice" : "invoice");
     const used = new Set((linked ?? []).map((r) => String((r as { qb_ref: string }).qb_ref)));
-    const invoices = await scanInvoices(admin, data.from, data.to, data.openOnly);
+    const invoices = await scanInvoices(admin, data.from, data.to, data.openOnly, data.entity);
     return { invoices: invoices.filter((i) => !used.has(i.id)), alreadyLinked: invoices.length - invoices.filter((i) => !used.has(i.id)).length };
   });
 
 /** Links an existing QuickBooks invoice to a load without creating anything in QuickBooks. */
 export const qbLinkInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ loadId: z.string().uuid(), qbId: z.string().min(1).max(40), amount: z.number(), paid: z.boolean() }).parse(d))
+  .inputValidator((d) => z.object({ loadId: z.string().uuid(), qbId: z.string().min(1).max(40), amount: z.number(), paid: z.boolean(), entity: z.enum(["brokerage", "fleet"]).default("brokerage") }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context as never);
     const now = new Date().toISOString();
-    const { data: ex } = await admin.from("qb_sync").select("id").eq("load_id", data.loadId).in("kind", ["invoice", "fleet_invoice"]).maybeSingle();
+    const { data: ex } = await admin.from("qb_sync").select("id").eq("load_id", data.loadId).eq("kind", data.entity === "fleet" ? "fleet_invoice" : "invoice").maybeSingle();
     if (ex) await admin.from("qb_sync").update({ qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
     else {
-      const { error } = await admin.from("qb_sync").insert({ load_id: data.loadId, kind: "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never);
+      const { error } = await admin.from("qb_sync").insert({ load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never);
       if (error) throw new Error(error.message);
     }
     const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["delivered", "invoiced"]);

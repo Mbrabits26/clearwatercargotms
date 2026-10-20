@@ -246,6 +246,13 @@
       "when": 1792251107174,
       "tag": "0034_invoice_percentage_deductions",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792455128940,
+      "tag": "0035_qb_two_companies",
+      "breakpoints": true
     }
   ]
 }

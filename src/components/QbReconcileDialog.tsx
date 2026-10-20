@@ -7,7 +7,7 @@ import { qbScanInvoices, qbLinkInvoice } from "@/lib/quickbooks.functions";
 import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
 import { bestMatches, type MatchLoad, type QbInvoice } from "@/lib/qbMatch";
 import { invoiceNet } from "@/lib/invoiceDeductions";
-import { fmtDate, usd, type Load } from "@/lib/tms";
+import { fmtDate, usd, isFleetLoad, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,9 +15,9 @@ import { DatePicker } from "@/components/DatePicker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[] };
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean } };
 
-export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }: Props) {
+export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, available }: Props) {
   const scan = useServerFn(qbScanInvoices);
   const link = useServerFn(qbLinkInvoice);
   const qc = useQueryClient();
@@ -29,25 +29,28 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
   const [manual, setManual] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Set<string>>(new Set());
   const [full, setFull] = useState(false);
+  const [entity, setEntity] = useState<"brokerage" | "fleet">(available && !available.brokerage && available.fleet ? "fleet" : "brokerage");
+  const kind = entity === "fleet" ? "fleet_invoice" : "invoice";
 
   const candidates: MatchLoad[] = useMemo(() => {
-    const linked = new Set(sync.filter((s) => s.qb_ref && s.kind !== "bill").map((s) => s.load_id));
-    return loads.filter((l) => !linked.has(l.id) && ["delivered", "invoiced", "paid"].includes(l.status)).map((l) => {
-      const s = sync.find((x) => x.load_id === l.id && x.kind !== "bill");
+    const linked = new Set(sync.filter((s) => s.qb_ref && s.kind === kind).map((s) => s.load_id));
+    // Foust Farms QuickBooks only matches fleet loads; Clearwater only brokerage loads.
+    return loads.filter((l) => !linked.has(l.id) && isFleetLoad(l) === (entity === "fleet") && ["delivered", "invoiced", "paid"].includes(l.status)).map((l) => {
+      const s = sync.find((x) => x.load_id === l.id && x.kind === kind);
       return { id: l.id, load_number: l.load_number, customer: companies.find((c) => c.id === l.customer_id)?.name ?? "", customer_rate: Number(l.customer_rate), net: s ? invoiceNet(Number(s.amount), s.deductions) : undefined,
         origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at };
     });
-  }, [loads, sync, companies]);
+  }, [loads, sync, companies, kind, entity]);
 
   const pickRange = (k: RangeKey) => { setRange(k); const r = rangeFor(k); if (r) setDates(r); };
   const run = async () => {
     setBusy(true);
-    try { const r = await scan({ data: { from, to, openOnly } }); setInvoices(r.invoices); toast.success(`Found ${r.invoices.length} unlinked QuickBooks invoices${r.alreadyLinked ? ` (${r.alreadyLinked} already linked)` : ""}.`); }
+    try { const r = await scan({ data: { from, to, openOnly, entity } }); setInvoices(r.invoices); toast.success(`Found ${r.invoices.length} unlinked QuickBooks invoices${r.alreadyLinked ? ` (${r.alreadyLinked} already linked)` : ""}.`); }
     catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
   const doLink = async (inv: QbInvoice, loadId: string) => {
     try {
-      const r = await link({ data: { loadId, qbId: inv.id, amount: inv.total, paid: inv.balance <= 0 } });
+      const r = await link({ data: { loadId, qbId: inv.id, amount: inv.total, paid: inv.balance <= 0, entity } });
       setDone((d) => new Set(d).add(inv.id));
       toast.success(r.statusNote ? `Linked. Load status not changed: ${r.statusNote}` : "Linked to load.");
       qc.invalidateQueries({ queryKey: ["qb_sync"] }); qc.invalidateQueries({ queryKey: ["loads"] });
@@ -62,6 +65,15 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync }
         </DialogHeader>
         <p className="shrink-0 text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
         <div className="flex shrink-0 flex-wrap items-end gap-2">
+          <label className="text-xs text-muted-foreground">Company
+            <Select value={entity} onValueChange={(v) => { setEntity(v as typeof entity); setInvoices(null); setManual({}); }}>
+              <SelectTrigger className="mt-1 w-52"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="brokerage" disabled={available ? !available.brokerage : false}>Clearwater Cargo</SelectItem>
+                <SelectItem value="fleet" disabled={available ? !available.fleet : false}>Foust Farms Trucking</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
           <label className="text-xs text-muted-foreground">Dates
             <Select value={range} onValueChange={(v) => pickRange(v as RangeKey)}>
               <SelectTrigger className="mt-1 w-48"><SelectValue /></SelectTrigger>

@@ -5,6 +5,12 @@ const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 const API = "https://quickbooks.api.intuit.com/v3/company";
 const MINOR = "minorversion=75";
 
+/** Two QuickBooks companies: 1 = Clearwater Cargo (brokerage AR/AP), 2 = Foust Farms (fleet invoices). */
+export type QbEntity = "brokerage" | "fleet";
+export const entityId = (e: QbEntity) => (e === "fleet" ? 2 : 1);
+/** Fleet invoices go to Foust Farms' QuickBooks; customer invoices and carrier bills go to Clearwater's. */
+export const entityForKind = (kind: string): QbEntity => (kind === "fleet_invoice" ? "fleet" : "brokerage");
+
 type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
 function creds() {
@@ -46,9 +52,12 @@ const toRow = (t: Awaited<ReturnType<typeof tokenCall>>) => ({
   updated_at: new Date().toISOString(),
 });
 
-export async function exchangeCode(admin: Admin, code: string, realmId: string, userId: string) {
+export async function exchangeCode(admin: Admin, code: string, realmId: string, userId: string, entity: QbEntity = "brokerage") {
+  // Keep the books separate: the same QuickBooks company can't fill both slots.
+  const { data: other } = await admin.from("qb_connection" as never).select("realm_id").eq("id", entityId(entity === "fleet" ? "brokerage" : "fleet")).maybeSingle();
+  if ((other as { realm_id?: string } | null)?.realm_id === realmId) throw new Error(`That QuickBooks company is already connected as ${entity === "fleet" ? "Clearwater Cargo" : "Foust Farms"}. Pick the other company when QuickBooks asks.`);
   const t = await tokenCall({ grant_type: "authorization_code", code, redirect_uri: QB_REDIRECT_URI });
-  const row = { id: 1, realm_id: realmId, connected_by: userId, connected_at: new Date().toISOString(), ...toRow(t) };
+  const row = { id: entityId(entity), realm_id: realmId, connected_by: userId, connected_at: new Date().toISOString(), ...toRow(t) };
   let company: string | null = null;
   try {
     const r = await fetch(`${API}/${realmId}/companyinfo/${realmId}?${MINOR}`, { headers: { Authorization: `Bearer ${t.access_token}`, Accept: "application/json" } });
@@ -62,14 +71,14 @@ export async function exchangeCode(admin: Admin, code: string, realmId: string, 
 
 type Conn = { realm_id: string; access_token: string; refresh_token: string; access_expires_at: string };
 
-export async function getConn(admin: Admin): Promise<Conn | null> {
-  const { data } = await admin.from("qb_connection" as never).select("*").eq("id", 1).maybeSingle();
+export async function getConn(admin: Admin, entity: QbEntity = "brokerage"): Promise<Conn | null> {
+  const { data } = await admin.from("qb_connection" as never).select("*").eq("id", entityId(entity)).maybeSingle();
   const c = data as Conn | null;
   if (!c) return null;
   if (new Date(c.access_expires_at).getTime() > Date.now()) return c;
   const t = await tokenCall({ grant_type: "refresh_token", refresh_token: c.refresh_token });
   const upd = toRow(t);
-  await admin.from("qb_connection" as never).update(upd as never).eq("id", 1);
+  await admin.from("qb_connection" as never).update(upd as never).eq("id", entityId(entity));
   return { ...c, ...upd };
 }
 
@@ -135,9 +144,6 @@ type SyncRow = { id: string; kind: string; payee: string | null; amount: number;
 type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null };
 
 export async function deliverQueued(admin: Admin, ids?: string[]) {
-  const conn = await getConn(admin);
-  if (!conn) throw new Error("QuickBooks is not connected.");
-  const qb = new Qb(conn);
   let q = admin.from("qb_sync").select("*").in("status", ["queued", "error"]).is("qb_ref", null);
   if (ids?.length) q = q.in("id", ids);
   const { data: rows } = await q.limit(100);
@@ -146,6 +152,12 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at").in("id", list.map((r) => r.load_id));
   const byId = new Map(((loads ?? []) as LoadLite[]).map((l) => [l.id, l]));
   let sent = 0, failed = 0;
+  // Each row goes to its own company's QuickBooks (connections are opened lazily, once per company).
+  const conns = new Map<QbEntity, Promise<Qb | null>>();
+  const qbFor = (e: QbEntity) => {
+    if (!conns.has(e)) conns.set(e, getConn(admin, e).then((c) => (c ? new Qb(c) : null)));
+    return conns.get(e)!;
+  };
   // Combined invoices: several rows share one invoice_number → one QuickBooks invoice with a line per load.
   const made = new Map<string, string>();
   const laneOf = (x?: LoadLite) => (x ? `${x.load_number}: ${x.origin_city ?? ""}, ${x.origin_state ?? ""} to ${x.dest_city ?? ""}, ${x.dest_state ?? ""}` : "");
@@ -153,6 +165,9 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
     const l = byId.get(r.load_id);
     try {
       if (!l) throw new Error("Load not found.");
+      const ent = entityForKind(r.kind);
+      const qb = await qbFor(ent);
+      if (!qb) throw new Error(ent === "fleet" ? "Foust Farms QuickBooks is not connected." : "Clearwater Cargo QuickBooks is not connected.");
       const lane = `${l.load_number}: ${l.origin_city ?? ""}, ${l.origin_state ?? ""} to ${l.dest_city ?? ""}, ${l.dest_state ?? ""}`;
       const classId = await klass(qb, r.qb_class);
       const classRef = classId ? { ClassRef: { value: classId } } : {};
@@ -176,7 +191,7 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
         const group = r.invoice_number ? list.filter((x) => x.kind === r.kind && x.invoice_number === r.invoice_number) : [r];
         const cust = await party(qb, "Customer", r.payee || "Unknown customer");
         const dup = await qb.query<Ref>("Invoice", `where DocNumber = '${esc(doc)}'`);
-        if (made.has(doc)) ref = made.get(doc)!;
+        if (made.has(`${r.kind}:${doc}`)) ref = made.get(`${r.kind}:${doc}`)!;
         else if (dup[0]) ref = dup[0].Id;
         else {
           const item = await freightItem(qb);
@@ -192,7 +207,7 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
           ref = j.Invoice.Id;
         }
       }
-      if (r.kind !== "bill") made.set((r.invoice_number ?? l.load_number).slice(0, 21), ref);
+      if (r.kind !== "bill") made.set(`${r.kind}:` + (r.invoice_number ?? l.load_number).slice(0, 21), ref);
       await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: null, sent_at: new Date().toISOString() }).eq("id", r.id);
       sent++;
     } catch (e) {
@@ -205,9 +220,9 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
 
 type RawInv = { Id: string; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
 /** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
-export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean) {
-  const c = await getConn(admin);
-  if (!c) throw new Error("QuickBooks isn't connected.");
+export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean, entity: QbEntity = "brokerage") {
+  const c = await getConn(admin, entity);
+  if (!c) throw new Error(entity === "fleet" ? "Foust Farms QuickBooks isn't connected." : "Clearwater Cargo QuickBooks isn't connected.");
   const qb = new Qb(c);
   const where: string[] = [];
   if (from) where.push(`TxnDate >= '${from}'`);
