@@ -3,7 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, PlugZap, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
@@ -379,7 +379,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
-              {!rows.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{needle && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
