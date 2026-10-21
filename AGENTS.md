@@ -41,3 +41,4 @@
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
 - Invoice % deductions: qb_sync.deductions; amount stays gross, net = invoiceNet; QB gets negative lines.
+- Carriers.inactive hides a carrier from CarrierPicker's default list only; it stays searchable and picking it reactivates.
