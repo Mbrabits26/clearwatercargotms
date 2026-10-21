@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,27 +34,56 @@ export function CarrierPicker({ carriers, currentId, onPick, onAdded, isAdmin }:
     setV({ id: null, name: "" }); setMc(""); setEmail("");
   };
 
+  const toOption = (c: Carrier) => {
+    const cc = carrierCompliance(c);
+    const disabled = cc.hardBlock || (!cc.bookable && !isAdmin);
+    const status = c.status === "dnu" ? "⛔ Do not use" : cc.hardBlock ? `⛔ ${cc.blockReason}`
+      : cc.conditional ? `◐ Conditional until ${c.conditional_until} — docs pending`
+      : cc.bookable ? (cc.issues.length ? `✓ Bookable · missing: ${cc.issues.join(", ")}` : "✓ Compliant")
+      : isAdmin ? `⚠ ${cc.blockReason} — admin override available` : `⚠ ${cc.blockReason} — ask an admin to override`;
+    return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, disabled, sub: `${c.inactive ? "Inactive · picking reactivates · " : ""}MC ${c.mc_number ?? "—"} · ${status}` };
+  };
+  // Last 10 carriers added or used on a load, newest first; shown before typing.
+  const { data: recentUse = [] } = useQuery({
+    queryKey: ["carrier_recent_use"],
+    staleTime: 60_000,
+    queryFn: async () => (await supabase.from("loads").select("carrier_id, created_at").not("carrier_id", "is", null).order("created_at", { ascending: false }).limit(200)).data ?? [],
+  });
+  const recent = useMemo(() => {
+    const active = new Map(carriers.filter((c) => !c.inactive).map((c) => [c.id, c]));
+    const events = [
+      ...recentUse.map((r) => ({ id: r.carrier_id as string, at: r.created_at })),
+      ...carriers.map((c) => ({ id: c.id, at: c.created_at })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    const out: Carrier[] = [];
+    for (const e of events) {
+      const c = active.get(e.id);
+      if (c && !out.includes(c)) out.push(c);
+      if (out.length === 10) break;
+    }
+    return out;
+  }, [carriers, recentUse]);
+
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
         <div className="flex-1">
           <EntityCombobox
             value={v}
-            placeholder="Type carrier name or MC#"
+            placeholder="Type carrier name or MC# (recent shown first)"
             newLabel="new carrier (pending)"
-            options={carriers.map((c) => {
-              const cc = carrierCompliance(c);
-              const disabled = cc.hardBlock || (!cc.bookable && !isAdmin);
-              const status = c.status === "dnu" ? "⛔ Do not use" : cc.hardBlock ? `⛔ ${cc.blockReason}`
-                : cc.conditional ? `◐ Conditional until ${c.conditional_until} — docs pending`
-                : cc.bookable ? (cc.issues.length ? `✓ Bookable · missing: ${cc.issues.join(", ")}` : "✓ Compliant")
-                : isAdmin ? `⚠ ${cc.blockReason} — admin override available` : `⚠ ${cc.blockReason} — ask an admin to override`;
-              return { id: c.id, label: c.legal_name, search: `${c.mc_number ?? ""} ${c.dot_number ?? ""} ${c.dba ?? ""}`, disabled, sub: `MC ${c.mc_number ?? "—"} · ${status}` };
-            })}
-            onChange={(nv) => {
+            emptyOptions={recent.map((c) => ({ ...toOption(c), sub: `Recent · ${toOption(c).sub}` }))}
+            options={carriers.map(toOption)}
+            onChange={async (nv) => {
               setV(nv);
               if (!nv.id) return;
               const c = carriers.find((x) => x.id === nv.id);
+              if (c?.inactive) {
+                const { error } = await supabase.from("carriers").update({ inactive: false }).eq("id", c.id);
+                if (error) return toast.error(error.message);
+                toast.success(`${c.legal_name} reactivated`);
+                onAdded();
+              }
               if (c && !carrierCompliance(c).bookable) { setPending(c); setReason(""); return; }
               onPick(nv.id);
             }}
