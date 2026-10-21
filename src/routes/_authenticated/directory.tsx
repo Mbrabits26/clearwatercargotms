@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { toast } from "sonner";
 import { Plus, Pencil } from "lucide-react";
@@ -63,7 +63,11 @@ function Directory() {
   const [editId, setEditId] = useState<string | null>(null);
   const [f, setF] = useState<Record<string, string>>({});
   const { ask, dialog } = useReviewChanges();
-  const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(q.toLowerCase()));
+  const dq = useDeferredValue(q).toLowerCase();
+  const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(dq));
+  // Draw the first rows only; "Show more" adds the rest so thousands of customers don't freeze the page.
+  const [limit, setLimit] = useState(200);
+  useEffect(() => { setLimit(200); }, [dq, kind]);
   const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
   const editing = editId ? data.find((c) => c.id === editId) : null;
   const startEdit = (c: (typeof data)[number]) => {
@@ -118,7 +122,7 @@ function Directory() {
         <Table>
           <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <><TableHead>Payment terms</TableHead><TableHead>Brought in by</TableHead></>}<TableHead /></TableRow></TableHeader>
           <TableBody>
-            {rows.map((c) => (
+            {rows.slice(0, limit).map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell>{c.contact_name}</TableCell>
@@ -139,6 +143,7 @@ function Directory() {
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
+            {rows.length > limit && <TableRow><TableCell colSpan={8} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({rows.length - limit} more)</Button></TableCell></TableRow>}
             {!rows.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>

@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { findMatch, mergeFill, duplicateGroups } from "@/lib/carrierMerge";
 import { mergeCarriers } from "@/lib/carriers.functions";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Ban, Copy as CopyIcon, Pencil, Plus, Search } from "lucide-react";
 import { EditCarrierDialog } from "@/components/EditCarrierDialog";
