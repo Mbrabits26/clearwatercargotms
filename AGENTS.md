@@ -42,3 +42,4 @@
 - qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent).
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
 - Carrier pay due: `carrierPay.ts`, clock = loads.pod_received_at (trigger-stamped); carrier_paid_* finance-only (stamp_load_pay_fields); bank info in finance-only carrier_payment_accounts.
+- Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.

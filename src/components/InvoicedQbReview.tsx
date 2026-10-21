@@ -65,7 +65,7 @@ export function InvoicedQbReview() {
       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDismissed(true)} aria-label="Hide until next visit"><X className="h-3.5 w-3.5" /></Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[90dvh] max-w-5xl flex-col">
+        <DialogContent className="flex max-h-[90dvh] w-[95vw] max-w-5xl flex-col sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Invoiced loads — QuickBooks review</DialogTitle>
             <DialogDescription>

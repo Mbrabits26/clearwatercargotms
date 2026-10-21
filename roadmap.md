@@ -144,5 +144,5 @@
 - [x] Carriers and loads in the pay notice listed newest to oldest
 
 ## Invoiced review
-- [ ] Admin/accounting alert + review list when a load moves to Invoiced (sync with QuickBooks)
-- [ ] Brokers can set a load to Invoiced; it lands on the finance approval list to send to QuickBooks
+- [x] Admin/accounting alert + review list when a load moves to Invoiced (sync with QuickBooks)
+- [x] Brokers can set a load to Invoiced; it lands on the finance approval list to send to QuickBooks
