@@ -995,6 +995,7 @@ export type Database = {
           created_at: string
           customer_id: string | null
           customer_rate: number
+          customer_ref: string | null
           delivery_at: string | null
           delivery_notes: string | null
           dest_city: string
@@ -1049,6 +1050,7 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_rate?: number
+          customer_ref?: string | null
           delivery_at?: string | null
           delivery_notes?: string | null
           dest_city: string
@@ -1103,6 +1105,7 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_rate?: number
+          customer_ref?: string | null
           delivery_at?: string | null
           delivery_notes?: string | null
           dest_city?: string

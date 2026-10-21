@@ -180,7 +180,7 @@ function Dispatch() {
       }
       if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
       if (!needle) return true;
-      const hay = [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref,
+      const hay = [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref, l.customer_ref,
         cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase();
       return hay.includes(needle);
     }));

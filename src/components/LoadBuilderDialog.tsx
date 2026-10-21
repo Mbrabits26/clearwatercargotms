@@ -107,7 +107,7 @@ export function LoadBuilderDialog({
       pickup_at: toLocal(l.pickup_at), delivery_at: toLocal(l.delivery_at), equipment: l.equipment,
       commodity: s(l.commodity), weight_lbs: s(l.weight_lbs), pieces: s(l.pieces), temperature: s(l.temperature), miles: s(l.miles),
       customer_rate: s(l.customer_rate), carrier_rate: s(l.carrier_rate), pickup_notes: s(l.pickup_notes), delivery_notes: s(l.delivery_notes),
-      ship_ref: s(l.ship_ref), dest_ref: s(l.dest_ref), bill_through: l.bill_through ?? "auto",
+      ship_ref: s(l.ship_ref), dest_ref: s(l.dest_ref), customer_ref: s(l.customer_ref), bill_through: l.bill_through ?? "auto",
     });
     const p = (id: string | null): Party => { const c = companies.find((x) => x.id === id); return c ? { id: c.id, name: c.name } : EMPTY; };
     setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
@@ -139,7 +139,7 @@ export function LoadBuilderDialog({
       equipment: eq ?? p.equipment ?? "Dry Van", commodity: s(x.commodity), weight_lbs: s(x.weight_lbs),
       pieces: s(x.pieces), temperature: s(x.temperature), miles: s(x.miles),
       customer_rate: s(x.customer_rate), carrier_rate: s(x.carrier_rate),
-      ship_ref: s(x.ship_ref), dest_ref: s(x.dest_ref),
+      ship_ref: s(x.ship_ref), dest_ref: s(x.dest_ref), customer_ref: s(x.po_number),
       pickup_notes: [x.reference && `Ref: ${x.reference}`, x.po_number && `PO: ${x.po_number}`, x.hazmat && "HAZMAT",
         (x.shipper_contact || x.shipper_phone) && `Contact: ${[x.shipper_contact, x.shipper_phone].filter(Boolean).join(" ")}`, x.pickup_notes].filter(Boolean).join("\n"),
       delivery_notes: [(x.consignee_contact || x.consignee_phone) && `Contact: ${[x.consignee_contact, x.consignee_phone].filter(Boolean).join(" ")}`, x.delivery_notes].filter(Boolean).join("\n"),
@@ -222,7 +222,7 @@ export function LoadBuilderDialog({
         temperature: f.temperature || null,
         pickup_notes: f.pickup_notes || null, delivery_notes: f.delivery_notes || null,
         customer_rate: num("customer_rate") ?? 0, carrier_rate: num("carrier_rate") ?? 0,
-        ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null,
+        ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null, customer_ref: f.customer_ref || null,
         bill_through: f.bill_through === "invoice" || f.bill_through === "fleet_invoice" ? f.bill_through : null,
       };
       // Optional carrier: attach only when it passes the safety checks; a new typed name is added as pending but not attached.
@@ -381,7 +381,8 @@ export function LoadBuilderDialog({
           </L>
           <L label="Customer rate ($)"><Input type="number" value={f.customer_rate ?? ""} onChange={set("customer_rate")} /></L>
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
-          <L label="Shipper ref / BOL #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
+          <L label="Customer ref #"><Input value={f.customer_ref ?? ""} onChange={set("customer_ref")} /></L>
+          <L label="Shipper PO / PU Ref #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
           <L label="Delivery ref / appt #"><Input value={f.dest_ref ?? ""} onChange={set("dest_ref")} /></L>
           {!editLoad && <L label="Create how many (1–50)"><Input type="number" min={1} max={50} placeholder="1" value={f.copies ?? ""} onChange={set("copies")} /></L>}
           {!editLoad && Number(f.copies) > 1 && <L label="Days between pickups (0 = same day, 7 = weekly)"><Input type="number" min={0} placeholder="1" value={f.copy_step ?? "1"} onChange={set("copy_step")} /></L>}

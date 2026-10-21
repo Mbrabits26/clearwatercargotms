@@ -52,7 +52,7 @@ function buildBolPdf(b: B) {
   y += 70;
   const q = W / 4;
   box(L, y, q, 40, "PICKUP DATE", b.pickup ?? ""); box(L + q, y, q, 40, "DELIVERY DATE", b.delivery ?? "");
-  box(L + 2 * q, y, q, 40, "SHIPPER REF / BOL", b.ship_ref ?? ""); box(L + 3 * q, y, q, 40, "PO / DELIVERY REF", [b.po, b.dest_ref].filter(Boolean).join(" / "));
+  box(L + 2 * q, y, q, 40, "SHIPPER PO / PU REF #", b.ship_ref ?? ""); box(L + 3 * q, y, q, 40, "PO / DELIVERY REF", [b.po, b.dest_ref].filter(Boolean).join(" / "));
   y += 54;
   const cols = [["PIECES", 60], ["DESCRIPTION OF ARTICLES", 222], ["WEIGHT (LBS)", 80], ["EQUIPMENT", 80], ["TEMP", 50], ["HM", 40]] as const;
   doc.setFillColor(15, 61, 62).rect(L, y, W, 16, "F");
@@ -77,7 +77,7 @@ const FIELDS: [string, string, boolean?][] = [
   ["bol", "BOL #"], ["date", "Date"], ["shipper", "Shipper"], ["shipper_phone", "Shipper phone / contact"], ["shipper_addr", "Shipper address", true],
   ["consignee", "Consignee"], ["consignee_phone", "Consignee phone / contact"], ["consignee_addr", "Consignee address", true],
   ["bill_to", "Freight charges bill to", true], ["carrier", "Carrier"], ["carrier_ids", "Carrier MC / DOT"], ["trailer", "Trailer #"], ["seal", "Seal #"],
-  ["pickup", "Pickup date"], ["delivery", "Delivery date"], ["ship_ref", "Shipper ref / BOL #"], ["dest_ref", "Delivery ref / appt #"], ["po", "PO #"],
+  ["pickup", "Pickup date"], ["delivery", "Delivery date"], ["ship_ref", "Shipper PO / PU Ref #"], ["dest_ref", "Delivery ref / appt #"], ["po", "PO #"],
   ["pieces", "Pieces"], ["weight", "Weight (lbs)"], ["equipment", "Equipment"], ["temp", "Temperature"], ["hazmat", "Hazmat (Yes/No)"],
   ["commodity", "Description of articles", true], ["instructions", "Special instructions", true],
 ];
