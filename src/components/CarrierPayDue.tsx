@@ -98,7 +98,7 @@ export function CarrierPayDue() {
             <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest POD first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
           </DialogHeader>
           {current ? (
-            <PayDetail group={current} onBack={() => setSel(null)} />
+            <PayDetail group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
           ) : (
             <>
               <div className="flex shrink-0 gap-2">
@@ -140,7 +140,7 @@ export function CarrierPayDue() {
 type Account = { method: string; bank_name: string | null; account_name: string | null; routing_number: string | null; account_number: string | null; account_type: string | null; remit_email: string | null; notes: string | null };
 const EMPTY: Account = { method: "ach", bank_name: "", account_name: "", routing_number: "", account_number: "", account_type: "checking", remit_email: "", notes: "" };
 
-function PayDetail({ group, onBack }: { group: Group; onBack: () => void }) {
+function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => void; onLeave: () => void }) {
   const qc = useQueryClient();
   const c = group.carrier;
   const to = payTo(c);
@@ -277,7 +277,7 @@ function PayDetail({ group, onBack }: { group: Group; onBack: () => void }) {
                 <td className="p-2 text-right">{d.fee ? `−${usd(d.fee)}` : "—"}</td>
                 <td className="p-2 text-right font-semibold">{usd(d.net)}</td>
                 <td className="p-2 text-xs capitalize">{bill ? (bill.qb_ref ? "In QuickBooks" : bill.status) : "Not sent"}</td>
-                <td className="p-2 text-right"><Link to="/dispatch" search={{ load: l.id }} className="text-gold underline">Open load</Link></td>
+                <td className="p-2 text-right"><Link to="/dispatch" search={{ load: l.id }} onClick={onLeave} className="text-gold underline">Open load</Link></td>
               </tr>
             ))}
           </tbody>
@@ -287,7 +287,7 @@ function PayDetail({ group, onBack }: { group: Group; onBack: () => void }) {
       <div className="flex flex-wrap items-end gap-2 rounded border p-3">
         <div className="mr-auto text-sm">Selected: <b>{chosen.length}</b> load(s) · <b className="text-gold">{usd(total)}</b></div>
         <label className="text-xs text-muted-foreground">Check # / ACH ref (optional)<Input className="mt-1 h-9 w-48" value={ref} onChange={(e) => setRef(e.target.value)} /></label>
-        <Button variant="outline" asChild><Link to="/quickbooks">Open Accounting</Link></Button>
+        <Button variant="outline" asChild><Link to="/quickbooks" onClick={onLeave}>Open Accounting</Link></Button>
         <Button disabled={busy} onClick={markPaid}>{busy ? "Saving…" : "Mark paid"}</Button>
       </div>
     </div>

@@ -140,5 +140,5 @@
 - [x] Dispatch alerts for late pickups and late deliveries
 
 ## Carrier pay notice (Oct 2026)
-- [ ] Admin/accountant notice for carriers due to be paid (Quick Pay on POD, Net 30 near due) with pay details, payment account info, mark paid
-- [ ] Carriers and loads in the pay notice listed newest to oldest
+- [x] Admin/accountant notice for carriers due to be paid (Quick Pay on POD, Net 30 near due) with pay details, payment account info, mark paid
+- [x] Carriers and loads in the pay notice listed newest to oldest
