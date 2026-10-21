@@ -101,7 +101,7 @@ export function buildRateConPdf(r: RateConData, sig?: Signature): jsPDF {
   font(8.5); doc.setTextColor(...gray);
   doc.text([CW.addr1, CW.addr2, `Phone: ${CW.phone}`], L, 80, { lineHeightFactor: 1.35 });
   kv("RC #:", r.rc, R, 80, true);
-  kv("Ship Ref:", r.shipRef, R, 92, true);
+  kv("PU Ref #:", r.shipRef, R, 92, true);
   kv("Dest Ref:", r.destRef, R, 104, true);
   kv("Date:", r.date, R, 116, true);
 

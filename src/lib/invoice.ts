@@ -32,7 +32,7 @@ export function buildInvoicePdf(o: { invoiceNumber: string; terms?: string; dueD
     `${load.origin_city}, ${load.origin_state} → ${load.dest_city}, ${load.dest_state}`.replace("→", "to"),
     `Picked up: ${d(load.pickup_at)}   Delivered: ${d(load.delivery_at)}`,
     `Equipment: ${load.equipment}${load.commodity ? ` · ${load.commodity}` : ""}`,
-    [load.ship_ref && `Ship ref: ${load.ship_ref}`, load.dest_ref && `Dest ref: ${load.dest_ref}`].filter(Boolean).join("   "),
+    [(load as any).customer_ref && `Customer ref #: ${(load as any).customer_ref}`, load.ship_ref && `Shipper PO / PU Ref #: ${load.ship_ref}`, load.dest_ref && `Dest ref: ${load.dest_ref}`].filter(Boolean).join("   "),
   ].filter(Boolean), 320, y + 14);
   }
   y = 230;
