@@ -132,6 +132,10 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           <p className="text-sm text-muted-foreground">{[c.contact_name, c.email, c.address && `${c.address}, ${c.city ?? ""} ${c.state ?? ""} ${c.zip ?? ""}`].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs" title="Inactive carriers are hidden from the carrier pick list but stay saved and searchable">
+            <input type="checkbox" checked={!!c.inactive} onChange={(e) => update({ inactive: e.target.checked }, e.target.checked ? "Carrier marked inactive — hidden from the pick list" : "Carrier reactivated — back in the pick list")} />
+            Inactive
+          </label>
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit carrier</Button>
           <StatusPill c={c} />
         </div>
