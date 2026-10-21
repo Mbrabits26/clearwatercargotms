@@ -1,0 +1,1 @@
+ALTER TABLE public.loads ADD COLUMN IF NOT EXISTS bill_through text CHECK (bill_through IS NULL OR bill_through IN ('invoice','fleet_invoice'));

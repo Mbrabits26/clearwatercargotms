@@ -281,6 +281,13 @@
       "when": 1792603247300,
       "tag": "0039_invoice_bill_through_company",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792609166625,
+      "tag": "0040_load_bill_through",
+      "breakpoints": true
     }
   ]
 }

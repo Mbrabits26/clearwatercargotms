@@ -977,6 +977,7 @@ export type Database = {
       loads: {
         Row: {
           accessorials: Json
+          bill_through: string | null
           broker_id: string | null
           cancel_reason: string | null
           cancelled_at: string | null
@@ -1030,6 +1031,7 @@ export type Database = {
         }
         Insert: {
           accessorials?: Json
+          bill_through?: string | null
           broker_id?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
@@ -1083,6 +1085,7 @@ export type Database = {
         }
         Update: {
           accessorials?: Json
+          bill_through?: string | null
           broker_id?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
