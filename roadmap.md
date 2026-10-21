@@ -129,3 +129,8 @@
 
 - [x] Shared broker loads, broker invoicing/QuickBooks send, Accountant role (Eric)
 - [ ] Workflow 2 QA: customers/shippers, addresses, credit limits
+
+## Round 4
+- [x] Rate con follows carrier pay/fee changes; linehaul edits save to the load; company-truck loads use Foust Farms Trucking
+- [x] Clickable dispatch alerts + reminder banner open load lists
+- [x] Carrier picker shows last 10 added/used first; Inactive checkbox hides carriers (picking one reactivates)

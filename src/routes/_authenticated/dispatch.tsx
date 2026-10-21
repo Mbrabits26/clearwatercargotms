@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
   PAY_TERMS, effectivePayTerms,
-  STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, carrierCompliance, checkCallOverdue,
+  STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, FLEET_CARRIER_ID, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
 import { RateConPanel } from "@/components/RateConPanel";
@@ -22,6 +22,7 @@ import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { loadWorkQuery } from "@/lib/loadWorkQuery";
 import { batchEligible, needsWork, type WorkFilter } from "@/lib/loadWork";
 import { invoiceable } from "@/lib/batchInvoice";
@@ -188,6 +189,7 @@ function Dispatch() {
   // Searching always looks through every load, not just the last 30 days.
   useEffect(() => { if (q.trim().length >= 2 && !showAll) setShowAll(true); }, [q, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
+  const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv"; loads: Load[] } | null>(null);
   const overdueCalls = loads.filter(checkCallOverdue);
   const carrierDue = loads.filter((l) => l.status === "delivered" && l.pod_received);
   const overdueInv = loads.filter((l) => l.status === "invoiced" && l.delivery_at && Date.now() - new Date(l.delivery_at).getTime() > 30 * 86400_000);
@@ -195,9 +197,33 @@ function Dispatch() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-4 py-2 text-xs">
-        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} />}
-        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" />}
-        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" />}
+        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} onClick={() => setAlertView({ title: "Check calls overdue", kind: "calls", loads: overdueCalls })} />}
+        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" onClick={() => setAlertView({ title: "Carrier payments due", kind: "pay", loads: carrierDue })} />}
+        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" onClick={() => setAlertView({ title: "Customer invoices past 30 days", kind: "inv", loads: overdueInv })} />}
+        <Dialog open={!!alertView} onOpenChange={(o) => !o && setAlertView(null)}>
+          <DialogContent className="flex max-h-[85dvh] w-[96vw] flex-col sm:max-w-4xl">
+            <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{alertView?.title} ({alertView?.loads.length})</DialogTitle></DialogHeader>
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
+                  <tr><th className="p-2">Load</th><th className="p-2">Lane</th><th className="p-2">{alertView?.kind === "inv" ? "Customer" : "Carrier"}</th><th className="p-2">{alertView?.kind === "calls" ? "Last check call" : "Delivered"}</th><th className="p-2 text-right">{alertView?.kind === "inv" ? "Amount" : alertView?.kind === "pay" ? "Carrier pay" : "Status"}</th><th /></tr>
+                </thead>
+                <tbody>
+                  {alertView?.loads.map((l) => (
+                    <tr key={l.id} className="border-t hover:bg-muted/50">
+                      <td className="p-2 font-semibold">{l.load_number}</td>
+                      <td className="p-2">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
+                      <td className="p-2">{alertView.kind === "inv" ? companies.find((c) => c.id === l.customer_id)?.name ?? "—" : carriers.find((c) => c.id === l.carrier_id)?.legal_name ?? (isFleetLoad(l) ? "Company truck" : "—")}</td>
+                      <td className="p-2">{alertView.kind === "calls" ? fmtDate(l.last_check_call) : fmtDate(l.delivery_at)}{alertView.kind === "inv" && l.delivery_at && <span className="text-destructive"> · {Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)}d</span>}</td>
+                      <td className="p-2 text-right">{alertView.kind === "inv" ? usd(loadTotals(l).revenue) : alertView.kind === "pay" ? usd(loadTotals(l).cost) : statusMeta(l.status).label}</td>
+                      <td className="p-2 text-right"><Button size="sm" variant="outline" onClick={() => { setSelectedId(l.id); setMobileDetail(true); setAlertView(null); }}>Open load</Button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DialogContent>
+        </Dialog>
         <div className="ml-auto flex gap-2 max-sm:w-full max-sm:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -311,12 +337,12 @@ function Dispatch() {
   );
 }
 
-function Alert({ icon: Icon, tone, n, label }: { icon: typeof AlarmClock; tone: string; n: number; label: string }) {
+function Alert({ icon: Icon, tone, n, label, onClick }: { icon: typeof AlarmClock; tone: string; n: number; label: string; onClick: () => void }) {
   return (
-    <span className={cn("flex items-center gap-1.5 rounded border px-2 py-1", n ? tone : "text-muted-foreground")}>
+    <button type="button" onClick={onClick} className={cn("flex items-center gap-1.5 rounded border px-2 py-1 hover:bg-muted", n ? tone : "text-muted-foreground")}>
       <Icon className="h-3.5 w-3.5" />
       <b>{n}</b> {label}
-    </span>
+    </button>
   );
 }
 
@@ -369,7 +395,8 @@ function Cockpit({
   const qc = useQueryClient();
   const { data: laneHist = loads } = useQuery(laneHistoryQuery());
   const { user } = useRouteContext({ from: "/_authenticated" });
-  const carrier = carriers.find((c) => c.id === load.carrier_id);
+  // Company-truck loads without a carrier record use Foust Farms Trucking so rate cons still work.
+  const carrier = carriers.find((c) => c.id === load.carrier_id) ?? (isFleetLoad(load) ? carriers.find((c) => c.id === FLEET_CARRIER_ID) : undefined);
   const shipper = companies.find((c) => c.id === load.shipper_id);
   const consignee = companies.find((c) => c.id === load.consignee_id);
   const customer = companies.find((c) => c.id === load.customer_id);

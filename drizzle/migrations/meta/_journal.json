@@ -253,6 +253,13 @@
       "when": 1792455128940,
       "tag": "0035_qb_two_companies",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792546294877,
+      "tag": "0036_carrier_inactive_flag",
+      "breakpoints": true
     }
   ]
 }

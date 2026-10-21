@@ -8,12 +8,13 @@ export type ComboValue = { id: string | null; name: string };
 
 /** Type to search; pick a match or keep the typed name as a new record. */
 export function EntityCombobox({
-  value, onChange, options, placeholder, newLabel = "new",
-}: { value: ComboValue; onChange: (v: ComboValue, picked?: ComboOption) => void; options: ComboOption[]; placeholder?: string; newLabel?: string }) {
+  value, onChange, options, placeholder, newLabel = "new", emptyOptions,
+}: { value: ComboValue; onChange: (v: ComboValue, picked?: ComboOption) => void; options: ComboOption[]; placeholder?: string; newLabel?: string; emptyOptions?: ComboOption[] }) {
   const [open, setOpen] = useState(false);
   const q = value.name.trim().toLowerCase();
   // Match on the name (plus MC/DOT-style extra keys), never on city/address; A–Z with "starts with" first.
   const matches = useMemo(() => {
+    if (!q && emptyOptions) return emptyOptions;
     const sorted = [...options].sort((a, b) => a.label.localeCompare(b.label));
     if (!q) return sorted.slice(0, 50);
     const starts: ComboOption[] = [], word: ComboOption[] = [], rest: ComboOption[] = [];
@@ -24,7 +25,7 @@ export function EntityCombobox({
       else if (l.includes(q) || (o.search ?? "").toLowerCase().includes(q)) rest.push(o);
     }
     return [...starts, ...word, ...rest].slice(0, 50);
-  }, [q, options]);
+  }, [q, options, emptyOptions]);
   const exact = options.find((o) => o.label.toLowerCase() === q);
   return (
     <div className="relative">

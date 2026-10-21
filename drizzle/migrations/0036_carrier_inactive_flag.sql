@@ -1,0 +1,2 @@
+ALTER TABLE public.carriers ADD COLUMN IF NOT EXISTS inactive boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.carriers.inactive IS 'Hidden from the carrier pick list until reactivated; still saved and searchable.';
