@@ -3,7 +3,9 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search } from "lucide-react";
+import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search, Paperclip } from "lucide-react";
+import { QbAttachDialog } from "@/components/QbAttachDialog";
+import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
@@ -48,7 +50,12 @@ type SyncRow = {
   carrier_invoice_path: string | null;
   terms?: string | null;
   due_date?: string | null;
+  attachments?: unknown;
+  attachments_sent?: unknown;
+  attach_on_send?: boolean;
+  attach_error?: string | null;
 };
+const attachCount = (s: SyncRow) => parseAttachments(s.attachments).length;
 type Kind = "invoice" | "fleet_invoice" | "bill";
 const KIND_LABEL: Record<string, string> = { invoice: "Invoice (AR)", fleet_invoice: "Fleet billing (AR)", bill: "Carrier bill (AP)" };
 
@@ -85,6 +92,7 @@ function Accounting() {
   const [tab, setTab] = useState<Kind | "log">("invoice");
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<SyncRow | null>(null);
+  const [attaching, setAttaching] = useState<SyncRow | null>(null);
   const qbStatusFn = useServerFn(qbStatus);
   const qbStart = useServerFn(qbStartConnect);
   const qbOff = useServerFn(qbDisconnect);
@@ -197,7 +205,8 @@ function Accounting() {
     setSyncing(true);
     try {
       const r = await qbSync({ data: {} });
-      if (r.sent || r.failed) toast[r.failed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}`);
+      const att = r.attached || r.attachFailed ? ` · ${r.attached} file(s) attached${r.attachFailed ? `, ${r.attachFailed} file(s) failed` : ""}` : "";
+      if (r.sent || r.failed || att) toast[r.failed || r.attachFailed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}${att}`);
       else toast.info("Nothing waiting to send.");
     } catch (e) { toast.error((e as Error).message); }
     setSyncing(false);
@@ -309,11 +318,13 @@ function Accounting() {
                   <TableCell>
                     <Pill status={s.status} />
                     {s.error && <div className="mt-1 max-w-56 text-[10px] text-destructive">{s.error}</div>}
+                    {s.attach_error && <div className="mt-1 max-w-56 text-[10px] text-destructive">Attachments: {s.attach_error}</div>}
                   </TableCell>
                   <TableCell>{fmtDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       {isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                      <Button size="sm" variant="ghost" className="h-8 px-2" title="Attach documents for QuickBooks" onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</Button>
                       {s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                     </div>
@@ -372,9 +383,11 @@ function Accounting() {
                       <div className="flex items-center gap-1">
                         {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
                         {s && isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                        {s && <Button size="sm" variant="ghost" className="h-8 px-2" title="Attach documents for QuickBooks" onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</Button>}
                         {s && s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                         {s && isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                       </div>
+                      {s?.attach_error && <div className="mt-1 max-w-56 text-[10px] text-destructive">Attachments: {s.attach_error}</div>}
                     </TableCell>
                   </TableRow>
                 );
@@ -386,6 +399,8 @@ function Accounting() {
       </div>
       {viewer.viewer}
       <EditSyncDialog row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <QbAttachDialog row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
+        onClose={() => setAttaching(null)} onSaved={() => { setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
     </div>
   );
 }

@@ -70,8 +70,10 @@ export const qbSyncNow = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ ids: z.array(z.string().uuid()).optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const admin = await requireStaff(context as never);
-    const { deliverQueued } = await import("./quickbooks.server");
-    return deliverQueued(admin, data.ids);
+    const { deliverQueued, sendAttachments } = await import("./quickbooks.server");
+    const r = await deliverQueued(admin, data.ids);
+    // Then upload any picked documents onto the invoices/bills now in QuickBooks.
+    return { ...r, ...(await sendAttachments(admin, data.ids)) };
   });
 
 export const qbScanInvoices = createServerFn({ method: "POST" })

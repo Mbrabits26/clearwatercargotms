@@ -1223,6 +1223,10 @@ export type Database = {
       qb_sync: {
         Row: {
           amount: number
+          attach_error: string | null
+          attach_on_send: boolean
+          attachments: Json
+          attachments_sent: Json
           carrier_invoice_amount: number | null
           carrier_invoice_path: string | null
           created_at: string
@@ -1245,6 +1249,10 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          attach_error?: string | null
+          attach_on_send?: boolean
+          attachments?: Json
+          attachments_sent?: Json
           carrier_invoice_amount?: number | null
           carrier_invoice_path?: string | null
           created_at?: string
@@ -1267,6 +1275,10 @@ export type Database = {
         }
         Update: {
           amount?: number
+          attach_error?: string | null
+          attach_on_send?: boolean
+          attachments?: Json
+          attachments_sent?: Json
           carrier_invoice_amount?: number | null
           carrier_invoice_path?: string | null
           created_at?: string
