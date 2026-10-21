@@ -25,7 +25,7 @@ export function EntityCombobox({
       else if (l.includes(q) || (o.search ?? "").toLowerCase().includes(q)) rest.push(o);
     }
     return [...starts, ...word, ...rest].slice(0, 50);
-  }, [q, options]);
+  }, [q, options, emptyOptions]);
   const exact = options.find((o) => o.label.toLowerCase() === q);
   return (
     <div className="relative">
