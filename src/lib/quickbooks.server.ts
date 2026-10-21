@@ -232,6 +232,41 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   return { sent, failed };
 }
 
+type AttachRow = { id: string; kind: string; qb_ref: string; attachments: unknown; attachments_sent: unknown; attach_on_send: boolean };
+const MAX_BYTES = 25 * 1024 * 1024;
+/** Uploads picked load documents onto invoices/bills that already exist in QuickBooks. Each file goes once. */
+export async function sendAttachments(admin: Admin, ids?: string[]) {
+  let q = admin.from("qb_sync").select("id, kind, qb_ref, attachments, attachments_sent, attach_on_send").eq("status", "sent").not("qb_ref", "is", null).not("attachments->0", "is", null);
+  if (ids?.length) q = q.in("id", ids);
+  const { data } = await q.limit(200);
+  const rows = ((data ?? []) as unknown as AttachRow[]).filter((r) => pendingAttachments(r.attachments, r.attachments_sent).length);
+  let attached = 0, attachFailed = 0;
+  const conns = new Map<QbEntity, Promise<Qb | null>>();
+  for (const r of rows) {
+    const ent = entityForKind(r.kind);
+    if (!conns.has(ent)) conns.set(ent, getConn(admin, ent).then((c) => (c ? new Qb(c) : null)));
+    const qb = await conns.get(ent)!;
+    const sent = Array.isArray(r.attachments_sent) ? [...(r.attachments_sent as string[])] : [];
+    const errs: string[] = [];
+    for (const a of pendingAttachments(r.attachments, r.attachments_sent)) {
+      try {
+        if (!qb) throw new Error(ent === "fleet" ? "Foust Farms QuickBooks is not connected." : "Clearwater Cargo QuickBooks is not connected.");
+        const type = qbContentType(a.name);
+        if (!type) throw new Error("QuickBooks doesn't accept this file type (use PDF, JPG, PNG, Word, Excel or text).");
+        const { data: blob, error } = await admin.storage.from("load-docs").download(a.path);
+        if (error || !blob) throw new Error("File not found in load documents.");
+        if (blob.size > MAX_BYTES) throw new Error("File is over 25 MB.");
+        await qb.attach(r.kind === "bill" ? "Bill" : "Invoice", r.qb_ref, new Uint8Array(await blob.arrayBuffer()), a.name, type, r.attach_on_send);
+        sent.push(a.path); attached++;
+      } catch (e) {
+        errs.push(`${a.name}: ${(e as Error).message}`); attachFailed++;
+      }
+    }
+    await admin.from("qb_sync").update({ attachments_sent: sent, attach_error: errs.length ? errs.join(" · ").slice(0, 500) : null } as never).eq("id", r.id);
+  }
+  return { attached, attachFailed };
+}
+
 type RawInv = { Id: string; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
 /** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
 export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean, entity: QbEntity = "brokerage") {
