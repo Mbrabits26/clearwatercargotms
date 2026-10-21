@@ -346,6 +346,12 @@ function Accounting() {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input className="pl-8" placeholder="Search load #, invoice #, customer, carrier or city" value={q} onChange={(e) => { setQ(e.target.value); setPicked([]); }} />
       </div>
+      {tab !== "bill" && tab !== "log" && (
+        <label className="flex h-9 cursor-pointer items-center gap-2 rounded border px-3 text-sm" title="Loads marked Invoiced whose invoice hasn't reached QuickBooks yet">
+          <input type="checkbox" checked={reviewOnly} onChange={(e) => { setReviewOnly(e.target.checked); setPicked([]); }} />
+          Invoiced — not yet in QuickBooks
+        </label>
+      )}
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
@@ -435,7 +441,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
-              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : reviewOnly && tab !== "bill" ? "No invoiced loads waiting for QuickBooks here." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
