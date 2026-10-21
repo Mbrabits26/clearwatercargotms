@@ -784,6 +784,27 @@ export type Database = {
           },
         ]
       }
+      load_doc_names: {
+        Row: {
+          display_name: string
+          path: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          display_name: string
+          path: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          display_name?: string
+          path?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       load_notes: {
         Row: {
           author_id: string
