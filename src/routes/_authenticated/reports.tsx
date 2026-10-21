@@ -1,7 +1,8 @@
 import { useRouteContext, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useStickyState } from "@/hooks/useStickyState";
 import { Download, Printer } from "lucide-react";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
@@ -56,24 +57,27 @@ const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
 };
 
 function Reports() {
-  const { isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { isAdmin, user } = useRouteContext({ from: "/_authenticated" });
   const { data: loads } = useSuspenseQuery(loadsQuery);
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: carriers } = useSuspenseQuery(carriersQuery);
   const { data: profiles } = useSuspenseQuery(profilesQuery);
-  const [carrierView, setCarrierView] = useState(false);
-  const [fleetView, setFleetView] = useState(false);
+  // Report choices stay put when the user leaves Reports and comes back (per user, per tab).
+  const k = (name: string) => `reports:${user.id}:${name}`;
+  const [carrierView, setCarrierView] = useStickyState(k("carrierView"), false);
+  const [fleetView, setFleetView] = useStickyState(k("fleetView"), false);
   const { data: comm = [] } = useQuery({ queryKey: ["commissions"], queryFn: async () => (await supabase.from("broker_commissions").select("*")).data ?? [] });
-  const [salesRep, setSalesRep] = useState("all");
-  const [preset, setPreset] = useState("ar");
-  const [cfg, setCfg] = useState<Cfg>(PRESETS.ar!.cfg);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [range, setRange] = useState<RangeKey>("all");
-  const [broker, setBroker] = useState("all");
-  const [customer, setCustomer] = useState("all");
-  const [carrier, setCarrier] = useState("all");
-  const [q, setQ] = useState("");
+  const [salesRep, setSalesRep] = useStickyState(k("salesRep"), "all");
+  const [storedPreset, setPreset] = useStickyState(k("preset"), "ar");
+  const preset = PRESETS[storedPreset] && (storedPreset !== "commission" || isAdmin) ? storedPreset : "ar";
+  const [cfg, setCfg] = useStickyState<Cfg>(k("cfg"), PRESETS.ar!.cfg);
+  const [from, setFrom] = useStickyState(k("from"), "");
+  const [to, setTo] = useStickyState(k("to"), "");
+  const [range, setRange] = useStickyState<RangeKey>(k("range"), "all");
+  const [broker, setBroker] = useStickyState(k("broker"), "all");
+  const [customer, setCustomer] = useStickyState(k("customer"), "all");
+  const [carrier, setCarrier] = useStickyState(k("carrier"), "all");
+  const [q, setQ] = useStickyState(k("q"), "");
 
   const choose = (p: string) => { setPreset(p); setCfg(PRESETS[p]!.cfg); };
   const custName = (l: Load) => companies.find((c) => c.id === l.customer_id)?.name ?? "—";
