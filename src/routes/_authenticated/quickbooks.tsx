@@ -3,7 +3,9 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search } from "lucide-react";
+import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search, Paperclip } from "lucide-react";
+import { QbAttachDialog } from "@/components/QbAttachDialog";
+import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
@@ -48,7 +50,12 @@ type SyncRow = {
   carrier_invoice_path: string | null;
   terms?: string | null;
   due_date?: string | null;
+  attachments?: unknown;
+  attachments_sent?: unknown;
+  attach_on_send?: boolean;
+  attach_error?: string | null;
 };
+const attachCount = (s: SyncRow) => parseAttachments(s.attachments).length;
 type Kind = "invoice" | "fleet_invoice" | "bill";
 const KIND_LABEL: Record<string, string> = { invoice: "Invoice (AR)", fleet_invoice: "Fleet billing (AR)", bill: "Carrier bill (AP)" };
 
@@ -85,6 +92,7 @@ function Accounting() {
   const [tab, setTab] = useState<Kind | "log">("invoice");
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<SyncRow | null>(null);
+  const [attaching, setAttaching] = useState<SyncRow | null>(null);
   const qbStatusFn = useServerFn(qbStatus);
   const qbStart = useServerFn(qbStartConnect);
   const qbOff = useServerFn(qbDisconnect);
@@ -197,7 +205,8 @@ function Accounting() {
     setSyncing(true);
     try {
       const r = await qbSync({ data: {} });
-      if (r.sent || r.failed) toast[r.failed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}`);
+      const att = r.attached || r.attachFailed ? ` · ${r.attached} file(s) attached${r.attachFailed ? `, ${r.attachFailed} file(s) failed` : ""}` : "";
+      if (r.sent || r.failed || att) toast[r.failed || r.attachFailed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}${att}`);
       else toast.info("Nothing waiting to send.");
     } catch (e) { toast.error((e as Error).message); }
     setSyncing(false);
