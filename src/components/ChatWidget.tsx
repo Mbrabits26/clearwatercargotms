@@ -151,7 +151,7 @@ export function ChatWidget({ userId }: { userId: string }) {
                     <div className="text-[10px] text-muted-foreground">
                       {mine ? "You" : name(m.author_id)} · {new Date(m.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </div>
-                    <div className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-md px-2 py-1 text-left ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{m.body}</div>
+                    <div className={`inline-block max-w-[90%] whitespace-pre-wrap break-words rounded-md px-2 py-1 text-left [overflow-wrap:anywhere] ${mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>{m.body}</div>
                   </div>
                 );
               })}
