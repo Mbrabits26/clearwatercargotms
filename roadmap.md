@@ -136,3 +136,5 @@
 - [x] Carrier picker shows last 10 added/used first; Inactive checkbox hides carriers (picking one reactivates)
 - [ ] Rate con tracking fee: editor shows linehaul + $200 tracking & paperwork fee = carrier pay (no extra $200)
 - [ ] Accounting search bar: find loads to invoice and invoices to edit
+- [ ] Dispatch board sorted by priority: available → booked → dispatched → in transit → delivered…
+- [ ] Dispatch alerts for late pickups and late deliveries
