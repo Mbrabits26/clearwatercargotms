@@ -31,7 +31,8 @@ export function payTo(c: PayCarrier | null | undefined) {
     return { name: c.factoring_company, address: c.factoring_remit_address || c.factoring_remit || "", factored: true, noaMissing: !c.noa_received, forCarrier: c.legal_name };
   }
   const cityLine = [c.city, [c.state, c.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-  return { name: c.legal_name, address: [c.address, c.address?.includes(c.city ?? "\u0000") ? "" : cityLine].filter(Boolean).join(", "), factored: false, noaMissing: false };
+  const hasCity = !!c.city && !!c.address?.toLowerCase().includes(c.city.toLowerCase());
+  return { name: c.legal_name, address: [c.address, hasCity ? "" : cityLine].filter(Boolean).join(", "), factored: false, noaMissing: false };
 }
 
 export const maskAccount = (n: string | null | undefined) => (n ? `••••${n.replace(/\s/g, "").slice(-4)}` : "—");
