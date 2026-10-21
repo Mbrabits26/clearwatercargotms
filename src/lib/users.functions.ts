@@ -135,10 +135,18 @@ export const completePasswordChange = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ password: z.string().min(8).max(72) }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.auth.updateUser({ password: data.password });
-    if (error) throw new Error(error.message);
+    // The server has only the caller's bearer token (no stored session), so updateUser() fails with
+    // "Auth session missing". The caller is already verified by requireSupabaseAuth, so update their own
+    // account (and only theirs) through the admin client.
+    const { data: u } = await context.supabase.auth.getUser();
+    if (!(u.user?.app_metadata as Record<string, unknown> | undefined)?.must_change_password) {
+      throw new Error("No temporary password to replace on this account.");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.auth.admin.updateUserById(context.userId, { app_metadata: { must_change_password: false } });
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.password, app_metadata: { must_change_password: false },
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
