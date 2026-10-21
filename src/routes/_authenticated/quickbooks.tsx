@@ -1,7 +1,7 @@
 import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { qbReviewState } from "@/lib/invoiceReview";
 import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -116,6 +116,10 @@ function Accounting() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
+  // Lookups by id (thousands of companies) so each keystroke doesn't rescan every list.
+  const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+  const carrierById = useMemo(() => new Map(carriers.map((c) => [c.id, c])), [carriers]);
+  const loadById = useMemo(() => new Map(loads.map((l) => [l.id, l])), [loads]);
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
   // Each load sits under the company that bills it: its existing invoice's company, else the default
@@ -139,19 +143,25 @@ function Accounting() {
   }, [search.q, search.review]);
   const tabRows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
   const rows = reviewOnly && tab !== "bill" ? tabRows.filter(needsReview) : tabRows;
-  const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
-  // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs.
-  const needle = q.trim().toLowerCase();
-  const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.customer_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
-    companies.find((c) => c.id === l.customer_id)?.name, carriers.find((c) => c.id === l.carrier_id)?.legal_name,
-    sync.filter((x) => x.load_id === l.id).map((x) => x.invoice_number).join(" ")].join(" ").toLowerCase();
+  const carrierOf = (l: Load) => carrierById.get(l.carrier_id ?? "");
+  // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs. Filters on a deferred copy so typing stays instant.
+  const needle = useDeferredValue(q).trim().toLowerCase();
+  const hayById = useMemo(() => {
+    const inv = new Map<string, string[]>();
+    for (const x of sync) if (x.invoice_number) inv.set(x.load_id, [...(inv.get(x.load_id) ?? []), x.invoice_number]);
+    return new Map(loads.map((l) => [l.id, [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.customer_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
+      companyById.get(l.customer_id ?? "")?.name, carrierById.get(l.carrier_id ?? "")?.legal_name, (inv.get(l.id) ?? []).join(" ")].join(" ").toLowerCase()]));
+  }, [loads, sync, companyById, carrierById]);
   // Date range: loads by delivery (else pickup) date; sync rows by their load's date, else queued date.
   const inRange = (d?: string | null) => { if (!from && !to) return true; if (!d) return false; const day = d.slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
   const loadDay = (l?: Load) => l ? (l.delivery_at ?? l.pickup_at) : null;
   const rowsR = rows.filter((l) => inRange(loadDay(l)));
-  const syncR = sync.filter((x) => inRange(loadDay(loads.find((y) => y.id === x.load_id)) ?? x.created_at));
-  const shown = needle ? rowsR.filter((l) => loadHay(l).includes(needle)) : rowsR;
-  const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${(() => { const l = loads.find((y) => y.id === x.load_id); return l ? loadHay(l) : ""; })()}`.toLowerCase().includes(needle)) : syncR;
+  const syncR = sync.filter((x) => inRange(loadDay(loadById.get(x.load_id)) ?? x.created_at));
+  const shown = needle ? rowsR.filter((l) => (hayById.get(l.id) ?? "").includes(needle)) : rowsR;
+  // Draw the first rows only; "Show more" adds the rest so long lists stay quick.
+  const [limit, setLimit] = useState(200);
+  useEffect(() => { setLimit(200); }, [needle, tab, from, to, reviewOnly]);
+  const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${hayById.get(x.load_id) ?? ""}`.toLowerCase().includes(needle)) : syncR;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
     const gross = loadTotals(l).cost;
@@ -162,7 +172,7 @@ function Accounting() {
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
   const groupOf = (s: SyncRow) => sync.filter((x) => x.invoice_number && x.invoice_number === s.invoice_number && x.kind === s.kind);
-  const invoiceTerms = (s: SyncRow) => s.terms ?? companies.find((c) => c.id === loads.find((x) => x.id === s.load_id)?.customer_id)?.pay_terms ?? "Net 30";
+  const invoiceTerms = (s: SyncRow) => s.terms ?? companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.pay_terms ?? "Net 30";
   const dueOf = (s: SyncRow) => s.due_date ?? new Date(new Date(s.created_at).getTime() + termsDays(invoiceTerms(s)) * 86_400_000).toISOString().slice(0, 10);
   const invoicePdf = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id);
@@ -199,8 +209,8 @@ function Accounting() {
   };
 
   const payee = (l: Load, kind: string) => {
-    if (kind !== "bill") return companies.find((c) => c.id === l.customer_id)?.name ?? "Unknown customer";
-    const c = carriers.find((x) => x.id === l.carrier_id);
+    if (kind !== "bill") return companyById.get(l.customer_id ?? "")?.name ?? "Unknown customer";
+    const c = carrierById.get(l.carrier_id ?? "");
     return c?.factoring_company ? `${c.factoring_company} (for ${c.legal_name})` : c?.legal_name ?? "Unknown carrier";
   };
 
@@ -272,7 +282,7 @@ function Accounting() {
   };
 
   const paidStatus = (l?: Load) => l?.status === "paid";
-  const loadOf = (id: string) => loads.find((l) => l.id === id);
+  const loadOf = (id: string) => loadById.get(id);
   const age = (s: SyncRow) => { const l = loadOf(s.load_id); return l ? ageDays(l) ?? 0 : 0; };
   const bucket = (list: SyncRow[]) => {
     const open = list.filter((s) => !paidStatus(loadOf(s.load_id)));
@@ -361,7 +371,7 @@ function Accounting() {
               {shownSync.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
-                  <TableCell>{loads.find((l) => l.id === s.load_id) ? <LoadQuickLook load={loads.find((l) => l.id === s.load_id)!} /> : "—"}</TableCell>
+                  <TableCell>{loadById.get(s.load_id) ? <LoadQuickLook load={loadById.get(s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
                   <TableCell>{usd(owed(s))}{s.kind !== "bill" && parseDeductions(s.deductions).length > 0 && <div className="text-[10px] text-muted-foreground">of {usd(Number(s.amount))} · {parseDeductions(s.deductions).map((d) => `${d.label} ${d.pct}%`).join(", ")}</div>}</TableCell>
                   <TableCell>
@@ -388,13 +398,13 @@ function Accounting() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">
-                  <input type="checkbox" checked={picked.length > 0 && picked.length === shown.length} onChange={(e) => setPicked(e.target.checked ? shown.map((r) => r.id) : [])} />
+                  <input type="checkbox" checked={picked.length > 0 && picked.length === Math.min(shown.length, limit)} onChange={(e) => setPicked(e.target.checked ? shown.slice(0, limit).map((r) => r.id) : [])} />
                 </TableHead>
                 <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shown.map((l) => {
+              {shown.slice(0, limit).map((l) => {
                 const s = synced(l.id, tab as Kind);
                 const bm = tab === "bill" ? billMath(l) : null;
                 const mismatch = s?.carrier_invoice_amount != null && bm && Math.abs(Number(s.carrier_invoice_amount) - bm.gross) > 0.009;
@@ -441,6 +451,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
+              {shown.length > limit && <TableRow><TableCell colSpan={9} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({shown.length - limit} more)</Button></TableCell></TableRow>}
               {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : reviewOnly && tab !== "bill" ? "No invoiced loads waiting for QuickBooks here." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>

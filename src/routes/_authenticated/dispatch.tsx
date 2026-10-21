@@ -1,7 +1,7 @@
 import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +66,44 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
       context.queryClient.ensureQueryData(driversQuery),
     ]),
   component: Dispatch,
+});
+
+const ROW_STEP = 150;
+
+/** One row on the board. Memoized so typing in search only redraws rows that changed. */
+const LoadRow = memo(function LoadRow({ load: l, companies, selected, picked, onSelect, onPick }: {
+  load: Load; companies: Company[]; selected: boolean; picked: boolean;
+  onSelect: (id: string) => void; onPick: (id: string, on: boolean) => void;
+}) {
+  const t = loadTotals(l);
+  return (
+    <li
+      onClick={() => onSelect(l.id)}
+      className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", selected && "border-l-2 border-l-gold bg-muted")}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1">
+          {!l.closed_at && l.status !== "cancelled" && (
+            <Checkbox aria-label={`Select ${l.load_number}`} checked={picked} onClick={(e) => e.stopPropagation()}
+              onCheckedChange={(checked) => onPick(l.id, checked === true)} />
+          )}
+          <span className="truncate font-mono text-xs text-gold">{l.load_number}</span>
+          <CopyLoadString load={l} companies={companies} />
+        </span>
+        {l.closed_at ? <span className="text-xs text-muted-foreground">Closed out · {l.status}</span> : <StatusSelect load={l} />}
+      </div>
+      <div className="mt-1 font-display text-lg font-semibold leading-tight">
+        {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{l.equipment} · {fmtDate(l.pickup_at)}{(l.truck_id || l.driver_id) && <span className="ml-2 rounded border border-teal px-1 text-[10px] uppercase text-teal">Our truck</span>}</span>
+        <span className="flex items-center gap-1">
+          {checkCallOverdue(l) && <AlarmClock className="h-3.5 w-3.5 text-warning" />}
+          {usd(t.revenue)}
+        </span>
+      </div>
+    </li>
+  );
 });
 
 function StatusSelect({ load }: { load: Load }) {
@@ -166,10 +204,14 @@ function Dispatch() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.load]);
 
+  // Typing stays instant: the list filters on a deferred copy of the search text.
+  const dq = useDeferredValue(q);
+  const cName = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
+  const kName = useMemo(() => new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`])), [carriers]);
+  const hayById = useMemo(() => new Map(loads.map((l) => [l.id, [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref, l.customer_ref,
+    cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase()])), [loads, cName, kName]);
   const filtered = useMemo(() => {
-    const cName = new Map(companies.map((c) => [c.id, c.name]));
-    const kName = new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`]));
-    const needle = q.trim().toLowerCase();
+    const needle = dq.trim().toLowerCase();
     return sortForBoard(loads.filter((l) => {
       if (["delivery", "invoice", "closeout", "closed"].includes(status)) {
         if (!workData || !needsWork(l, status as WorkFilter, workData.invoiceIds)) return false;
@@ -180,15 +222,20 @@ function Dispatch() {
       }
       if (broker !== "all" && (broker === "none" ? l.broker_id : l.broker_id !== broker)) return false;
       if (!needle) return true;
-      const hay = [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref, l.customer_ref,
-        cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase();
-      return hay.includes(needle);
+      return (hayById.get(l.id) ?? "").includes(needle);
     }));
-  }, [loads, q, status, broker, companies, carriers, workData]);
-  const pickedLoads = loads.filter((load) => pick.includes(load.id));
+  }, [loads, dq, status, broker, hayById, workData]);
+  // Only draw the first rows; "Show more" adds the rest so long lists don't lock up the page.
+  const [limit, setLimit] = useState(ROW_STEP);
+  useEffect(() => { setLimit(ROW_STEP); }, [dq, status, broker, showAll]);
+  const visible = useMemo(() => filtered.slice(0, limit), [filtered, limit]);
+  const pickSet = useMemo(() => new Set(pick), [pick]);
+  const selectLoad = useCallback((id: string) => { setSelectedId(id); setMobileDetail(true); }, []);
+  const togglePick = useCallback((id: string, on: boolean) => setPick((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id))), []);
+  const pickedLoads = loads.filter((load) => pickSet.has(load.id));
   const invoiceLoads = pickedLoads.filter((load) => invoiceable(load) && !load.closed_at && !workData?.invoiceIds.has(load.id));
   // Searching always looks through every load, not just the last 30 days.
-  useEffect(() => { if (q.trim().length >= 2 && !showAll) setShowAll(true); }, [q, showAll]);
+  useEffect(() => { if (dq.trim().length >= 2 && !showAll) setShowAll(true); }, [dq, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
   const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
   const overdueCalls = loads.filter(checkCallOverdue);
@@ -283,7 +330,7 @@ function Dispatch() {
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-2 border-b p-3 text-xs">
-            <label className="flex items-center gap-2"><Checkbox aria-label="Select all visible loads" checked={filtered.some((l) => !l.closed_at && l.status !== "cancelled") && filtered.filter((l) => !l.closed_at && l.status !== "cancelled").every((l) => pick.includes(l.id))} onCheckedChange={(checked) => setPick(checked === true ? filtered.filter((l) => !l.closed_at && l.status !== "cancelled").map((l) => l.id) : [])} />Select visible</label>
+            <label className="flex items-center gap-2"><Checkbox aria-label="Select all visible loads" checked={visible.some((l) => !l.closed_at && l.status !== "cancelled") && visible.filter((l) => !l.closed_at && l.status !== "cancelled").every((l) => pickSet.has(l.id))} onCheckedChange={(checked) => setPick(checked === true ? visible.filter((l) => !l.closed_at && l.status !== "cancelled").map((l) => l.id) : [])} />Select visible</label>
             <span>{pick.length} selected</span>
             {!!pick.length && <>
               <Button size="sm" variant="outline" disabled={!invoiceLoads.length} onClick={() => setInvOpen(true)}>Invoice {invoiceLoads.length}</Button>
@@ -293,38 +340,16 @@ function Dispatch() {
             </>}
           </div>
           <ul className="min-h-0 flex-1 overflow-auto">
-            {filtered.map((l) => {
-              const t = loadTotals(l);
-              return (
-                <li
-                  key={l.id}
-                  onClick={() => { setSelectedId(l.id); setMobileDetail(true); }}
-                  className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", selectedId === l.id && "border-l-2 border-l-gold bg-muted")}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1">
-                      {!l.closed_at && l.status !== "cancelled" && (
-                        <Checkbox aria-label={`Select ${l.load_number}`} checked={pick.includes(l.id)} onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={(checked) => setPick((p) => (checked === true ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
-                      )}
-                      <span className="truncate font-mono text-xs text-gold">{l.load_number}</span>
-                      <CopyLoadString load={l} companies={companies} />
-                    </span>
-                    {l.closed_at ? <span className="text-xs text-muted-foreground">Closed out · {l.status}</span> : <StatusSelect load={l} />}
-                  </div>
-                  <div className="mt-1 font-display text-lg font-semibold leading-tight">
-                    {l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{l.equipment} · {fmtDate(l.pickup_at)}{(l.truck_id || l.driver_id) && <span className="ml-2 rounded border border-teal px-1 text-[10px] uppercase text-teal">Our truck</span>}</span>
-                    <span className="flex items-center gap-1">
-                      {checkCallOverdue(l) && <AlarmClock className="h-3.5 w-3.5 text-warning" />}
-                      {usd(t.revenue)}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
+            {visible.map((l) => (
+              <LoadRow key={l.id} load={l} companies={companies} selected={selectedId === l.id} picked={pickSet.has(l.id)} onSelect={selectLoad} onPick={togglePick} />
+            ))}
+            {filtered.length > visible.length && (
+              <li className="p-3 text-center">
+                <Button size="sm" variant="outline" onClick={() => setLimit((n) => n + ROW_STEP)}>
+                  Show more ({filtered.length - visible.length} more)
+                </Button>
+              </li>
+            )}
             {!filtered.length && <li className="p-6 text-center text-sm text-muted-foreground">No loads match.</li>}
           </ul>
         </section>
@@ -386,7 +411,7 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-function Cockpit({
+const Cockpit = memo(function Cockpit({
   load, loads, carriers, companies, profiles, isAdmin, canOverride,
 }: {
   load: Load;
@@ -655,7 +680,7 @@ function Cockpit({
       )}
     </div>
   );
-}
+});
 
 function Check({ ok, label }: { ok: boolean; label: string }) {
   return (
