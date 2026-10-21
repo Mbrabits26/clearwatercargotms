@@ -116,6 +116,10 @@ function Accounting() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
+  // Lookups by id (thousands of companies) so each keystroke doesn't rescan every list.
+  const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+  const carrierById = useMemo(() => new Map(carriers.map((c) => [c.id, c])), [carriers]);
+  const loadById = useMemo(() => new Map(loads.map((l) => [l.id, l])), [loads]);
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
   // Each load sits under the company that bills it: its existing invoice's company, else the default
@@ -139,19 +143,22 @@ function Accounting() {
   }, [search.q, search.review]);
   const tabRows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
   const rows = reviewOnly && tab !== "bill" ? tabRows.filter(needsReview) : tabRows;
-  const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
-  // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs.
-  const needle = q.trim().toLowerCase();
-  const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.customer_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
-    companies.find((c) => c.id === l.customer_id)?.name, carriers.find((c) => c.id === l.carrier_id)?.legal_name,
-    sync.filter((x) => x.load_id === l.id).map((x) => x.invoice_number).join(" ")].join(" ").toLowerCase();
+  const carrierOf = (l: Load) => carrierById.get(l.carrier_id ?? "");
+  // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs. Filters on a deferred copy so typing stays instant.
+  const needle = useDeferredValue(q).trim().toLowerCase();
+  const hayById = useMemo(() => {
+    const inv = new Map<string, string[]>();
+    for (const x of sync) if (x.invoice_number) inv.set(x.load_id, [...(inv.get(x.load_id) ?? []), x.invoice_number]);
+    return new Map(loads.map((l) => [l.id, [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.customer_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
+      companyById.get(l.customer_id ?? "")?.name, carrierById.get(l.carrier_id ?? "")?.legal_name, (inv.get(l.id) ?? []).join(" ")].join(" ").toLowerCase()]));
+  }, [loads, sync, companyById, carrierById]);
   // Date range: loads by delivery (else pickup) date; sync rows by their load's date, else queued date.
   const inRange = (d?: string | null) => { if (!from && !to) return true; if (!d) return false; const day = d.slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
   const loadDay = (l?: Load) => l ? (l.delivery_at ?? l.pickup_at) : null;
   const rowsR = rows.filter((l) => inRange(loadDay(l)));
-  const syncR = sync.filter((x) => inRange(loadDay(loads.find((y) => y.id === x.load_id)) ?? x.created_at));
-  const shown = needle ? rowsR.filter((l) => loadHay(l).includes(needle)) : rowsR;
-  const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${(() => { const l = loads.find((y) => y.id === x.load_id); return l ? loadHay(l) : ""; })()}`.toLowerCase().includes(needle)) : syncR;
+  const syncR = sync.filter((x) => inRange(loadDay(loadById.get(x.load_id)) ?? x.created_at));
+  const shown = needle ? rowsR.filter((l) => (hayById.get(l.id) ?? "").includes(needle)) : rowsR;
+  const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${hayById.get(x.load_id) ?? ""}`.toLowerCase().includes(needle)) : syncR;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
     const gross = loadTotals(l).cost;
