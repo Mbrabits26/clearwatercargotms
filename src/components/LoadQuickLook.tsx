@@ -25,7 +25,8 @@ export function LoadQuickLook({ load, className, children }: { load: Load; class
       >
         {children ?? load.load_number}
       </button>
-      <LoadQuickLookDialog load={load} open={open} onOpenChange={setOpen} />
+      {/* Mount only when opened: long lists render one of these per row. */}
+      {open && <LoadQuickLookDialog load={load} open={open} onOpenChange={setOpen} />}
     </>
   );
 }
