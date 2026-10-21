@@ -204,3 +204,21 @@ export function carrierIssues(c: Carrier, docs: CarrierDocRow[]) {
 /** Customer (AR) payment terms; stored as the label on companies.pay_terms / qb_sync.terms. */
 export const CUSTOMER_TERMS = ["Due on receipt", "Net 7", "Net 15", "Net 30", "Net 45", "Net 60"] as const;
 export const termsDays = (t: string | null | undefined) => (t === "Due on receipt" ? 0 : Number(/Net (\d+)/.exec(t ?? "")?.[1] ?? 30));
+
+/** Dispatch board priority: open work first (available → booked → dispatched → rolling), then finished loads. */
+const BOARD_ORDER: LoadStatus[] = ["available", "vetting", "booked", "dispatched", "rolling", "issue", "delivered", "invoiced", "paid", "cancelled"];
+export function sortForBoard<T extends Pick<Load, "status" | "pickup_at">>(loads: T[]): T[] {
+  const rank = (s: LoadStatus) => { const i = BOARD_ORDER.indexOf(s); return i < 0 ? BOARD_ORDER.length : i; };
+  const at = (l: T) => (l.pickup_at ? new Date(l.pickup_at).getTime() : Number.MAX_SAFE_INTEGER);
+  return [...loads].sort((a, b) => rank(a.status) - rank(b.status) || at(a) - at(b));
+}
+
+/** Appointment deadline: a time-of-day appointment gets 1h grace; a date-only (midnight) one runs to end of day. */
+function deadline(s: string) {
+  const d = new Date(s);
+  return d.getHours() === 0 && d.getMinutes() === 0 ? d.getTime() + 86_400_000 : d.getTime() + 3_600_000;
+}
+export const latePickup = (l: Pick<Load, "status" | "pickup_at">, now = Date.now()) =>
+  !!l.pickup_at && ["available", "vetting", "booked", "dispatched"].includes(l.status) && now > deadline(l.pickup_at);
+export const lateDelivery = (l: Pick<Load, "status" | "delivery_at">, now = Date.now()) =>
+  !!l.delivery_at && ["available", "vetting", "booked", "dispatched", "rolling", "issue"].includes(l.status) && now > deadline(l.delivery_at);
