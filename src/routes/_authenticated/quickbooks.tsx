@@ -3,7 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, PlugZap, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
@@ -92,6 +92,7 @@ function Accounting() {
   const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
   const [syncing, setSyncing] = useState(false);
   const [reconOpen, setReconOpen] = useState(false);
+  const [q, setQ] = useState("");
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
@@ -103,6 +104,13 @@ function Accounting() {
   const [batchOpen, setBatchOpen] = useState(false);
   const rows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
   const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
+  // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs.
+  const needle = q.trim().toLowerCase();
+  const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
+    companies.find((c) => c.id === l.customer_id)?.name, carriers.find((c) => c.id === l.carrier_id)?.legal_name,
+    sync.filter((x) => x.load_id === l.id).map((x) => x.invoice_number).join(" ")].join(" ").toLowerCase();
+  const shown = needle ? rows.filter((l) => loadHay(l).includes(needle)) : rows;
+  const shownSync = needle ? sync.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${(() => { const l = loads.find((y) => y.id === x.load_id); return l ? loadHay(l) : ""; })()}`.toLowerCase().includes(needle)) : sync;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
     const gross = loadTotals(l).cost;
@@ -283,12 +291,16 @@ function Accounting() {
           <TabsTrigger value="log">Sync log</TabsTrigger>
         </TabsList>
       </Tabs>
+      <div className="relative max-w-md">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input className="pl-8" placeholder="Search load #, invoice #, customer, carrier or city" value={q} onChange={(e) => { setQ(e.target.value); setPicked([]); }} />
+      </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
           <Table>
             <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="w-24">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
-              {sync.map((s) => (
+              {shownSync.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
                   <TableCell>{loads.find((l) => l.id === s.load_id) ? <LoadQuickLook load={loads.find((l) => l.id === s.load_id)!} /> : "—"}</TableCell>
@@ -308,7 +320,7 @@ function Accounting() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!sync.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nothing sent yet.</TableCell></TableRow>}
+              {!shownSync.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{needle ? "No matches." : "Nothing sent yet."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         ) : (
@@ -316,13 +328,13 @@ function Accounting() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">
-                  <input type="checkbox" checked={picked.length > 0 && picked.length === rows.length} onChange={(e) => setPicked(e.target.checked ? rows.map((r) => r.id) : [])} />
+                  <input type="checkbox" checked={picked.length > 0 && picked.length === shown.length} onChange={(e) => setPicked(e.target.checked ? shown.map((r) => r.id) : [])} />
                 </TableHead>
                 <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : tab === "fleet_invoice" ? "Bill outside broker" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((l) => {
+              {shown.map((l) => {
                 const s = synced(l.id, tab as Kind);
                 const bm = tab === "bill" ? billMath(l) : null;
                 const mismatch = s?.carrier_invoice_amount != null && bm && Math.abs(Number(s.carrier_invoice_amount) - bm.gross) > 0.009;
@@ -367,7 +379,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
-              {!rows.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{needle && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
