@@ -1,9 +1,9 @@
 import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlarmClock, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
+import { AlarmClock, ChevronDown, Pencil, Download, Phone, Plus, Search, AlertTriangle, DollarSign, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
@@ -70,6 +70,16 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
 
 const ROW_STEP = 150;
 
+/** Search box that keeps its own text, so typing never redraws the board; the list updates once you pause. */
+function SearchBox({ onChange }: { onChange: (v: string) => void }) {
+  const [v, setV] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => startTransition(() => onChange(v)), v ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [v, onChange]);
+  return <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
+}
+
 /** One row on the board. Memoized so typing in search only redraws rows that changed. */
 const LoadRow = memo(function LoadRow({ load: l, companies, selected, picked, onSelect, onPick }: {
   load: Load; companies: Company[]; selected: boolean; picked: boolean;
@@ -107,10 +117,25 @@ const LoadRow = memo(function LoadRow({ load: l, companies, selected, picked, on
 });
 
 function StatusSelect({ load }: { load: Load }) {
+  const [active, setActive] = useState(false);
+  const m = statusMeta(load.status);
+  // Each row shows a plain button; the full dropdown is only built when clicked, keeping the board fast.
+  if (!active) return (
+    <button type="button" aria-label={`Status: ${m.label}`} className={cn("flex h-7 w-40 items-center justify-between rounded-md border px-3 text-xs font-medium", m.cls)}
+      onClick={(e) => { e.stopPropagation(); setActive(true); }}>
+      <span className={cn("rounded border px-1.5 py-0.5 text-xs", m.cls)}>{m.label}</span><ChevronDown className="h-4 w-4 opacity-50" />
+    </button>
+  );
+  return <StatusSelectOpen load={load} onClose={() => setActive(false)} />;
+}
+
+function StatusSelectOpen({ load, onClose }: { load: Load; onClose: () => void }) {
   const qc = useQueryClient();
   const m = statusMeta(load.status);
   return (
     <Select
+      defaultOpen
+      onOpenChange={(o) => { if (!o) onClose(); }}
       value={load.status}
       onValueChange={async (v) => {
         if (v === "delivered" && !window.confirm(`Mark load ${load.load_number} Delivered?\n\nCheck first: the load actually delivered and the delivery time is right.${load.pod_received ? "" : "\n\n⚠ No POD is on file for this load yet."}`)) return;
@@ -171,7 +196,7 @@ function Dispatch() {
   const { data: profiles } = useSuspenseQuery(profilesQuery);
   const { isAdmin, perms, user } = useRouteContext({ from: "/_authenticated" });
   const canOverride = isAdmin || (perms ?? []).includes("carrier_override");
-  const [q, setQ] = useState("");
+  const [dq, setQ] = useState("");
   const [status, setStatus] = useState<string>("active");
   const defKey = `cw-dispatch-default-status:${user.id}`;
   const [defStatus, setDefStatus] = useState("active");
@@ -204,8 +229,6 @@ function Dispatch() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.load]);
 
-  // Typing stays instant: the list filters on a deferred copy of the search text.
-  const dq = useDeferredValue(q);
   const cName = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
   const kName = useMemo(() => new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`])), [carriers]);
   const hayById = useMemo(() => new Map(loads.map((l) => [l.id, [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref, l.customer_ref,
@@ -232,17 +255,19 @@ function Dispatch() {
   const pickSet = useMemo(() => new Set(pick), [pick]);
   const selectLoad = useCallback((id: string) => { setSelectedId(id); setMobileDetail(true); }, []);
   const togglePick = useCallback((id: string, on: boolean) => setPick((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id))), []);
-  const pickedLoads = loads.filter((load) => pickSet.has(load.id));
-  const invoiceLoads = pickedLoads.filter((load) => invoiceable(load) && !load.closed_at && !workData?.invoiceIds.has(load.id));
+  const pickedLoads = useMemo(() => loads.filter((load) => pickSet.has(load.id)), [loads, pickSet]);
+  const invoiceLoads = useMemo(() => pickedLoads.filter((load) => invoiceable(load) && !load.closed_at && !workData?.invoiceIds.has(load.id)), [pickedLoads, workData]);
   // Searching always looks through every load, not just the last 30 days.
   useEffect(() => { if (dq.trim().length >= 2 && !showAll) setShowAll(true); }, [dq, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
   const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
-  const overdueCalls = loads.filter(checkCallOverdue);
-  const latePu = loads.filter((l) => !l.closed_at && latePickup(l));
-  const lateDel = loads.filter((l) => !l.closed_at && lateDelivery(l));
-  const carrierDue = loads.filter((l) => l.status === "delivered" && l.pod_received);
-  const overdueInv = loads.filter((l) => l.status === "invoiced" && l.delivery_at && Date.now() - new Date(l.delivery_at).getTime() > 30 * 86400_000);
+  const { overdueCalls, latePu, lateDel, carrierDue, overdueInv } = useMemo(() => ({
+    overdueCalls: loads.filter(checkCallOverdue),
+    latePu: loads.filter((l) => !l.closed_at && latePickup(l)),
+    lateDel: loads.filter((l) => !l.closed_at && lateDelivery(l)),
+    carrierDue: loads.filter((l) => l.status === "delivered" && l.pod_received),
+    overdueInv: loads.filter((l) => l.status === "invoiced" && l.delivery_at && Date.now() - new Date(l.delivery_at).getTime() > 30 * 86400_000),
+  }), [loads]);
 
   return (
     <div className="flex h-full flex-col">
@@ -297,7 +322,7 @@ function Dispatch() {
           <div className="space-y-2 border-b p-3">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={q} onChange={(e) => setQ(e.target.value)} />
+              <SearchBox onChange={setQ} />
             </div>
             <div className="flex gap-2">
               <Select value={status} onValueChange={(value) => { setStatus(value); setPick([]); if (["delivery", "invoice", "closeout", "closed"].includes(value)) setShowAll(true); }}>
@@ -361,8 +386,9 @@ function Dispatch() {
           )}
         </section>
       </div>
-      <LoadBuilderDialog open={builder} onOpenChange={setBuilder} companies={companies} onCreated={(id) => setSelectedId(id)} />
-      <BulkLoadsDialog open={bulk} onOpenChange={setBulk} companies={companies} />
+      {/* Mounted only while open: these forms build long company lists, which made typing in search freeze. */}
+      {builder && <LoadBuilderDialog open onOpenChange={setBuilder} companies={companies} onCreated={(id) => setSelectedId(id)} />}
+      {bulk && <BulkLoadsDialog open onOpenChange={setBulk} companies={companies} />}
     </div>
   );
 }
@@ -672,7 +698,7 @@ const Cockpit = memo(function Cockpit({
         </Panel>
         </TabsContent>
       </Tabs>
-      <LoadBuilderDialog open={editing} onOpenChange={setEditing} companies={companies} editLoad={load} onCreated={() => {}} />
+      {editing && <LoadBuilderDialog open onOpenChange={setEditing} companies={companies} editLoad={load} onCreated={() => {}} />}
       {carrier?.status === "dnu" && (
         <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" /> Assigned carrier is now on the Do Not Use list ({carrier.dnu_reason}). Reassign immediately.

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocLink, type DocItem } from "@/components/DocPreview";
+import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 import { isSent, parseAttachments, qbContentType, type QbAttachment } from "@/lib/qbAttachments";
 import { qbSyncNow } from "@/lib/quickbooks.functions";
 
@@ -21,13 +22,20 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
   const ids = row ? [...new Set([row.load_id, ...loads.map((l) => l.id)])] : [];
   useEffect(() => { if (row) { setPicked(parseAttachments(row.attachments)); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
 
-  const { data: files = [], refetch } = useQuery({
+  const { data: raw = [], refetch } = useQuery({
     queryKey: ["qb-attach-files", ...ids],
     enabled: !!row,
     queryFn: async () => (await Promise.all(ids.map(async (id) => ((await supabase.storage.from("load-docs").list(id, { sortBy: { column: "created_at", order: "desc" } })).data ?? [])
       .filter((f) => f.id).map((f) => ({ name: f.name, path: `${id}/${f.name}`, load: loads.find((l) => l.id === id)?.load_number ?? "" }))))).flat(),
   });
+  const { nameOf, rename } = useLoadDocNames(raw.map((f) => f.path));
+  const files = raw.map((f) => ({ ...f, file: f.name, name: nameOf(f.path, f.name) }));
   const items: DocItem[] = files.map((f) => ({ name: f.name, bucket: "load-docs", path: f.path }));
+  const renameFile = async (path: string, n: string) => {
+    const err = await rename(path, n);
+    if (!err) setPicked((x) => x.map((a) => (a.path === path ? { ...a, name: n } : a)));
+    return err;
+  };
   const has = (p: string) => picked.some((a) => a.path === p);
   const toggle = (f: { path: string; name: string }) => setPicked((x) => (has(f.path) ? x.filter((a) => a.path !== f.path) : [...x, { path: f.path, name: f.name }]));
 
@@ -73,6 +81,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
                 <input type="checkbox" checked={done || has(f.path)} disabled={done} onChange={() => toggle(f)} aria-label={`Attach ${f.name}`} />
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <DocLink items={items} index={i} className="min-w-0 flex-1 truncate">{f.name}</DocLink>
+                <RenameDoc name={f.name} original={f.file} onSave={(n) => renameFile(f.path, n)} />
                 {ids.length > 1 && <span className="font-mono text-[10px] text-gold">{f.load}</span>}
                 {done && <span className="text-[10px] text-primary">In QuickBooks</span>}
               </li>

@@ -146,3 +146,7 @@
 ## Invoiced review
 - [x] Admin/accounting alert + review list when a load moves to Invoiced (sync with QuickBooks)
 - [x] Brokers can set a load to Invoiced; it lands on the finance approval list to send to QuickBooks
+
+## Oct 21
+- [x] Rename uploaded documents (load docs, Accounting attachments, carrier docs)
+- [x] Dispatch search still freezes while typing
