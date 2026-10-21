@@ -49,14 +49,16 @@ function Carriers() {
   const [mobileDetail, setMobileDetail] = useState(false);
   const [flt, setFlt] = useState<"all" | "expired" | "soon" | "docs">("all");
   const missingDocs = (c: Carrier) => !c.w9_received || !c.coi_received || !c.agreement_signed || (!!c.factoring_company && !c.noa_received);
+  const hidden = (c: Carrier) => !!c.inactive || c.status === "dnu";
+  const searching = q.trim().length > 0;
   const test = {
-    all: () => true,
-    expired: (c: Carrier) => c.status !== "dnu" && ["expired", "missing"].includes(carrierExpiry(c)),
-    soon: (c: Carrier) => c.status !== "dnu" && carrierExpiry(c) === "soon",
-    docs: (c: Carrier) => c.status !== "dnu" && missingDocs(c),
+    all: (c: Carrier) => !hidden(c),
+    expired: (c: Carrier) => !hidden(c) && ["expired", "missing"].includes(carrierExpiry(c)),
+    soon: (c: Carrier) => !hidden(c) && carrierExpiry(c) === "soon",
+    docs: (c: Carrier) => !hidden(c) && missingDocs(c),
   };
   const rows = data
-    .filter(test[flt])
+    .filter((c) => (searching ? flt === "all" || test[flt](c) || hidden(c) : test[flt](c)))
     .filter((c) => `${c.legal_name} ${c.dba ?? ""} ${c.mc_number} ${c.dot_number}`.toLowerCase().includes(q.toLowerCase()));
   const c = data.find((x) => x.id === sel);
   const refresh = () => qc.invalidateQueries({ queryKey: ["carriers"] });
