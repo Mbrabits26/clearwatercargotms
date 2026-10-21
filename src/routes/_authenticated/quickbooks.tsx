@@ -1,7 +1,8 @@
 import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { qbReviewState } from "@/lib/invoiceReview";
 import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
@@ -64,6 +65,10 @@ type Kind = "invoice" | "fleet_invoice" | "bill";
 const KIND_LABEL: Record<string, string> = { invoice: "Invoice (AR)", fleet_invoice: "Fleet billing (AR)", bill: "Carrier bill (AP)" };
 
 export const Route = createFileRoute("/_authenticated/quickbooks")({
+  validateSearch: (s: Record<string, unknown>): { q?: string; review?: boolean } => ({
+    q: typeof s.q === "string" && s.q ? s.q : undefined,
+    review: s.review === true || s.review === "true" || s.review === 1 || s.review === "1" ? true : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Accounting — Clearwater Cargo TMS" },
@@ -104,7 +109,9 @@ function Accounting() {
   const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
   const [syncing, setSyncing] = useState(false);
   const [reconOpen, setReconOpen] = useState(false);
-  const [q, setQ] = useState("");
+  const search = Route.useSearch();
+  const [q, setQ] = useState(search.q ?? "");
+  const [reviewOnly, setReviewOnly] = useState(!!search.review);
   const [range, setRange] = useState<RangeKey>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -119,7 +126,19 @@ function Accounting() {
   const ap = loads.filter((l) => l.carrier_id && l.pod_received && ["delivered", "invoiced", "paid"].includes(l.status));
   const ap0 = ap.filter((l) => !isFleetLoad(l));
   const [batchOpen, setBatchOpen] = useState(false);
-  const rows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
+  const needsReview = (l: Load) => qbReviewState(l, sync) !== null;
+  // Arriving from the "invoiced loads to review" notice: show only those, on the tab that holds them.
+  useEffect(() => {
+    if (search.q !== undefined) setQ(search.q);
+    if (!search.review) return;
+    setReviewOnly(true);
+    setRange("all"); setFrom(""); setTo(""); setPicked([]);
+    const hit = (list: Load[]) => list.some((l) => needsReview(l) && (!search.q || l.load_number === search.q));
+    setTab(hit(ar) ? "invoice" : hit(fleetAr) ? "fleet_invoice" : "invoice");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.q, search.review]);
+  const tabRows = tab === "invoice" ? ar : tab === "fleet_invoice" ? fleetAr : ap0;
+  const rows = reviewOnly && tab !== "bill" ? tabRows.filter(needsReview) : tabRows;
   const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
   // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs.
   const needle = q.trim().toLowerCase();
