@@ -411,7 +411,7 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-function Cockpit({
+const Cockpit = memo(function Cockpit({
   load, loads, carriers, companies, profiles, isAdmin, canOverride,
 }: {
   load: Load;
@@ -680,7 +680,7 @@ function Cockpit({
       )}
     </div>
   );
-}
+});
 
 function Check({ ok, label }: { ok: boolean; label: string }) {
   return (
