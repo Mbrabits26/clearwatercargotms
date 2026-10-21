@@ -21,8 +21,7 @@
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
 - Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
 - FMCSA/SAFER: `lookupFmcsa` (staff-only server fn, FMCSA_WEBKEY) → carriers.authority_status/safety_rating.
-- Outbound email: `composeEmail`.
-- Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name. getMarketRates: Firecrawl + AI, cached 24h.
+- Email via `composeEmail`. Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name. getMarketRates: Firecrawl + AI, cached 24h.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers see company-wide history, not who earned it.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
@@ -37,8 +36,8 @@
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
-- Data API caps reads at 1000 rows; paginate.
+- Data API caps reads at 1000 rows.
 - Combined invoice = qb_sync rows sharing one invoice_number (batchInvoice.ts), sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
 - Invoice % deductions: qb_sync.deductions; amount stays gross, net = invoiceNet; QB gets negative lines.
-- Carriers.inactive hides a carrier from CarrierPicker's default list only; it stays searchable and picking it reactivates.
+- carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
