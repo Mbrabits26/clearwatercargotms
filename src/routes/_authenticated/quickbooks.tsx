@@ -2,6 +2,9 @@ import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { DatePicker } from "@/components/DatePicker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
 import { toast } from "sonner";
 import { Send, PlugZap, Pencil, Trash2, RotateCcw, Search, Paperclip } from "lucide-react";
 import { QbAttachDialog } from "@/components/QbAttachDialog";
@@ -101,6 +104,9 @@ function Accounting() {
   const [syncing, setSyncing] = useState(false);
   const [reconOpen, setReconOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [range, setRange] = useState<RangeKey>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
@@ -117,8 +123,13 @@ function Accounting() {
   const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
     companies.find((c) => c.id === l.customer_id)?.name, carriers.find((c) => c.id === l.carrier_id)?.legal_name,
     sync.filter((x) => x.load_id === l.id).map((x) => x.invoice_number).join(" ")].join(" ").toLowerCase();
-  const shown = needle ? rows.filter((l) => loadHay(l).includes(needle)) : rows;
-  const shownSync = needle ? sync.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${(() => { const l = loads.find((y) => y.id === x.load_id); return l ? loadHay(l) : ""; })()}`.toLowerCase().includes(needle)) : sync;
+  // Date range: loads by delivery (else pickup) date; sync rows by their load's date, else queued date.
+  const inRange = (d?: string | null) => { if (!from && !to) return true; if (!d) return false; const day = d.slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
+  const loadDay = (l?: Load) => l ? (l.delivery_at ?? l.pickup_at) : null;
+  const rowsR = rows.filter((l) => inRange(loadDay(l)));
+  const syncR = sync.filter((x) => inRange(loadDay(loads.find((y) => y.id === x.load_id)) ?? x.created_at));
+  const shown = needle ? rowsR.filter((l) => loadHay(l).includes(needle)) : rowsR;
+  const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${(() => { const l = loads.find((y) => y.id === x.load_id); return l ? loadHay(l) : ""; })()}`.toLowerCase().includes(needle)) : syncR;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
     const gross = loadTotals(l).cost;
@@ -300,9 +311,19 @@ function Accounting() {
           <TabsTrigger value="log">Sync log</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="relative max-w-md">
+      <div className="flex flex-wrap items-end gap-2">
+      <label className="text-xs text-muted-foreground">Date range
+        <Select value={range} onValueChange={(v) => { setRange(v as RangeKey); setPicked([]); const r = rangeFor(v as RangeKey); if (r) { setFrom(r[0]); setTo(r[1]); } }}>
+          <SelectTrigger className="mt-1 w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>{rangeOptions().map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+        </Select>
+      </label>
+      <label className="text-xs text-muted-foreground">From<DatePicker className="mt-1" value={from} onChange={(v) => { setRange("custom"); setFrom(v); setPicked([]); }} /></label>
+      <label className="text-xs text-muted-foreground">To<DatePicker className="mt-1" value={to} onChange={(v) => { setRange("custom"); setTo(v); setPicked([]); }} /></label>
+      <div className="relative min-w-64 flex-1 max-w-md">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input className="pl-8" placeholder="Search load #, invoice #, customer, carrier or city" value={q} onChange={(e) => { setQ(e.target.value); setPicked([]); }} />
+      </div>
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
@@ -331,7 +352,7 @@ function Accounting() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!shownSync.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{needle ? "No matches." : "Nothing sent yet."}</TableCell></TableRow>}
+              {!shownSync.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{needle || from || to ? "No matches." : "Nothing sent yet."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         ) : (
@@ -392,7 +413,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
-              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{needle && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
