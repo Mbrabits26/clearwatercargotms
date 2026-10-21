@@ -19,7 +19,7 @@
 - Carrier onboarding portal (/onboard/$token) is public; it only touches data through server functions that validate the invite token, then use the admin client. Documents live in the private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails are granted admin by the grant_named_admins trigger only after email verification; edit that function's list to change them.
-- Dispatch document extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON schema); spreadsheets are converted to CSV text in the browser first. New directory entities typed in the load builder are created on save.
+- Doc extraction: server-side `extract.server.ts` (Lovable AI, strict JSON); spreadsheets → CSV in browser first.
 - FMCSA/SAFER: `lookupFmcsa` (staff-only server fn, FMCSA_WEBKEY) → carriers.authority_status/safety_rating.
 - Email via `composeEmail`. Chat channels: 'team' or sorted 'dm:<a>:<b>'; RLS checks membership by name. getMarketRates: Firecrawl + AI, cached 24h.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
@@ -32,7 +32,7 @@
 - Driver pings geocode server-side.
 - `DocPreview` previews docs in-page. RC tracking: `applyTrackingFee` splits $200 out of carrier pay; editor shows split lines, load stores unsplit.
 - AR invoice numbers + QuickBooks class come from the `assign_invoice_number` trigger on qb_sync: invoice → INV-, fleet_invoice (loads with truck_id) → FF- and the fleet entity letterhead (FF in invoice.ts). Carrier bills store gross, quickpay_fee and net.
-- Carrier problems come from `carrierIssues` (tms.ts); `fixCarrierWithAi` (carrierFix.functions.ts) reads stored carrier-docs + FMCSA and only fills blank fields via mergeFill, preview-then-apply.
+- `fixCarrierWithAi` reads carrier-docs + FMCSA, fills blanks only (mergeFill), preview-then-apply.
 - Role changes go through `setUserAdmin` server-side (no self-demotion, always ≥1 admin); password resets are verified by a test sign-in.
 - Deletes go through shared ConfirmDelete; log_deletion snapshots rows into deletion_log; FKs on loads/quotes/leads are ON DELETE SET NULL.
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
@@ -41,3 +41,4 @@
 - Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
 - qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent).
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
+- Carrier pay due: `carrierPay.ts`, clock = loads.pod_received_at (trigger-stamped); carrier_paid_* finance-only (stamp_load_pay_fields); bank info in finance-only carrier_payment_accounts.
