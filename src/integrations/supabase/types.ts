@@ -251,6 +251,7 @@ export type Database = {
           factoring_remit: string | null
           factoring_remit_address: string | null
           id: string
+          inactive: boolean
           insurance_expires: string | null
           legal_name: string
           mc_number: string | null
@@ -287,6 +288,7 @@ export type Database = {
           factoring_remit?: string | null
           factoring_remit_address?: string | null
           id?: string
+          inactive?: boolean
           insurance_expires?: string | null
           legal_name: string
           mc_number?: string | null
@@ -323,6 +325,7 @@ export type Database = {
           factoring_remit?: string | null
           factoring_remit_address?: string | null
           id?: string
+          inactive?: boolean
           insurance_expires?: string | null
           legal_name?: string
           mc_number?: string | null
