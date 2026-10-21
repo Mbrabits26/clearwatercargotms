@@ -107,7 +107,7 @@ export function LoadBuilderDialog({
       pickup_at: toLocal(l.pickup_at), delivery_at: toLocal(l.delivery_at), equipment: l.equipment,
       commodity: s(l.commodity), weight_lbs: s(l.weight_lbs), pieces: s(l.pieces), temperature: s(l.temperature), miles: s(l.miles),
       customer_rate: s(l.customer_rate), carrier_rate: s(l.carrier_rate), pickup_notes: s(l.pickup_notes), delivery_notes: s(l.delivery_notes),
-      ship_ref: s(l.ship_ref), dest_ref: s(l.dest_ref),
+      ship_ref: s(l.ship_ref), dest_ref: s(l.dest_ref), bill_through: l.bill_through ?? "auto",
     });
     const p = (id: string | null): Party => { const c = companies.find((x) => x.id === id); return c ? { id: c.id, name: c.name } : EMPTY; };
     setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
@@ -223,6 +223,7 @@ export function LoadBuilderDialog({
         pickup_notes: f.pickup_notes || null, delivery_notes: f.delivery_notes || null,
         customer_rate: num("customer_rate") ?? 0, carrier_rate: num("carrier_rate") ?? 0,
         ship_ref: f.ship_ref || null, dest_ref: f.dest_ref || null,
+        bill_through: f.bill_through === "invoice" || f.bill_through === "fleet_invoice" ? f.bill_through : null,
       };
       // Optional carrier: attach only when it passes the safety checks; a new typed name is added as pending but not attached.
       let carrier_id: string | null = null;
@@ -368,6 +369,16 @@ export function LoadBuilderDialog({
           <L label="Commodity"><Input value={f.commodity ?? ""} onChange={set("commodity")} /></L>
           <L label="Weight (lbs)"><Input type="number" value={f.weight_lbs ?? ""} onChange={set("weight_lbs")} /></L>
           <L label="Pieces"><Input type="number" value={f.pieces ?? ""} onChange={set("pieces")} /></L>
+          <L label="Bill customer through">
+            <Select value={f.bill_through ?? "auto"} onValueChange={(v) => setF((p) => ({ ...p, bill_through: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Automatic (our trucks → Foust, others → Clearwater)</SelectItem>
+                <SelectItem value="invoice">Clearwater Cargo</SelectItem>
+                <SelectItem value="fleet_invoice">Foust Farms</SelectItem>
+              </SelectContent>
+            </Select>
+          </L>
           <L label="Customer rate ($)"><Input type="number" value={f.customer_rate ?? ""} onChange={set("customer_rate")} /></L>
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
           <L label="Shipper ref / BOL #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
