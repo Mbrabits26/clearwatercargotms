@@ -361,8 +361,9 @@ function Dispatch() {
           )}
         </section>
       </div>
-      <LoadBuilderDialog open={builder} onOpenChange={setBuilder} companies={companies} onCreated={(id) => setSelectedId(id)} />
-      <BulkLoadsDialog open={bulk} onOpenChange={setBulk} companies={companies} />
+      {/* Mounted only while open: these forms build long company lists, which made typing in search freeze. */}
+      {builder && <LoadBuilderDialog open onOpenChange={setBuilder} companies={companies} onCreated={(id) => setSelectedId(id)} />}
+      {bulk && <BulkLoadsDialog open onOpenChange={setBulk} companies={companies} />}
     </div>
   );
 }
@@ -672,7 +673,7 @@ const Cockpit = memo(function Cockpit({
         </Panel>
         </TabsContent>
       </Tabs>
-      <LoadBuilderDialog open={editing} onOpenChange={setEditing} companies={companies} editLoad={load} onCreated={() => {}} />
+      {editing && <LoadBuilderDialog open onOpenChange={setEditing} companies={companies} editLoad={load} onCreated={() => {}} />}
       {carrier?.status === "dnu" && (
         <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" /> Assigned carrier is now on the Do Not Use list ({carrier.dnu_reason}). Reassign immediately.
