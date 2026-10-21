@@ -121,7 +121,7 @@ export function CarrierPayDue() {
               <div className="min-h-0 flex-1 overflow-auto rounded border">
                 <table className="w-full min-w-[700px] text-sm">
                   <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-2">Carrier</th><th className="p-2">Pay to</th><th className="p-2">Terms</th><th className="p-2">Loads</th><th className="p-2">Newest POD</th><th className="p-2">Next due</th><th className="p-2 text-right">Net to pay</th></tr>
+                    <tr><th className="p-2">Carrier</th><th className="p-2">Pay to</th><th className="p-2">Terms</th><th className="p-2">Loads</th><th className="p-2">Newest</th><th className="p-2">Next due</th><th className="p-2 text-right">Net to pay</th></tr>
                   </thead>
                   <tbody>
                     {list.map((g) => {
