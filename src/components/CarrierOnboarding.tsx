@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, FileText, Link2, Mail, Upload } from "lucide-react";
 import { DocLink, type DocItem } from "@/components/DocPreview";
+import { RenameDoc } from "@/components/RenameDoc";
 import { supabase } from "@/integrations/supabase/client";
 import { DOC_KINDS, expiryState, fmtDate, type Carrier, type ExpiryState } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -122,10 +123,15 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
       <ul className="divide-y text-sm">
         {docs.map((d) => (
           <li key={d.id} className="flex items-center justify-between py-1.5">
-            <span className="flex items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <b className="text-xs uppercase text-gold">{d.kind === "packet" ? "Full carrier packet" : DOC_KINDS.find((k) => k.value === d.kind)?.label}</b>
               {d.file_path ? <DocLink items={fileDocs} index={fileDocs.findIndex((x) => x.path === d.file_path)}>{d.file_name}</DocLink> : <span>{d.file_name}</span>}
+              <RenameDoc name={d.file_name ?? d.kind} original={d.file_name || d.file_path} onSave={async (n) => {
+                const { error } = await supabase.from("carrier_documents").update({ file_name: n }).eq("id", d.id);
+                if (error) return error.message;
+                qc.invalidateQueries({ queryKey: key });
+              }} />
             </span>
             <span className="text-xs text-muted-foreground">{d.source} · {fmtDate(d.uploaded_at)}</span>
           </li>

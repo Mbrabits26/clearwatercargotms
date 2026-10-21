@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DocLink, type DocItem } from "@/components/DocPreview";
+import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 
 const label = (n: string) => {
   const k = n.split("-")[0]!.toLowerCase();
@@ -21,8 +22,10 @@ export function LoadDocs({ loadId }: { loadId: string }) {
     queryFn: async () => (await supabase.storage.from("load-docs").list(loadId, { sortBy: { column: "created_at", order: "desc" } })).data ?? [],
   });
   // Invoices and carrier bills live only in the Accounting (billing) section.
-  const items: DocItem[] = files.filter((f) => f.id && !/^(invoice|carrier_invoice)-/i.test(f.name))
-    .map((f) => ({ name: f.name, bucket: "load-docs", path: `${loadId}/${f.name}` }));
+  const stored = files.filter((f) => f.id && !/^(invoice|carrier_invoice)-/i.test(f.name));
+  const { nameOf, rename } = useLoadDocNames(stored.map((f) => `${loadId}/${f.name}`));
+  const items: (DocItem & { path: string; file: string })[] = stored
+    .map((f) => ({ file: f.name, name: nameOf(`${loadId}/${f.name}`, f.name), bucket: "load-docs", path: `${loadId}/${f.name}` }));
   const upload = async (file?: File) => {
     if (!file) return;
     setBusy(true);
@@ -38,8 +41,9 @@ export function LoadDocs({ loadId }: { loadId: string }) {
         {items.map((d, i) => (
           <li key={d.path} className="flex items-center gap-2 py-1.5">
             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <b className="text-xs uppercase text-gold">{label(d.name)}</b>
-            <DocLink items={items} index={i} className="truncate">{d.name}</DocLink>
+            <b className="text-xs uppercase text-gold">{label(d.file)}</b>
+            <DocLink items={items} index={i} className="min-w-0 truncate">{d.name}</DocLink>
+            <RenameDoc name={d.name} original={d.file} onSave={(n) => rename(d.path, n)} />
           </li>
         ))}
         {!items.length && <li className="py-2 text-xs text-muted-foreground">No documents yet. Driver POD/BOL uploads and signed rate cons appear here.</li>}
