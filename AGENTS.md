@@ -43,3 +43,4 @@
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
 - Carrier pay due: `carrierPay.ts`, clock = loads.pod_received_at (trigger-stamped); carrier_paid_* finance-only (stamp_load_pay_fields); bank info in finance-only carrier_payment_accounts.
 - Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.
+- Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path. Heavy dialogs on Dispatch mount only while open.

@@ -149,4 +149,4 @@
 
 ## Oct 21
 - [x] Rename uploaded documents (load docs, Accounting attachments, carrier docs)
-- [ ] Dispatch search still freezes while typing
+- [x] Dispatch search still freezes while typing
