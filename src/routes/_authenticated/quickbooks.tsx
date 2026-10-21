@@ -365,7 +365,7 @@ function Accounting() {
                 <TableHead className="w-8">
                   <input type="checkbox" checked={picked.length > 0 && picked.length === shown.length} onChange={(e) => setPicked(e.target.checked ? shown.map((r) => r.id) : [])} />
                 </TableHead>
-                <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : tab === "fleet_invoice" ? "Bill outside broker" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
+                <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -422,14 +422,14 @@ function Accounting() {
         )}
       </div>
       {viewer.viewer}
-      <EditSyncDialog row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <QbAttachDialog row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
         onClose={() => setAttaching(null)} onSaved={() => { setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
     </div>
   );
 }
 
-function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClose: () => void; onSaved: () => void }) {
+function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow | null; groupSize?: number; onClose: () => void; onSaved: () => void }) {
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
   const [terms, setTerms] = useState("");
@@ -439,7 +439,10 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
   const [dLabel, setDLabel] = useState<string>(DEDUCTION_PRESETS[0] ?? "QuickPay fee");
   const [dOther, setDOther] = useState("");
   const [dPct, setDPct] = useState("");
+  const [kind, setKind] = useState("invoice");
   const isInvoice = row?.kind !== "bill";
+  const locked = !!row && (row.status === "sent" || !!row.qb_ref);
+  const companyName = (k?: string | null) => (k === "fleet_invoice" ? "Foust Farms" : "Clearwater Cargo");
   if (row && openFor !== row.id) {
     setOpenFor(row.id);
     setPayee(row.payee ?? "");
@@ -447,6 +450,7 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     setTerms(row.terms ?? "");
     setDue(row.due_date ?? "");
     setDeds(parseDeductions(row.deductions));
+    setKind(row.kind);
   }
   const addDed = () => {
     const pct = Number(dPct);
@@ -468,10 +472,15 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
     const changes = diff([
       { label: "Payee / customer", before: row.payee, after: payee.trim() },
       { label: "Amount", before: row.amount, after: amt },
-      ...(isInvoice ? [{ label: "Payment terms", before: row.terms, after: terms }, { label: "Due date", before: row.due_date, after: due }, { label: "Deductions", before: fmtDeds(row.deductions), after: fmtDeds(deds) }] : []),
+      ...(isInvoice ? [{ label: "Bill through", before: companyName(row.kind), after: companyName(kind) }, { label: "Payment terms", before: row.terms, after: terms }, { label: "Due date", before: row.due_date, after: due }, { label: "Deductions", before: fmtDeds(row.deductions), after: fmtDeds(deds) }] : []),
     ]);
     if (!changes.length) return toast.info("No changes to save.");
     if (!(await ask(changes))) return;
+    if (isInvoice && kind !== row.kind) {
+      const { data: num, error: kErr } = await supabase.rpc("set_invoice_company", { p_id: row.id, p_kind: kind });
+      if (kErr) return toast.error(kErr.message);
+      toast.success(`Now billed through ${companyName(kind)} as ${num}.`);
+    }
     const patch = { payee: payee.trim() || null, amount: amt, ...(isInvoice ? { terms: terms || null, due_date: due || null, deductions: deds } : {}) };
     const { error } = await supabase.from("qb_sync").update(patch).eq("id", row.id);
     if (error) return toast.error(error.message);
@@ -492,6 +501,14 @@ function EditSyncDialog({ row, onClose, onSaved }: { row: SyncRow | null; onClos
             <Input className="mt-1" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           {isInvoice && <>
+            <label className="block text-xs text-muted-foreground">Bill the customer through
+              <select className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground disabled:opacity-60" value={kind} disabled={locked} onChange={(e) => setKind(e.target.value)}>
+                <option value="invoice">Clearwater Cargo (INV-, Clearwater QuickBooks)</option>
+                <option value="fleet_invoice">Foust Farms (FF-, Foust QuickBooks)</option>
+              </select>
+              {locked ? <span className="mt-1 block text-[10px]">Already in QuickBooks — the company can't change now.</span>
+                : kind !== row?.kind && <span className="mt-1 block text-[10px] text-warning">Gets a new {kind === "fleet_invoice" ? "FF-" : "INV-"} invoice number{groupSize > 1 ? ` (all ${groupSize} loads on this combined invoice move together)` : ""}. Re-send the PDF if the customer already has the old one.</span>}
+            </label>
             <label className="block text-xs text-muted-foreground">Payment terms
               <select className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground" value={terms} onChange={(e) => pickTerms(e.target.value)}>
                 <option value="">Customer default</option>
