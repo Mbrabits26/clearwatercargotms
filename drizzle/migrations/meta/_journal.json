@@ -267,6 +267,13 @@
       "when": 1792582048330,
       "tag": "0037_qb_invoice_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792587616538,
+      "tag": "0038_carrier_pay_due",
+      "breakpoints": true
     }
   ]
 }

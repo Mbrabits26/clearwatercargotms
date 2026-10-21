@@ -177,6 +177,56 @@ export type Database = {
           },
         ]
       }
+      carrier_payment_accounts: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          account_type: string | null
+          bank_name: string | null
+          carrier_id: string
+          method: string
+          notes: string | null
+          remit_email: string | null
+          routing_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          carrier_id: string
+          method?: string
+          notes?: string | null
+          remit_email?: string | null
+          routing_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          carrier_id?: string
+          method?: string
+          notes?: string | null
+          remit_email?: string | null
+          routing_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_payment_accounts_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: true
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carrier_signatures: {
         Row: {
           carrier_id: string
@@ -932,6 +982,9 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           carrier_id: string | null
+          carrier_paid_at: string | null
+          carrier_paid_by: string | null
+          carrier_paid_ref: string | null
           carrier_rate: number
           closed_at: string | null
           closed_by: string | null
@@ -963,6 +1016,7 @@ export type Database = {
           pickup_notes: string | null
           pieces: number | null
           pod_received: boolean
+          pod_received_at: string | null
           ratecon_pdf_path: string | null
           ratecon_signed: boolean
           ship_ref: string | null
@@ -981,6 +1035,9 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           carrier_id?: string | null
+          carrier_paid_at?: string | null
+          carrier_paid_by?: string | null
+          carrier_paid_ref?: string | null
           carrier_rate?: number
           closed_at?: string | null
           closed_by?: string | null
@@ -1012,6 +1069,7 @@ export type Database = {
           pickup_notes?: string | null
           pieces?: number | null
           pod_received?: boolean
+          pod_received_at?: string | null
           ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
           ship_ref?: string | null
@@ -1030,6 +1088,9 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           carrier_id?: string | null
+          carrier_paid_at?: string | null
+          carrier_paid_by?: string | null
+          carrier_paid_ref?: string | null
           carrier_rate?: number
           closed_at?: string | null
           closed_by?: string | null
@@ -1061,6 +1122,7 @@ export type Database = {
           pickup_notes?: string | null
           pieces?: number | null
           pod_received?: boolean
+          pod_received_at?: string | null
           ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
           ship_ref?: string | null

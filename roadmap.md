@@ -138,3 +138,7 @@
 - [x] Accounting search bar: find loads to invoice and invoices to edit
 - [x] Dispatch board sorted by priority: available → booked → dispatched → in transit → delivered…
 - [x] Dispatch alerts for late pickups and late deliveries
+
+## Carrier pay notice (Oct 2026)
+- [x] Admin/accountant notice for carriers due to be paid (Quick Pay on POD, Net 30 near due) with pay details, payment account info, mark paid
+- [x] Carriers and loads in the pay notice listed newest to oldest
