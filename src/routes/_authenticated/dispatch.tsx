@@ -213,7 +213,7 @@ function Dispatch() {
                     <tr key={l.id} className="border-t hover:bg-muted/50">
                       <td className="p-2 font-semibold">{l.load_number}</td>
                       <td className="p-2">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
-                      <td className="p-2">{alertView.kind === "inv" ? cName.get(l.customer_id ?? "") ?? "—" : kName.get(l.carrier_id ?? "") ?? (isFleetLoad(l) ? "Company truck" : "—")}</td>
+                      <td className="p-2">{alertView.kind === "inv" ? companies.find((c) => c.id === l.customer_id)?.name ?? "—" : carriers.find((c) => c.id === l.carrier_id)?.legal_name ?? (isFleetLoad(l) ? "Company truck" : "—")}</td>
                       <td className="p-2">{alertView.kind === "calls" ? fmtDate(l.last_check_call) : fmtDate(l.delivery_at)}{alertView.kind === "inv" && l.delivery_at && <span className="text-destructive"> · {Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)}d</span>}</td>
                       <td className="p-2 text-right">{alertView.kind === "inv" ? usd(loadTotals(l).revenue) : alertView.kind === "pay" ? usd(loadTotals(l).cost) : statusMeta(l.status).label}</td>
                       <td className="p-2 text-right"><Button size="sm" variant="outline" onClick={() => { setSelectedId(l.id); setMobileDetail(true); setAlertView(null); }}>Open load</Button></td>
