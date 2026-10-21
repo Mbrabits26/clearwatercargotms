@@ -29,7 +29,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [draft, setDraft] = useState<RateConData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [work, setWork] = useState<RateConData | null>(null);
-  useEffect(() => { setDraft(null); }, [load.id, carrier?.id]);
+  // Load pay (linehaul + fees) changed elsewhere → drop the stale edit so the rate con reflects it.
+  const paySig = `${load.carrier_rate}|${JSON.stringify(load.accessorials ?? [])}`;
+  const [draftSig, setDraftSig] = useState<string | null>(null);
+  useEffect(() => { setDraft(null); setDraftSig(null); }, [load.id, carrier?.id]);
+  useEffect(() => { if (draftSig !== null && draftSig !== paySig) { setDraft(null); setDraftSig(null); } }, [paySig, draftSig]);
   const [ccMe, setCcMe] = useState(true);
   const [tracking, setTracking] = useState(true);
   const [myEmail, setMyEmail] = useState("");
@@ -54,6 +58,23 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     viewer.show(buildRateConPdf(rcData()).output("blob"), `RateCon-${load.load_number}.pdf`);
   };
   const openEdit = () => { if (!carrier) return; setWork(applyTrackingFee(rcData(), false)); setEditOpen(true); };
+  const saveDraft = async () => {
+    if (!work) return;
+    const lines = work.lines.filter((l) => l.label.trim());
+    const linehaul = lines.find((l) => l.label.trim().toLowerCase() === "linehaul");
+    let sig = paySig;
+    // Linehaul edits update the load's carrier pay so the money tab, AP and rate con agree.
+    if (linehaul && Number(linehaul.amount) !== Number(load.carrier_rate)) {
+      const { error } = await supabase.from("loads").update({ carrier_rate: linehaul.amount }).eq("id", load.id);
+      if (error) return toast.error(error.message);
+      sig = `${linehaul.amount}|${JSON.stringify(load.accessorials ?? [])}`;
+      onSaved();
+    }
+    setDraft({ ...work, lines, total: lines.reduce((a, l) => a + l.amount, 0) });
+    setDraftSig(sig);
+    setEditOpen(false);
+    toast.success("Rate con updated. Send it for signature when ready.");
+  };
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
   const send = async () => {
     if (!carrier) return;
@@ -168,7 +189,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
           <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Edit rate con · RC #{load.load_number}</DialogTitle></DialogHeader>
           {work && (
             <div className="space-y-3 text-xs">
-              <p className="text-muted-foreground">Changes apply to this rate con only. That's what the carrier sees and signs.</p>
+              <p className="text-muted-foreground">Linehaul changes also update the load's carrier pay. Other edits apply to this rate con only. If carrier pay or fees change on the load later, this rate con refreshes to match.</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label>Lane<Input value={work.lane} onChange={(e) => W("lane", e.target.value)} /></label>
                 <label>Pickup date<Input value={work.pickup} onChange={(e) => W("pickup", e.target.value)} /></label>
@@ -210,7 +231,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
                 <Button variant="secondary" onClick={() => viewer.show(buildRateConPdf(applyTrackingFee(work, tracking)).output("blob"), `RateCon-${load.load_number}.pdf`)}>Preview</Button>
-                <Button onClick={() => { setDraft({ ...work, lines: work.lines.filter((l) => l.label.trim()), total: work.lines.filter((l) => l.label.trim()).reduce((a, l) => a + l.amount, 0) }); setEditOpen(false); toast.success("Rate con updated. Send it for signature when ready."); }}>Save rate con</Button>
+                <Button onClick={saveDraft}>Save rate con</Button>
               </div>
             </div>
           )}

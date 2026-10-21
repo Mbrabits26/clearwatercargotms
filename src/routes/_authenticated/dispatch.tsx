@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, recentLoadsQuery, profilesQuery } from "@/lib/queries";
 import {
   PAY_TERMS, effectivePayTerms,
-  STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, carrierCompliance, checkCallOverdue,
+  STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, FLEET_CARRIER_ID, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
 import { RateConPanel } from "@/components/RateConPanel";
@@ -369,7 +369,8 @@ function Cockpit({
   const qc = useQueryClient();
   const { data: laneHist = loads } = useQuery(laneHistoryQuery());
   const { user } = useRouteContext({ from: "/_authenticated" });
-  const carrier = carriers.find((c) => c.id === load.carrier_id);
+  // Company-truck loads without a carrier record use Foust Farms Trucking so rate cons still work.
+  const carrier = carriers.find((c) => c.id === load.carrier_id) ?? (isFleetLoad(load) ? carriers.find((c) => c.id === FLEET_CARRIER_ID) : undefined);
   const shipper = companies.find((c) => c.id === load.shipper_id);
   const consignee = companies.find((c) => c.id === load.consignee_id);
   const customer = companies.find((c) => c.id === load.customer_id);
