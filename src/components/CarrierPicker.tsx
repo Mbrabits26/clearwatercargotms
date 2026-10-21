@@ -50,7 +50,7 @@ export function CarrierPicker({ carriers, currentId, onPick, onAdded, isAdmin }:
     queryFn: async () => (await supabase.from("loads").select("carrier_id, created_at").not("carrier_id", "is", null).order("created_at", { ascending: false }).limit(200)).data ?? [],
   });
   const recent = useMemo(() => {
-    const active = new Map(carriers.filter((c) => !c.inactive).map((c) => [c.id, c]));
+    const active = new Map(carriers.filter((c) => !c.inactive && c.status !== "dnu").map((c) => [c.id, c]));
     const events = [
       ...recentUse.map((r) => ({ id: r.carrier_id as string, at: r.created_at })),
       ...carriers.map((c) => ({ id: c.id, at: c.created_at })),
