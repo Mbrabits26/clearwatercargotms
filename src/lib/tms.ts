@@ -209,8 +209,8 @@ export const termsDays = (t: string | null | undefined) => (t === "Due on receip
 const BOARD_ORDER: LoadStatus[] = ["available", "vetting", "booked", "dispatched", "rolling", "issue", "delivered", "invoiced", "paid", "cancelled"];
 export function sortForBoard<T extends Pick<Load, "status" | "pickup_at">>(loads: T[]): T[] {
   const rank = (s: LoadStatus) => { const i = BOARD_ORDER.indexOf(s); return i < 0 ? BOARD_ORDER.length : i; };
-  const at = (l: T) => (l.pickup_at ? new Date(l.pickup_at).getTime() : Number.MAX_SAFE_INTEGER);
-  return [...loads].sort((a, b) => rank(a.status) - rank(b.status) || at(a) - at(b));
+  const at = (l: T) => (l.pickup_at ? new Date(l.pickup_at).getTime() : 0);
+  return [...loads].sort((a, b) => rank(a.status) - rank(b.status) || at(b) - at(a));
 }
 
 /** Appointment deadline: a time-of-day appointment gets 1h grace; a date-only (midnight) one runs to end of day. */
