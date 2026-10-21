@@ -7,7 +7,11 @@ export type InvoiceMode = "individual" | "consolidated";
 export const invoiceable = (l: Load) => l.status === "delivered" || l.status === "invoiced";
 export type InvoiceKind = "invoice" | "fleet_invoice";
 /** Default billing company: our own trucks bill through Foust Farms, everything else through Clearwater. */
-export const invoiceKind = (l: Load): InvoiceKind => (isFleetLoad(l) ? "fleet_invoice" : "invoice");
+export const invoiceKind = (l: Load): InvoiceKind => {
+  const b = (l as Load & { bill_through?: string | null }).bill_through;
+  if (b === "invoice" || b === "fleet_invoice") return b;
+  return isFleetLoad(l) ? "fleet_invoice" : "invoice";
+};
 /** "auto" keeps each load's default; otherwise every load bills through the chosen company. */
 export type BillThrough = "auto" | InvoiceKind;
 export const kindFor = (l: Load, bill: BillThrough = "auto"): InvoiceKind => (bill === "auto" ? invoiceKind(l) : bill);
