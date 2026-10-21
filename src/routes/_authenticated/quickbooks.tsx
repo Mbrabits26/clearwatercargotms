@@ -385,11 +385,9 @@ function Accounting() {
                         {s && isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
                         {s && <Button size="sm" variant="ghost" className="h-8 px-2" title="Attach documents for QuickBooks" onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</Button>}
                         {s && s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                      </div>
-                      {s?.attach_error && <div className="mt-1 max-w-56 text-[10px] text-destructive">Attachments: {s.attach_error}</div>}
-                      <div className="hidden">
                         {s && isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                       </div>
+                      {s?.attach_error && <div className="mt-1 max-w-56 text-[10px] text-destructive">Attachments: {s.attach_error}</div>}
                     </TableCell>
                   </TableRow>
                 );
