@@ -1,0 +1,1 @@
+ALTER TABLE public.loads ADD COLUMN IF NOT EXISTS customer_ref text;
