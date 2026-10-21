@@ -7,18 +7,23 @@ export const isQuickPay = (t: PayTerms) => t === "quickpay" || t === "factored_q
 
 export type PayCarrier = Pick<Carrier, "id" | "legal_name" | "pay_terms" | "factoring_company" | "factoring_remit" | "factoring_remit_address" | "noa_received" | "address" | "city" | "state" | "zip">;
 
-/** Brokered load with a carrier, POD in, and the carrier not yet marked paid. */
-export const owesCarrier = (l: Load) =>
-  !!l.carrier_id && l.pod_received && !l.carrier_paid_at && !isFleetLoad(l) && ["delivered", "invoiced", "paid"].includes(l.status);
+/**
+ * Brokered load with a carrier that hasn't been marked paid, once the POD is in OR the customer
+ * has been invoiced (status Invoiced or an invoice exists) — so cleaned-up older loads still show.
+ */
+export const owesCarrier = (l: Load, hasInvoice = false) =>
+  !!l.carrier_id && !l.carrier_paid_at && !isFleetLoad(l) && ["delivered", "invoiced", "paid"].includes(l.status)
+  && (l.pod_received || hasInvoice || l.status === "invoiced");
 
 /** Pay math + due date for one load. Clock starts when the POD came in. */
 export function carrierPayDue(l: Load, carrier: PayCarrier | null | undefined, now = Date.now()) {
   const pt = effectivePayTerms(l, carrier);
   const gross = loadTotals(l).cost;
   const fee = Math.round(gross * pt.fee * 100) / 100;
-  const start = new Date(l.pod_received_at ?? l.delivery_at ?? l.created_at).getTime();
+  // Clock starts at the POD; without one (older loads) it starts at delivery.
+  const start = new Date((l.pod_received ? l.pod_received_at : null) ?? l.delivery_at ?? l.pod_received_at ?? l.created_at).getTime();
   const due = start + payDays(pt.value) * DAY;
-  return { pt, gross, fee, net: Math.round((gross - fee) * 100) / 100, podAt: start, due, daysLeft: Math.ceil((due - now) / DAY), quickPay: isQuickPay(pt.value) };
+  return { fromPod: !!l.pod_received && !!l.pod_received_at, pt, gross, fee, net: Math.round((gross - fee) * 100) / 100, podAt: start, due, daysLeft: Math.ceil((due - now) / DAY), quickPay: isQuickPay(pt.value) };
 }
 
 /** Quick Pay shows the moment the POD is in; Net 30 shows once it is within `leadDays` of due (or past due). */
