@@ -44,6 +44,15 @@ describe("carrier pay due", () => {
     expect(owesCarrier(load({ carrier_id: FLEET_CARRIER_ID }))).toBe(false);
     expect(owesCarrier(load({ status: "rolling" }))).toBe(false);
   });
+  it("an invoiced older load without a POD is still owed, clocked from delivery", () => {
+    const old = load({ pod_received: false, pod_received_at: null, delivery_at: "2026-01-05T12:00:00Z" });
+    expect(owesCarrier(old)).toBe(false);
+    expect(owesCarrier(old, true)).toBe(true);
+    expect(owesCarrier(load({ pod_received: false, pod_received_at: null, status: "invoiced" }))).toBe(true);
+    const d = carrierPayDue(old, carrier(), t0);
+    expect(d.due).toBe(new Date("2026-01-05T12:00:00Z").getTime() + 30 * DAY);
+    expect(shouldNotify(d, 3)).toBe(true);
+  });
   it("factored carriers are paid to the factoring company", () => {
     const p = payTo(carrier({ factoring_company: "RTS Financial", factoring_remit_address: "PO Box 1, Dallas TX" }));
     expect(p.name).toBe("RTS Financial");

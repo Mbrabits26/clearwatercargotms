@@ -34,10 +34,23 @@ export function CarrierPayDue() {
     staleTime: 30_000,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data: loads, error } = await supabase.from("loads").select("*").eq("pod_received", true).is("carrier_paid_at", null)
-        .not("carrier_id", "is", null).in("status", ["delivered", "invoiced", "paid"]).order("pod_received_at", { ascending: false, nullsFirst: false }).limit(1000);
-      if (error) throw error;
-      const owed = (loads ?? []).filter(owesCarrier);
+      const statuses = ["delivered", "invoiced", "paid"] as const;
+      // 1) POD in or marked Invoiced; 2) any load with a customer invoice (older loads cleaned up without a POD).
+      const [a, b] = await Promise.all([
+        supabase.from("loads").select("*").or("pod_received.eq.true,status.eq.invoiced").is("carrier_paid_at", null)
+          .not("carrier_id", "is", null).in("status", [...statuses]).order("pod_received_at", { ascending: false, nullsFirst: false }).limit(1000),
+        supabase.from("loads").select("*, qb_sync!inner(kind)").in("qb_sync.kind", ["invoice", "fleet_invoice"]).is("carrier_paid_at", null)
+          .not("carrier_id", "is", null).in("status", [...statuses]).limit(1000),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      const invoiced = new Set((b.data ?? []).map((l) => l.id));
+      const byId = new Map<string, Load>();
+      for (const row of [...(a.data ?? []), ...(b.data ?? [])]) {
+        const { qb_sync: _x, ...l } = row as Load & { qb_sync?: unknown };
+        if (!byId.has(l.id)) byId.set(l.id, l as Load);
+      }
+      const owed = [...byId.values()].filter((l) => owesCarrier(l, invoiced.has(l.id)));
       const ids = [...new Set(owed.map((l) => l.carrier_id!))];
       const [cs, bills] = await Promise.all([
         ids.length ? supabase.from("carriers").select("*").in("id", ids) : Promise.resolve({ data: [] as Carrier[] }),
@@ -95,7 +108,7 @@ export function CarrierPayDue() {
         <DialogContent className="flex h-[88dvh] w-[96vw] flex-col gap-3 sm:max-w-5xl">
           <DialogHeader className="shrink-0">
             <DialogTitle className="font-display text-2xl uppercase">{current ? current.carrier?.legal_name ?? "Carrier" : "Carriers to pay"}</DialogTitle>
-            <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest POD first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
+            <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
           </DialogHeader>
           {current ? (
             <PayDetail group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
@@ -103,12 +116,12 @@ export function CarrierPayDue() {
             <>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant={scope === "due" ? "default" : "outline"} onClick={() => setScope("due")}>Due now ({dueGroups.length})</Button>
-                <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid with POD ({groups.length})</Button>
+                <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid ({groups.length})</Button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto rounded border">
                 <table className="w-full min-w-[700px] text-sm">
                   <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-2">Carrier</th><th className="p-2">Pay to</th><th className="p-2">Terms</th><th className="p-2">Loads</th><th className="p-2">Newest POD</th><th className="p-2">Next due</th><th className="p-2 text-right">Net to pay</th></tr>
+                    <tr><th className="p-2">Carrier</th><th className="p-2">Pay to</th><th className="p-2">Terms</th><th className="p-2">Loads</th><th className="p-2">Newest</th><th className="p-2">Next due</th><th className="p-2 text-right">Net to pay</th></tr>
                   </thead>
                   <tbody>
                     {list.map((g) => {
@@ -261,7 +274,7 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
           <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="p-2"><Checkbox checked={picked.length === group.items.length} onCheckedChange={(v) => setPicked(v ? group.items.map((x) => x.l.id) : [])} aria-label="Select all" /></th>
-              <th className="p-2">Load</th><th className="p-2">POD in</th><th className="p-2">Due</th><th className="p-2">Terms</th>
+              <th className="p-2">Load</th><th className="p-2">Clock from</th><th className="p-2">Due</th><th className="p-2">Terms</th>
               <th className="p-2 text-right">Carrier pay</th><th className="p-2 text-right">Quick Pay fee</th><th className="p-2 text-right">Net to pay</th><th className="p-2">QuickBooks bill</th><th />
             </tr>
           </thead>
@@ -270,7 +283,7 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
               <tr key={l.id} className="border-t">
                 <td className="p-2"><Checkbox checked={picked.includes(l.id)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, l.id] : p.filter((x) => x !== l.id)))} aria-label={`Select ${l.load_number}`} /></td>
                 <td className="p-2 font-semibold">{l.load_number}<div className="text-xs font-normal text-muted-foreground">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</div></td>
-                <td className="p-2">{day(d.podAt)}</td>
+                <td className="p-2">{day(d.podAt)}<div className="text-xs text-muted-foreground">{d.fromPod ? "POD in" : <span className="text-warning">Delivery · no POD</span>}</div></td>
                 <td className={d.daysLeft < 0 ? "p-2 font-semibold text-destructive" : "p-2"}>{day(d.due)}<div className="text-xs">{dueText(d.daysLeft)}</div></td>
                 <td className="p-2">{d.pt.terms}</td>
                 <td className="p-2 text-right">{usd(d.gross)}</td>
