@@ -1636,6 +1636,10 @@ export type Database = {
           weight_lbs: number
         }[]
       }
+      set_invoice_company: {
+        Args: { p_id: string; p_kind: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "broker" | "accountant"

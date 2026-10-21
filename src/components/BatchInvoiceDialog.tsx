@@ -3,23 +3,25 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { consolidateProblem, invoiceKind, queueInvoices, type InvoiceMode } from "@/lib/batchInvoice";
+import { consolidateProblem, invoiceKind, kindFor, queueInvoices, type BillThrough, type InvoiceMode } from "@/lib/batchInvoice";
 import { loadTotals, usd, type Company, type Load } from "@/lib/tms";
 import { cn } from "@/lib/utils";
 
 /** Choose individual or one combined invoice for the selected delivered loads, then queue them. */
 export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDone }: { loads: Load[]; companies: Company[]; open: boolean; onOpenChange: (v: boolean) => void; onDone?: () => void }) {
   const qc = useQueryClient();
-  const problem = consolidateProblem(loads);
+  const [bill, setBill] = useState<BillThrough>("auto");
+  const problem = consolidateProblem(loads, bill);
   const [mode, setMode] = useState<InvoiceMode>("individual");
   const [busy, setBusy] = useState(false);
   const total = loads.reduce((s, l) => s + loadTotals(l).revenue, 0);
-  const fleet = loads.filter((l) => invoiceKind(l) === "fleet_invoice").length;
+  const fleet = loads.filter((l) => kindFor(l, bill) === "fleet_invoice").length;
+  const moved = loads.filter((l) => kindFor(l, bill) !== invoiceKind(l)).length;
 
   const go = async () => {
     setBusy(true);
     try {
-      const r = await queueInvoices(loads, companies, problem ? "individual" : mode);
+      const r = await queueInvoices(loads, companies, problem ? "individual" : mode, bill);
       toast.success(r.queued ? `Created ${r.numbers.filter(Boolean).join(", ")}${r.skipped ? ` · ${r.skipped} already invoiced, skipped` : ""}` : "All selected loads already have invoices.");
       qc.invalidateQueries({ queryKey: ["qb_sync"] });
       qc.invalidateQueries({ queryKey: ["loads"] });
@@ -50,7 +52,20 @@ export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDon
             ))}
           </div>
           <div className="text-right font-semibold">Total {usd(total)}</div>
-          {fleet > 0 && <p className="text-xs text-teal">{fleet} Foust Farms load{fleet === 1 ? "" : "s"} will get FF- invoice numbers on the Foust letterhead.</p>}
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">Bill the customer through</div>
+            <div className="grid grid-cols-3 gap-2">
+              {([["auto", "Automatic", "Our trucks → Foust, others → Clearwater"], ["invoice", "Clearwater Cargo", "INV- number, Clearwater QuickBooks"], ["fleet_invoice", "Foust Farms", "FF- number, Foust QuickBooks"]] as const).map(([v, name, sub]) => (
+                <button key={v} type="button" onClick={() => setBill(v)}
+                  className={cn("rounded border p-2 text-left text-xs", bill === v && "border-gold bg-gold/10")}>
+                  <div className="font-semibold">{name}</div>
+                  <div className="text-muted-foreground">{sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          {fleet > 0 && <p className="text-xs text-teal">{fleet} load{fleet === 1 ? "" : "s"} will be billed by Foust Farms (FF- number, Foust letterhead, Foust QuickBooks).</p>}
+          {moved > 0 && <p className="text-xs text-warning">{moved} load{moved === 1 ? "" : "s"} will bill through a different company than usual. Outside-carrier bills still go to Clearwater Cargo, and load margins are unchanged.</p>}
           <div className="grid grid-cols-2 gap-2">
             {(["individual", "consolidated"] as const).map((m) => {
               const disabled = m === "consolidated" && !!problem;
