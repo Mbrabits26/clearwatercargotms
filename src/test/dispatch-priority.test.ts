@@ -8,9 +8,9 @@ describe("Dispatch board priority", () => {
     const sorted = sortForBoard([L("delivered"), L("rolling"), L("dispatched"), L("available"), L("booked")]);
     expect(sorted.map((l) => l.status)).toEqual(["available", "booked", "dispatched", "rolling", "delivered"]);
   });
-  it("orders same-status loads by earliest pickup", () => {
+  it("orders same-status loads newest pickup first", () => {
     const a = L("available", "2026-10-22T14:00:00Z"), b = L("available", "2026-10-21T14:00:00Z");
-    expect(sortForBoard([a, b])).toEqual([b, a]);
+    expect(sortForBoard([a, b])).toEqual([a, b]);
   });
 });
 
