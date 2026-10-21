@@ -1,4 +1,5 @@
 import { deductionLines } from "./invoiceDeductions";
+import { pendingAttachments, qbContentType, qbUploadBody } from "./qbAttachments";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
 export const QB_REDIRECT_URI = "https://clearwatercargotms.lovable.app/oauth/quickbooks/return";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -102,6 +103,19 @@ class Qb {
     const q = encodeURIComponent(`select * from ${entity} ${where} maxresults 5`);
     const j = await this.req<{ QueryResponse: Record<string, T[]> }>(`query?query=${q}`);
     return j.QueryResponse?.[entity] ?? [];
+  }
+  /** Uploads one file and links it to an Invoice or Bill (QuickBooks Attachable). */
+  async attach(type: "Invoice" | "Bill", id: string, bytes: Uint8Array, fileName: string, contentType: string, includeOnSend: boolean) {
+    const boundary = `cwc${crypto.randomUUID().replace(/-/g, "")}`;
+    const meta = { AttachableRef: [{ EntityRef: { type, value: id }, ...(type === "Invoice" ? { IncludeOnSend: includeOnSend } : {}) }], FileName: fileName, ContentType: contentType };
+    const res = await fetch(`${API}/${this.c.realm_id}/upload?${MINOR}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.c.access_token}`, Accept: "application/json", "Content-Type": `multipart/form-data; boundary=${boundary}` },
+      body: qbUploadBody(boundary, meta, bytes, fileName, contentType),
+    });
+    const j = (await res.json().catch(() => ({}))) as { AttachableResponse?: { Fault?: { Error?: { Message?: string; Detail?: string }[] } }[]; Fault?: { Error?: { Message?: string; Detail?: string }[] } };
+    const f = j.Fault?.Error?.[0] ?? j.AttachableResponse?.[0]?.Fault?.Error?.[0];
+    if (!res.ok || f) throw new Error(f ? `${f.Message}${f.Detail ? ` — ${f.Detail}` : ""}` : `QuickBooks upload error ${res.status}`);
   }
 }
 const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
