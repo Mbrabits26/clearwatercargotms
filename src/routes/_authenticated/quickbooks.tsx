@@ -123,7 +123,7 @@ function Accounting() {
   const carrierOf = (l: Load) => carriers.find((x) => x.id === l.carrier_id);
   // Search box: load #, ITS #, invoice #, customer/carrier, lane, refs.
   const needle = q.trim().toLowerCase();
-  const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
+  const loadHay = (l: Load) => [l.load_number, l.external_ref, l.ship_ref, l.dest_ref, l.customer_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state,
     companies.find((c) => c.id === l.customer_id)?.name, carriers.find((c) => c.id === l.carrier_id)?.legal_name,
     sync.filter((x) => x.load_id === l.id).map((x) => x.invoice_number).join(" ")].join(" ").toLowerCase();
   // Date range: loads by delivery (else pickup) date; sync rows by their load's date, else queued date.
