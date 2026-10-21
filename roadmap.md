@@ -142,3 +142,7 @@
 ## Carrier pay notice (Oct 2026)
 - [x] Admin/accountant notice for carriers due to be paid (Quick Pay on POD, Net 30 near due) with pay details, payment account info, mark paid
 - [x] Carriers and loads in the pay notice listed newest to oldest
+
+## Invoiced review
+- [x] Admin/accounting alert + review list when a load moves to Invoiced (sync with QuickBooks)
+- [x] Brokers can set a load to Invoiced; it lands on the finance approval list to send to QuickBooks

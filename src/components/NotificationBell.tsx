@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Bell, Volume2, VolumeX, MonitorUp } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { isInvoicedNote } from "@/lib/invoiceReview";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-type Alert = { id: string; title: string; body: string; to: string; at: number; read: boolean };
+type Alert = { id: string; title: string; body: string; to: string; search?: Record<string, unknown>; at: number; read: boolean };
 
 function chime() {
   try {
@@ -21,8 +23,10 @@ function chime() {
   } catch { /* ignore */ }
 }
 
-export function NotificationBell({ userId, isAdmin }: { userId: string; isAdmin: boolean }) {
+export function NotificationBell({ userId, isAdmin, isFinance = false }: { userId: string; isAdmin: boolean; isFinance?: boolean }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const go = (to: string, search?: Record<string, unknown>) => navigate({ to, search: search as never });
   const key = `cw-alerts:${userId}`;
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [sound, setSound] = useState(true);
@@ -40,14 +44,14 @@ export function NotificationBell({ userId, isAdmin }: { userId: string; isAdmin:
   }, [key]);
 
   useEffect(() => {
-    const push = (title: string, body: string, to: string) => {
-      const a: Alert = { id: crypto.randomUUID(), title, body, to, at: Date.now(), read: false };
+    const push = (title: string, body: string, to: string, search?: Record<string, unknown>) => {
+      const a: Alert = { id: crypto.randomUUID(), title, body, to, search, at: Date.now(), read: false };
       setAlerts((prev) => { const n = [a, ...prev].slice(0, 50); localStorage.setItem(key, JSON.stringify(n)); return n; });
       if (soundRef.current) chime();
-      toast(title, { description: body, action: { label: "View", onClick: () => navigate({ to }) } });
+      toast(title, { description: body, action: { label: "View", onClick: () => go(to, search) } });
       if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
         const n = new Notification(title, { body, tag: a.id });
-        n.onclick = () => { window.focus(); navigate({ to }); n.close(); };
+        n.onclick = () => { window.focus(); go(to, search); n.close(); };
       }
     };
     const loadInfo = async (loadId: string) => {
@@ -75,6 +79,15 @@ export function NotificationBell({ userId, isAdmin }: { userId: string; isAdmin:
         const what = p.new.kind === "pod" || p.new.kind === "doc" ? "Document uploaded" : p.new.status ? `Status: ${p.new.status}` : "Location check-in";
         push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch");
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_notes" }, async (p: any) => {
+        // Admins/accountants: a load moved to Invoiced → review it and sync with QuickBooks.
+        if (!isFinance || !isInvoicedNote(p.new.body)) return;
+        qc.invalidateQueries({ queryKey: ["qb_sync"] });
+        if (p.new.author_id === userId) return;
+        const l = await loadInfo(p.new.load_id); if (!l) return;
+        const who = names.current[p.new.author_id] ?? "A teammate";
+        push(`Load invoiced — ${l.load_number}`, `${who} moved it to Invoiced · review and sync with QuickBooks`, "/quickbooks", { q: l.load_number, review: true });
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (p: any) => {
         const m = p.new; if (m.author_id === userId) return;
         const isDm = m.channel.startsWith("dm:");
@@ -84,7 +97,7 @@ export function NotificationBell({ userId, isAdmin }: { userId: string; isAdmin:
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [userId, isAdmin, key, navigate]);
+  }, [userId, isAdmin, isFinance, key, navigate, qc]);
 
   const unread = alerts.filter((a) => !a.read).length;
   const markAll = () => setAlerts((p) => { const n = p.map((a) => ({ ...a, read: true })); localStorage.setItem(key, JSON.stringify(n)); return n; });
@@ -110,7 +123,7 @@ export function NotificationBell({ userId, isAdmin }: { userId: string; isAdmin:
         <div className="max-h-96 overflow-auto">
           {alerts.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No alerts yet</p>}
           {alerts.map((a) => (
-            <button key={a.id} onClick={() => navigate({ to: a.to })} className={`block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent ${a.read ? "" : "bg-accent/40"}`}>
+            <button key={a.id} onClick={() => go(a.to, a.search)} className={`block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent ${a.read ? "" : "bg-accent/40"}`}>
               <div className="font-medium">{a.title}</div>
               <div className="text-xs text-muted-foreground">{a.body}</div>
               <div className="text-[10px] text-muted-foreground">{new Date(a.at).toLocaleString()}</div>

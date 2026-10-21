@@ -76,7 +76,7 @@ function StatusSelect({ load }: { load: Load }) {
       value={load.status}
       onValueChange={async (v) => {
         if (v === "delivered" && !window.confirm(`Mark load ${load.load_number} Delivered?\n\nCheck first: the load actually delivered and the delivery time is right.${load.pod_received ? "" : "\n\n⚠ No POD is on file for this load yet."}`)) return;
-        if (v === "invoiced" && !window.confirm(`Mark load ${load.load_number} Invoiced?\n\nCheck first: a customer invoice was created in Accounting (or sent to QuickBooks). Changing the status alone does not create or send an invoice.`)) return;
+        if (v === "invoiced" && !window.confirm(`Mark load ${load.load_number} Invoiced?\n\nCheck first: the rates, accessorials and paperwork are right. The load goes on the admin/accounting review list, and they send the invoice to QuickBooks.`)) return;
         const patch: Partial<Load> = { status: v as LoadStatus };
         const { error } = await supabase.from("loads").update(patch).eq("id", load.id);
         if (error) toast.error(error.message);
