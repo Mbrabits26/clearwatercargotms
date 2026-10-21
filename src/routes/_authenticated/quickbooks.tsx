@@ -1,7 +1,7 @@
 import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { qbReviewState } from "@/lib/invoiceReview";
 import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -169,7 +169,7 @@ function Accounting() {
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
   const groupOf = (s: SyncRow) => sync.filter((x) => x.invoice_number && x.invoice_number === s.invoice_number && x.kind === s.kind);
-  const invoiceTerms = (s: SyncRow) => s.terms ?? companies.find((c) => c.id === loads.find((x) => x.id === s.load_id)?.customer_id)?.pay_terms ?? "Net 30";
+  const invoiceTerms = (s: SyncRow) => s.terms ?? companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.pay_terms ?? "Net 30";
   const dueOf = (s: SyncRow) => s.due_date ?? new Date(new Date(s.created_at).getTime() + termsDays(invoiceTerms(s)) * 86_400_000).toISOString().slice(0, 10);
   const invoicePdf = async (s: SyncRow) => {
     const l = loads.find((x) => x.id === s.load_id);
@@ -206,8 +206,8 @@ function Accounting() {
   };
 
   const payee = (l: Load, kind: string) => {
-    if (kind !== "bill") return companies.find((c) => c.id === l.customer_id)?.name ?? "Unknown customer";
-    const c = carriers.find((x) => x.id === l.carrier_id);
+    if (kind !== "bill") return companyById.get(l.customer_id ?? "")?.name ?? "Unknown customer";
+    const c = carrierById.get(l.carrier_id ?? "");
     return c?.factoring_company ? `${c.factoring_company} (for ${c.legal_name})` : c?.legal_name ?? "Unknown carrier";
   };
 
@@ -279,7 +279,7 @@ function Accounting() {
   };
 
   const paidStatus = (l?: Load) => l?.status === "paid";
-  const loadOf = (id: string) => loads.find((l) => l.id === id);
+  const loadOf = (id: string) => loadById.get(id);
   const age = (s: SyncRow) => { const l = loadOf(s.load_id); return l ? ageDays(l) ?? 0 : 0; };
   const bucket = (list: SyncRow[]) => {
     const open = list.filter((s) => !paidStatus(loadOf(s.load_id)));
@@ -368,7 +368,7 @@ function Accounting() {
               {shownSync.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
-                  <TableCell>{loads.find((l) => l.id === s.load_id) ? <LoadQuickLook load={loads.find((l) => l.id === s.load_id)!} /> : "—"}</TableCell>
+                  <TableCell>{loadById.get(s.load_id) ? <LoadQuickLook load={loadById.get(s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
                   <TableCell>{usd(owed(s))}{s.kind !== "bill" && parseDeductions(s.deductions).length > 0 && <div className="text-[10px] text-muted-foreground">of {usd(Number(s.amount))} · {parseDeductions(s.deductions).map((d) => `${d.label} ${d.pct}%`).join(", ")}</div>}</TableCell>
                   <TableCell>
