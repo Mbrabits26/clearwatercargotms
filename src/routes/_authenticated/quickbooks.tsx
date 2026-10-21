@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
+import { invoiceKind } from "@/lib/batchInvoice";
 import { QbReconcileDialog } from "@/components/QbReconcileDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
@@ -110,9 +111,11 @@ function Accounting() {
 
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
   const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
-  // Foust Farms (internal fleet) loads are billed separately from brokerage customer invoices.
-  const ar = delivered.filter((l) => !isFleetLoad(l));
-  const fleetAr = delivered.filter((l) => isFleetLoad(l));
+  // Each load sits under the company that bills it: its existing invoice's company, else the default
+  // (our own trucks → Foust Farms, outside carriers → Clearwater). Staff can bill through either company.
+  const billedKind = (l: Load) => sync.find((s) => s.load_id === l.id && s.kind !== "bill")?.kind ?? invoiceKind(l);
+  const ar = delivered.filter((l) => billedKind(l) === "invoice");
+  const fleetAr = delivered.filter((l) => billedKind(l) === "fleet_invoice");
   const ap = loads.filter((l) => l.carrier_id && l.pod_received && ["delivered", "invoiced", "paid"].includes(l.status));
   const ap0 = ap.filter((l) => !isFleetLoad(l));
   const [batchOpen, setBatchOpen] = useState(false);
@@ -374,7 +377,7 @@ function Accounting() {
                 return (
                   <TableRow key={l.id}>
                     <TableCell><input type="checkbox" checked={picked.includes(l.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} /></TableCell>
-                    <TableCell><LoadQuickLook load={l} /></TableCell>
+                    <TableCell><LoadQuickLook load={l} />{tab !== "bill" && billedKind(l) !== invoiceKind(l) && <div className="text-[10px] text-warning">Billed through {billedKind(l) === "fleet_invoice" ? "Foust Farms" : "Clearwater"}</div>}</TableCell>
                     <TableCell>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
                     <TableCell>{payee(l, tab as Kind)}</TableCell>
                     <TableCell>{fmtDate(l.delivery_at)}</TableCell>
@@ -413,7 +416,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
-              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads hauled by our own trucks." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}

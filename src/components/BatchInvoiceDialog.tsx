@@ -65,7 +65,7 @@ export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDon
             </div>
           </div>
           {fleet > 0 && <p className="text-xs text-teal">{fleet} load{fleet === 1 ? "" : "s"} will be billed by Foust Farms (FF- number, Foust letterhead, Foust QuickBooks).</p>}
-          {moved > 0 && <p className="text-xs text-warning">{moved} load{moved === 1 ? "" : "s"} will bill through a different company than usual. Carrier bills still go to Clearwater Cargo, and load margins are unchanged.</p>}
+          {moved > 0 && <p className="text-xs text-warning">{moved} load{moved === 1 ? "" : "s"} will bill through a different company than usual. Outside-carrier bills still go to Clearwater Cargo, and load margins are unchanged.</p>}
           <div className="grid grid-cols-2 gap-2">
             {(["individual", "consolidated"] as const).map((m) => {
               const disabled = m === "consolidated" && !!problem;
