@@ -108,7 +108,7 @@ export function CarrierPayDue() {
         <DialogContent className="flex h-[88dvh] w-[96vw] flex-col gap-3 sm:max-w-5xl">
           <DialogHeader className="shrink-0">
             <DialogTitle className="font-display text-2xl uppercase">{current ? current.carrier?.legal_name ?? "Carrier" : "Carriers to pay"}</DialogTitle>
-            <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest POD first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
+            <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
           </DialogHeader>
           {current ? (
             <PayDetail group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
@@ -116,7 +116,7 @@ export function CarrierPayDue() {
             <>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" variant={scope === "due" ? "default" : "outline"} onClick={() => setScope("due")}>Due now ({dueGroups.length})</Button>
-                <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid with POD ({groups.length})</Button>
+                <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid ({groups.length})</Button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto rounded border">
                 <table className="w-full min-w-[700px] text-sm">
