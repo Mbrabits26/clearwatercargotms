@@ -134,7 +134,7 @@
 - [x] Rate con follows carrier pay/fee changes; linehaul edits save to the load; company-truck loads use Foust Farms Trucking
 - [x] Clickable dispatch alerts + reminder banner open load lists
 - [x] Carrier picker shows last 10 added/used first; Inactive checkbox hides carriers (picking one reactivates)
-- [ ] Rate con tracking fee: editor shows linehaul + $200 tracking & paperwork fee = carrier pay (no extra $200)
-- [ ] Accounting search bar: find loads to invoice and invoices to edit
-- [ ] Dispatch board sorted by priority: available → booked → dispatched → in transit → delivered…
-- [ ] Dispatch alerts for late pickups and late deliveries
+- [x] Rate con tracking fee: editor shows linehaul + $200 tracking & paperwork fee = carrier pay (no extra $200)
+- [x] Accounting search bar: find loads to invoice and invoices to edit
+- [x] Dispatch board sorted by priority: available → booked → dispatched → in transit → delivered…
+- [x] Dispatch alerts for late pickups and late deliveries
