@@ -158,6 +158,9 @@ function Accounting() {
   const rowsR = rows.filter((l) => inRange(loadDay(l)));
   const syncR = sync.filter((x) => inRange(loadDay(loadById.get(x.load_id)) ?? x.created_at));
   const shown = needle ? rowsR.filter((l) => (hayById.get(l.id) ?? "").includes(needle)) : rowsR;
+  // Draw the first rows only; "Show more" adds the rest so long lists stay quick.
+  const [limit, setLimit] = useState(200);
+  useEffect(() => { setLimit(200); }, [needle, tab, from, to, reviewOnly]);
   const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${hayById.get(x.load_id) ?? ""}`.toLowerCase().includes(needle)) : syncR;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
@@ -395,13 +398,13 @@ function Accounting() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">
-                  <input type="checkbox" checked={picked.length > 0 && picked.length === shown.length} onChange={(e) => setPicked(e.target.checked ? shown.map((r) => r.id) : [])} />
+                  <input type="checkbox" checked={picked.length > 0 && picked.length === Math.min(shown.length, limit)} onChange={(e) => setPicked(e.target.checked ? shown.slice(0, limit).map((r) => r.id) : [])} />
                 </TableHead>
                 <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shown.map((l) => {
+              {shown.slice(0, limit).map((l) => {
                 const s = synced(l.id, tab as Kind);
                 const bm = tab === "bill" ? billMath(l) : null;
                 const mismatch = s?.carrier_invoice_amount != null && bm && Math.abs(Number(s.carrier_invoice_amount) - bm.gross) > 0.009;
@@ -448,6 +451,7 @@ function Accounting() {
                   </TableRow>
                 );
               })}
+              {shown.length > limit && <TableRow><TableCell colSpan={9} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({shown.length - limit} more)</Button></TableCell></TableRow>}
               {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : reviewOnly && tab !== "bill" ? "No invoiced loads waiting for QuickBooks here." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
             </TableBody>
           </Table>
