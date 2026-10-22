@@ -73,7 +73,23 @@ function SignPage() {
   );
 
   if (isLoading) return shell(<p className="text-center text-muted-foreground">Loading…</p>);
-  if (!data?.ok) return shell(<p className="rounded border bg-card p-6 text-center">{data?.problem ?? "This link is not valid."}</p>);
+  if (data && !data.ok && data.signed && !signedUrl)
+    return shell(
+      <div className="rounded border bg-card p-8 text-center">
+        <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" />
+        <h2 className="text-2xl font-bold">Signed — RC #{data.rcNumber}</h2>
+        <p className="mb-4 text-muted-foreground">
+          Signed by {data.signerName ?? "carrier"}{data.signedAt ? ` on ${new Date(data.signedAt).toLocaleString()}` : ""}.
+        </p>
+        {data.downloadUrl ? (
+          <Button asChild><a href={data.downloadUrl} target="_blank" rel="noreferrer"><Download className="mr-1 h-4 w-4" />Download signed copy</a></Button>
+        ) : (
+          <p className="text-sm text-muted-foreground">Contact Clearwater Cargo for a copy.</p>
+        )}
+      </div>,
+    );
+  if (!data?.ok && !signedUrl) return shell(<p className="rounded border bg-card p-6 text-center">{data?.problem ?? "This link is not valid."}</p>);
+  if (!data?.ok) return null;
   if (signedUrl)
     return shell(
       <div className="rounded border bg-card p-8 text-center">
