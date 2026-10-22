@@ -21,6 +21,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    plugins: [mcpPlugin()],
     resolve: {
       // React Email needs entities v4.5.0; force every import to the hoisted copy.
       alias: {
