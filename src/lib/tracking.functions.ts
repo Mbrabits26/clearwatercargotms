@@ -43,7 +43,7 @@ export const postPing = createServerFn({ method: "POST" })
     if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
     const { reverseGeocode } = await import("./geocode.server");
     const place = data.lat != null && data.lng != null ? await reverseGeocode(data.lat, data.lng) : null;
-    const { error } = await supabaseAdmin.from("load_tracking_pings").insert({
+    const { data: ping, error } = await supabaseAdmin.from("load_tracking_pings").insert({
       place,
       load_id: tk.load_id,
       token_id: tk.id,
@@ -52,7 +52,7 @@ export const postPing = createServerFn({ method: "POST" })
       note: data.note || null,
       lat: data.lat ?? null,
       lng: data.lng ?? null,
-    });
+    }).select("id").single();
     if (error) return { ok: false as const, problem: "Could not save the update. Please try again." };
     await supabaseAdmin.from("loads").update({ last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
     if (data.kind === "status") {
@@ -63,6 +63,8 @@ export const postPing = createServerFn({ method: "POST" })
         author_id: tk.created_by ?? undefined,
         body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${place ? ` — ${place}` : ""}`,
       });
+      const { emailDriverUpdate } = await import("./notifyPrefs.server");
+      await emailDriverUpdate(supabaseAdmin, tk, "email_driver_status", { what: `Status: ${label}`, note: data.note, place, key: ping?.id ?? crypto.randomUUID() });
     }
     return { ok: true as const };
   });
@@ -92,6 +94,8 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       author_id: tk.created_by ?? undefined,
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
+    const { emailDriverUpdate } = await import("./notifyPrefs.server");
+    await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", { what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}`, key: path });
     return { ok: true as const };
   });
 

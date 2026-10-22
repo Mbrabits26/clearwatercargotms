@@ -58,10 +58,11 @@ async function sendSignedEmails(supabaseAdmin: any, req: any, rc: RateConData, s
       }));
     }
     const brokerData = { ...base, audience: "broker", loadUrl: `${SITE}/dispatch` };
-    if (brokerEmail) {
+    const { wantsEmail, wantsEmailByAddress } = await import("./notifyPrefs.server");
+    if (brokerEmail && await wantsEmail(supabaseAdmin, brokerId, "email_ratecon_signed")) {
       jobs.push(sendTemplateEmail("ratecon-signed", brokerEmail, { templateData: brokerData, idempotencyKey: `ratecon-signed-broker-${req.id}` }));
     }
-    if (brokerEmail?.toLowerCase() !== "admin@clearwatercargo.com") {
+    if (brokerEmail?.toLowerCase() !== "admin@clearwatercargo.com" && await wantsEmailByAddress(supabaseAdmin, "admin@clearwatercargo.com", "email_ratecon_signed")) {
       jobs.push(sendTemplateEmail("ratecon-signed", "admin@clearwatercargo.com", { templateData: brokerData, idempotencyKey: `ratecon-signed-admin-${req.id}` }));
     }
     const results = await Promise.allSettled(jobs);

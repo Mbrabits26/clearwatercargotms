@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Volume2, VolumeX, MonitorUp } from "lucide-react";
+import { Bell, Volume2, VolumeX, MonitorUp, Settings2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { isInvoicedNote } from "@/lib/invoiceReview";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+type Prefs = Record<string, boolean>;
+const PREF_ROWS: { key: string; label: string; group: "Email" | "In-app" }[] = [
+  { key: "email_driver_status", label: "Driver status updates (from tracking link)", group: "Email" },
+  { key: "email_driver_docs", label: "Driver POD / BOL uploads", group: "Email" },
+  { key: "email_ratecon_signed", label: "Rate con signed", group: "Email" },
+  { key: "app_driver", label: "Driver check-ins and updates", group: "In-app" },
+  { key: "app_ratecon", label: "Rate con signed", group: "In-app" },
+  { key: "app_carrier_packet", label: "Carrier onboarding packet submitted", group: "In-app" },
+  { key: "app_invoiced", label: "Load moved to Invoiced (finance)", group: "In-app" },
+  { key: "app_chat", label: "Chat messages", group: "In-app" },
+];
 
 type Alert = { id: string; title: string; body: string; to: string; search?: Record<string, unknown>; at: number; read: boolean };
 
@@ -33,6 +47,22 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
   const [perm, setPerm] = useState<string>("default");
   const soundRef = useRef(true);
   const names = useRef<Record<string, string>>({});
+  const [prefs, setPrefs] = useState<Prefs>({});
+  const prefsRef = useRef<Prefs>({});
+  const [openPrefs, setOpenPrefs] = useState(false);
+  const on = (k: string) => prefsRef.current[k] !== false;
+
+  useEffect(() => {
+    supabase.from("notification_prefs" as never).select("*").eq("user_id", userId).maybeSingle().then(({ data }) => {
+      if (data) { setPrefs(data as Prefs); prefsRef.current = data as Prefs; }
+    });
+  }, [userId]);
+
+  const setPref = async (k: string, v: boolean) => {
+    const next = { ...prefs, [k]: v }; setPrefs(next); prefsRef.current = next;
+    const { error } = await supabase.from("notification_prefs" as never).upsert({ user_id: userId, [k]: v, updated_at: new Date().toISOString() } as never);
+    if (error) toast.error("Could not save alert setting");
+  };
 
   useEffect(() => {
     try { setAlerts(JSON.parse(localStorage.getItem(key) || "[]")); } catch { /* */ }
@@ -62,11 +92,12 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
 
     const ch = supabase.channel(`alerts-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ratecon_requests" }, async (p: any) => {
-        if (p.new.status !== "signed" || p.old?.status === "signed") return;
+        if (!on("app_ratecon") || p.new.status !== "signed" || p.old?.status === "signed") return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
         push(`Rate con signed — ${l.load_number}`, `Signed by ${p.new.signer_name ?? "carrier"}`, "/dispatch");
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "carrier_invites" }, async (p: any) => {
+        if (!on("app_carrier_packet")) return;
         if (p.new.status !== "submitted" && !p.new.submitted_at) return;
         if (p.old?.submitted_at) return;
         if (!isAdmin && p.new.created_by !== userId) return;
@@ -75,6 +106,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         push("Carrier packet submitted", `${name} completed onboarding — review it`, "/carriers");
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_tracking_pings" }, async (p: any) => {
+        if (!on("app_driver")) return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
         const what = p.new.kind === "pod" || p.new.kind === "doc" ? "Document uploaded" : p.new.status ? `Status: ${p.new.status}` : "Location check-in";
         push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch");
@@ -83,13 +115,13 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         // Admins/accountants: a load moved to Invoiced → review it and sync with QuickBooks.
         if (!isFinance || !isInvoicedNote(p.new.body)) return;
         qc.invalidateQueries({ queryKey: ["qb_sync"] });
-        if (p.new.author_id === userId) return;
+        if (p.new.author_id === userId || !on("app_invoiced")) return;
         const l = await loadInfo(p.new.load_id); if (!l) return;
         const who = names.current[p.new.author_id] ?? "A teammate";
         push(`Load invoiced — ${l.load_number}`, `${who} moved it to Invoiced · review and sync with QuickBooks`, "/quickbooks", { q: l.load_number, review: true });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (p: any) => {
-        const m = p.new; if (m.author_id === userId) return;
+        const m = p.new; if (m.author_id === userId || !on("app_chat")) return;
         const isDm = m.channel.startsWith("dm:");
         if (isDm && !m.channel.includes(userId)) return;
         const who = names.current[m.author_id] ?? "Teammate";
@@ -105,6 +137,24 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
   const askPerm = async () => { if ("Notification" in window) setPerm(await Notification.requestPermission()); };
 
   return (
+    <>
+    <Dialog open={openPrefs} onOpenChange={setOpenPrefs}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>My alert settings</DialogTitle></DialogHeader>
+        {(["Email", "In-app"] as const).map((g) => (
+          <div key={g} className="space-y-2">
+            <div className="font-display text-xs uppercase tracking-wider text-gold">{g === "Email" ? "Email alerts" : "In-app alerts (bell, chime, pop-up)"}</div>
+            {PREF_ROWS.filter((r) => r.group === g).map((r) => (
+              <label key={r.key} className="flex items-center justify-between gap-3 text-sm">
+                <span>{r.label}</span>
+                <Switch checked={prefs[r.key] !== false} onCheckedChange={(v) => setPref(r.key, v)} />
+              </label>
+            ))}
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground">Emails go to loads where you're the broker. These settings are just for you.</p>
+      </DialogContent>
+    </Dialog>
     <Popover onOpenChange={(o) => { if (!o) markAll(); }}>
       <PopoverTrigger asChild>
         <Button size="icon" variant="ghost" aria-label="Notifications" className="relative">
@@ -116,6 +166,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         <div className="flex items-center justify-between border-b px-3 py-2">
           <span className="font-display text-sm uppercase tracking-wider text-gold">Alerts</span>
           <div className="flex gap-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOpenPrefs(true)} title="Alert settings" aria-label="Alert settings"><Settings2 className="h-4 w-4" /></Button>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={toggleSound} title={sound ? "Sound on" : "Sound off"}>{sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</Button>
             {perm !== "granted" && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={askPerm}><MonitorUp className="mr-1 h-3 w-3" />Enable pop-ups</Button>}
           </div>
@@ -133,5 +184,6 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         {alerts.length > 0 && <div className="p-2 text-right"><Button size="sm" variant="ghost" className="text-xs" onClick={() => { setAlerts([]); localStorage.removeItem(key); }}>Clear all</Button></div>}
       </PopoverContent>
     </Popover>
+    </>
   );
 }
