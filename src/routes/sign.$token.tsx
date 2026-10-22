@@ -88,17 +88,16 @@ function SignPage() {
         )}
       </div>,
     );
-  if (!data?.ok && !signedUrl) return shell(<p className="rounded border bg-card p-6 text-center">{data?.problem ?? "This link is not valid."}</p>);
-  if (!data?.ok) return null;
   if (signedUrl)
     return shell(
       <div className="rounded border bg-card p-8 text-center">
         <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" />
-        <h2 className="text-2xl font-bold">Signed — RC #{data.rc.rc}</h2>
-        <p className="mb-4 text-muted-foreground">Thank you. A signed copy is on file with Clearwater Cargo.</p>
-        <Button asChild><a href={signedUrl} download={`RateCon-${data.rc.rc}-signed.pdf`}><Download className="mr-1 h-4 w-4" />Download signed copy</a></Button>
+        <h2 className="text-2xl font-bold">Signed{data?.ok ? ` — RC #${data.rc.rc}` : ""}</h2>
+        <p className="mb-4 text-muted-foreground">Thank you. A signed copy is on file with Clearwater Cargo, and a copy link has been emailed to you.</p>
+        <Button asChild><a href={signedUrl} download="RateCon-signed.pdf"><Download className="mr-1 h-4 w-4" />Download signed copy</a></Button>
       </div>,
     );
+  if (!data?.ok) return shell(<p className="rounded border bg-card p-6 text-center">{data?.problem ?? "This link is not valid."}</p>);
 
   return shell(
     <>
