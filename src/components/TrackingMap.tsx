@@ -1,70 +1,68 @@
 import { useEffect, useRef, useState } from "react";
 
 type Pt = { id: string; lat: number; lng: number; label: string };
-declare global { interface Window { __cwMapsReady?: () => void; google?: any } }
+type LL = { lat: number; lng: number };
 
-let loader: Promise<void> | null = null;
-function loadMaps(): Promise<void> {
-  if (window.google?.maps?.Map) return Promise.resolve();
-  if (loader) return loader;
-  loader = new Promise((res, rej) => {
-    window.__cwMapsReady = () => res();
-    const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"];
-    const ch = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"];
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__cwMapsReady&channel=${ch}`;
-    s.async = true;
-    s.onerror = () => { loader = null; rej(new Error("map load failed")); };
-    document.head.appendChild(s);
-  });
-  return loader;
-}
-
-/** pts: newest first. focus: id to pan to. */
-export function TrackingMap({ pts, focus, origin, dest }: { pts: Pt[]; focus: string | null; origin: { lat: number; lng: number } | null; dest: { lat: number; lng: number } | null }) {
+/** Leaflet + OpenStreetMap (no API key). pts: newest first. focus: id to pan to. */
+export function TrackingMap({ pts, focus, origin, dest }: { pts: Pt[]; focus: string | null; origin: LL | null; dest: LL | null }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
-  const layers = useRef<any[]>([]);
-  const [state, setState] = useState<"loading" | "ok" | "blocked" | "error">("loading");
+  const layer = useRef<any>(null);
+  const Lr = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const h = window.location.hostname;
-    if (h.endsWith("lovableproject.com") || h === "localhost") { setState("blocked"); return; }
-    loadMaps().then(() => setState("ok")).catch(() => setState("error"));
+    let cancelled = false;
+    Promise.all([import("leaflet"), import("leaflet/dist/leaflet.css")])
+      .then(([mod]) => {
+        if (cancelled || !el.current) return;
+        const L = (mod as any).default ?? mod;
+        Lr.current = L;
+        map.current = L.map(el.current, { center: [39.5, -96], zoom: 4 });
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map.current);
+        layer.current = L.layerGroup().addTo(map.current);
+        setReady(true);
+      })
+      .catch(() => setError(true));
+    return () => { cancelled = true; map.current?.remove(); map.current = null; };
   }, []);
 
   useEffect(() => {
-    if (state !== "ok" || !el.current) return;
-    const g = window.google.maps;
-    if (!map.current) map.current = new g.Map(el.current, { center: { lat: 39.5, lng: -96 }, zoom: 4, clickableIcons: false, mapTypeControl: false, streetViewControl: false });
-    layers.current.forEach((l) => l.setMap(null));
-    layers.current = [];
-    const m = map.current;
-    const bounds = new g.LatLngBounds();
-    const path = [...pts].reverse().map((p) => ({ lat: p.lat, lng: p.lng }));
-    if (path.length > 1) layers.current.push(new g.Polyline({ map: m, path, strokeColor: "#d4a017", strokeOpacity: 0.8, strokeWeight: 3 }));
+    const L = Lr.current, m = map.current;
+    if (!ready || !L || !m) return;
+    layer.current.clearLayers();
+    const path = [...pts].reverse().map((p) => [p.lat, p.lng]);
+    if (path.length > 1) L.polyline(path, { color: "#d4a017", opacity: 0.8, weight: 3 }).addTo(layer.current);
     pts.forEach((p, i) => {
-      bounds.extend(p);
-      layers.current.push(new g.Marker({
-        map: m, position: p, title: p.label, zIndex: i === 0 ? 10 : 1,
-        icon: { path: g.SymbolPath.CIRCLE, scale: i === 0 ? 9 : 5, fillColor: i === 0 ? "#d4a017" : "#2a8c8c", fillOpacity: 1, strokeColor: "#000", strokeWeight: 1 },
-      }));
+      L.circleMarker([p.lat, p.lng], {
+        radius: i === 0 ? 9 : 5, fillColor: i === 0 ? "#d4a017" : "#2a8c8c", fillOpacity: 1, color: "#000", weight: 1,
+      }).bindTooltip(p.label).addTo(layer.current);
     });
-    const ends = [origin, dest].filter(Boolean) as { lat: number; lng: number }[];
-    [origin, dest].forEach((loc, i) => {
+    const ends = [origin, dest];
+    ends.forEach((loc, i) => {
       if (!loc) return;
-      layers.current.push(new g.Marker({ map: m, position: loc, label: { text: i === 0 ? "P" : "D", color: "#000", fontWeight: "700" }, title: i === 0 ? "Pickup" : "Delivery" }));
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="background:#d4a017;color:#000;font-weight:700;border:2px solid #000;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px">${i === 0 ? "P" : "D"}</div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
+      });
+      L.marker([loc.lat, loc.lng], { icon, title: i === 0 ? "Pickup" : "Delivery" }).addTo(layer.current);
     });
-    if (!pts.length && ends.length) { ends.forEach((e) => bounds.extend(e)); if (ends.length > 1) m.fitBounds(bounds); else { m.setCenter(ends[0]); m.setZoom(7); } }
-    if (pts.length === 1) { m.setCenter(pts[0]); m.setZoom(9); } else if (pts.length > 1) m.fitBounds(bounds);
-  }, [state, pts, origin, dest]);
+    const all: [number, number][] = pts.map((p) => [p.lat, p.lng]);
+    if (!pts.length) ends.forEach((e) => e && all.push([e.lat, e.lng]));
+    if (all.length === 1) m.setView(all[0], pts.length ? 9 : 7);
+    else if (all.length > 1) m.fitBounds(all, { padding: [24, 24] });
+  }, [ready, pts, origin, dest]);
 
   useEffect(() => {
     const p = pts.find((x) => x.id === focus);
-    if (p && map.current) { map.current.panTo(p); map.current.setZoom(11); }
+    if (p && map.current) map.current.setView([p.lat, p.lng], 11);
   }, [focus]);
 
-  if (state === "blocked") return <div className="flex h-48 items-center justify-center rounded border bg-muted text-xs text-muted-foreground">Map shows on the published site.</div>;
-  if (state === "error") return <div className="flex h-48 items-center justify-center rounded border bg-muted text-xs text-muted-foreground">Map couldn't load.</div>;
-  return <div ref={el} className="h-56 w-full rounded border" />;
+  if (error) return <div className="flex h-48 items-center justify-center rounded border bg-muted text-xs text-muted-foreground">Map couldn't load.</div>;
+  return <div ref={el} className="relative z-0 h-56 w-full rounded border" />;
 }
