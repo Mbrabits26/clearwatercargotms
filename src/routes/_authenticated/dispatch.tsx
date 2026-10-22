@@ -267,6 +267,67 @@ function Dispatch() {
   // Searching always looks through every load, not just the last 30 days.
   useEffect(() => { if (dq.trim().length >= 2 && !showAll) setShowAll(true); }, [dq, showAll]);
   const selected = loads.find((l) => l.id === selectedId) ?? null;
+
+  // Board view changes shared by the dropdown and the browser-agent tools.
+  const changeView = useCallback((value: string) => {
+    if (!BOARD_VIEWS.includes(value)) throw new Error(`Unknown view; expected one of: ${BOARD_VIEWS.join(", ")}.`);
+    setStatus(value);
+    setPick([]);
+    if (WORK_VIEWS.includes(value)) setShowAll(true);
+  }, []);
+  const [searchSeed, setSearchSeed] = useState<{ text: string } | undefined>(undefined);
+
+  useWebMCP({
+    name: "list_board_loads",
+    description: "List the loads currently shown on the Dispatch board (respecting the active view and search), with ids for open_board_load.",
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: () => runWebMCPTool("list_board_loads", () => {
+      if (WORK_VIEWS.includes(status) && !workData) return "The board is still loading this view; try again in a moment.";
+      if (!visible.length) return `No loads shown (view: ${status}${dq ? `, search: "${dq}"` : ""}).`;
+      const rows = visible.slice(0, 50).map((l) =>
+        `${l.id}: ${l.load_number} [${l.status}] ${l.origin_city ?? ""} ${l.origin_state ?? ""} → ${l.dest_city ?? ""} ${l.dest_state ?? ""} · pickup ${fmtDate(l.pickup_at)} · ${cName.get(l.customer_id ?? "") ?? "no customer"}`);
+      const more = filtered.length > rows.length ? `\n…and ${filtered.length - rows.length} more.` : "";
+      return `View: ${status}${dq ? `, search: "${dq}"` : ""}\n${rows.join("\n")}${more}`;
+    }),
+  });
+
+  useWebMCP<{ view?: string; search?: string }>({
+    name: "set_board_view",
+    description: "Change what the Dispatch board shows: pick a view (status or work list) and/or set the search text.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        view: { type: "string", enum: BOARD_VIEWS, description: "Board view: active, all, a work list (delivery, invoice, closeout, closed) or a load status." },
+        search: { type: "string", description: "Search text (load #, customer, carrier, shipper, lane, ref). Empty string clears it." },
+      },
+    },
+    execute: (args) => runWebMCPTool("set_board_view", () => {
+      if (args.view !== undefined && (typeof args.view !== "string" || !BOARD_VIEWS.includes(args.view))) throw new Error(`Unknown view; expected one of: ${BOARD_VIEWS.join(", ")}.`);
+      if (args.search !== undefined && typeof args.search !== "string") throw new Error("search must be text.");
+      if (args.view === undefined && args.search === undefined) throw new Error("Give a view, a search, or both.");
+      if (args.view !== undefined) changeView(args.view);
+      if (args.search !== undefined) { setSearchSeed({ text: args.search }); setQ(args.search); }
+      return `Board updated${args.view !== undefined ? ` to view "${args.view}"` : ""}${args.search !== undefined ? `${args.view !== undefined ? " and" : ""} search "${args.search}"` : ""}. Call list_board_loads to see the results.`;
+    }),
+  });
+
+  useWebMCP<{ id: string }>({
+    name: "open_board_load",
+    description: "Open one load from the current Dispatch board list in the details panel, by its id from list_board_loads.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Load id from list_board_loads." } },
+      required: ["id"],
+    },
+    annotations: { untrustedContentHint: true },
+    execute: (args) => runWebMCPTool("open_board_load", () => {
+      if (typeof args.id !== "string") throw new Error("id must be text.");
+      const load = visible.find((l) => l.id === args.id);
+      if (!load) throw new Error("That load isn't in the current board list.");
+      selectLoad(load.id);
+      return `Opened load ${load.load_number}.`;
+    }),
+  });
   const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
   const { overdueCalls, latePu, lateDel, carrierDue, overdueInv } = useMemo(() => ({
     overdueCalls: loads.filter(checkCallOverdue),
@@ -329,10 +390,10 @@ function Dispatch() {
           <div className="space-y-2 border-b p-3">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <SearchBox onChange={setQ} />
+              <SearchBox onChange={setQ} seed={searchSeed} />
             </div>
             <div className="flex gap-2">
-              <Select value={status} onValueChange={(value) => { setStatus(value); setPick([]); if (["delivery", "invoice", "closeout", "closed"].includes(value)) setShowAll(true); }}>
+              <Select value={status} onValueChange={changeView}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">All active</SelectItem>
