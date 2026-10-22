@@ -9,7 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>): { access?: "pending" } => ({ access: search.access === "pending" ? "pending" : undefined }),
+  validateSearch: (search: Record<string, unknown>): { access?: "pending"; next?: string } => ({
+    access: search.access === "pending" ? "pending" : undefined,
+    // Where to return after sign-in (e.g. an AI-app connection request); validated to a same-origin path.
+    next: typeof search.next === "string" && oauthReturnPath(search.next) !== "/" ? oauthReturnPath(search.next) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — Clearwater Cargo TMS" },
