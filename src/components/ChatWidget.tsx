@@ -47,6 +47,7 @@ export function ChatWidget({ userId }: { userId: string }) {
   }, [userId]);
   const clearMentions = async () => {
     if (!mentions.length) return;
+    qc.setQueryData(["chat-mentions"], []);
     await supabase.from("chat_mentions").update({ read: true }).eq("user_id", userId).eq("read", false);
     qc.invalidateQueries({ queryKey: ["chat-mentions"] });
   };
@@ -88,13 +89,31 @@ export function ChatWidget({ userId }: { userId: string }) {
     return () => { supabase.removeChannel(ch); };
   }, [userId]);
 
-  const markRead = async (c: string) => {
-    await supabase.from("chat_reads").upsert({ user_id: userId, channel: c, last_read_at: new Date().toISOString() });
-    qc.invalidateQueries({ queryKey: ["chat-reads"] });
+  // Opening the chat clears every unread count (all channels, automated alerts and @mentions included).
+  const markAllRead = async () => {
+    const chans = Object.keys(unread);
+    if (chans.length) {
+      const now = new Date().toISOString();
+      const rows = chans.map((c) => {
+        // Never stamp earlier than the newest message, so server/clock differences can't leave it unread.
+        const newest = msgs.reduce((t, m) => (m.channel === c && m.created_at > t ? m.created_at : t), now);
+        return { user_id: userId, channel: c, last_read_at: newest };
+      });
+      qc.setQueryData<typeof reads>(["chat-reads"], (old = []) => [
+        ...old.filter((r) => !chans.includes(r.channel)),
+        ...rows.map((r) => ({ ...(old.find((o) => o.channel === r.channel) ?? {}), ...r })) as typeof reads,
+      ]);
+      await supabase.from("chat_reads").upsert(rows);
+      qc.invalidateQueries({ queryKey: ["chat-reads"] });
+    }
+    await clearMentions();
   };
   useEffect(() => {
-    if (open) { if (unread[channel]) markRead(channel); bottom.current?.scrollIntoView(); }
-  }, [open, channel, msgs.length]);
+    if (!open) return;
+    if (total > 0) markAllRead();
+    bottom.current?.scrollIntoView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, channel, msgs.length, total]);
 
   const send = async () => {
     const body = text.trim();
