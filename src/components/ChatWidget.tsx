@@ -47,6 +47,7 @@ export function ChatWidget({ userId }: { userId: string }) {
   }, [userId]);
   const clearMentions = async () => {
     if (!mentions.length) return;
+    qc.setQueryData(["chat-mentions"], []);
     await supabase.from("chat_mentions").update({ read: true }).eq("user_id", userId).eq("read", false);
     qc.invalidateQueries({ queryKey: ["chat-mentions"] });
   };
