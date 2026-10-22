@@ -1231,6 +1231,53 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_prefs: {
+        Row: {
+          app_carrier_packet: boolean
+          app_chat: boolean
+          app_driver: boolean
+          app_invoiced: boolean
+          app_ratecon: boolean
+          email_driver_docs: boolean
+          email_driver_status: boolean
+          email_ratecon_signed: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_carrier_packet?: boolean
+          app_chat?: boolean
+          app_driver?: boolean
+          app_invoiced?: boolean
+          app_ratecon?: boolean
+          email_driver_docs?: boolean
+          email_driver_status?: boolean
+          email_ratecon_signed?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_carrier_packet?: boolean
+          app_chat?: boolean
+          app_driver?: boolean
+          app_invoiced?: boolean
+          app_ratecon?: boolean
+          email_driver_docs?: boolean
+          email_driver_status?: boolean
+          email_ratecon_signed?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

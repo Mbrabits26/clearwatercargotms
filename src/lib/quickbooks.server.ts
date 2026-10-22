@@ -1,7 +1,7 @@
 import { deductionLines } from "./invoiceDeductions";
 import { pendingAttachments, qbContentType, qbUploadBody } from "./qbAttachments";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
-export const QB_REDIRECT_URI = "https://clearwatercargotms.lovable.app/oauth/quickbooks/return";
+export const QB_REDIRECT_URI = "https://tms.clearwatercargo.com/oauth/quickbooks/return";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 const API = "https://quickbooks.api.intuit.com/v3/company";
 const MINOR = "minorversion=75";

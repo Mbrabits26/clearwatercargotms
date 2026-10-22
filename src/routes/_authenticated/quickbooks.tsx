@@ -256,8 +256,8 @@ function Accounting() {
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
   };
   const connect = async (entity: "brokerage" | "fleet" = "brokerage") => {
-    if (!window.location.hostname.endsWith("clearwatercargotms.lovable.app")) {
-      return toast.info("Connect QuickBooks from your live site (clearwatercargotms.lovable.app) — Intuit only allows that address.");
+    if (window.location.hostname !== "tms.clearwatercargo.com") {
+      return toast.info("Connect QuickBooks from your live site (tms.clearwatercargo.com) — Intuit only allows that address.");
     }
     try { const { url } = await qbStart({ data: { entity } }); window.location.href = url; } catch (e) { toast.error((e as Error).message); }
   };
