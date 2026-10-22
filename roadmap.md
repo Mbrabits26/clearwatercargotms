@@ -150,3 +150,4 @@
 ## Oct 21
 - [x] Rename uploaded documents (load docs, Accounting attachments, carrier docs)
 - [x] Dispatch search still freezes while typing
+- [x] Agent integrations (MCP): read-only loads/carriers/directory tools with sign-in consent + Dispatch browser tools
