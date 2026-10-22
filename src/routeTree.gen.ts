@@ -26,6 +26,7 @@ import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
 import { Route as OauthQuickbooksReturnRouteImport } from './routes/oauth/quickbooks/return'
 import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
@@ -115,6 +116,11 @@ const TrackTokenRoute = TrackTokenRouteImport.update({
   path: '/track/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthGoogle_mailReturnRoute = OauthGoogle_mailReturnRouteImport.update({
   id: '/oauth/google_mail/return',
   path: '/oauth/google_mail/return',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/onboard/$token': typeof OnboardTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
+    | '/.lovable/oauth/consent'
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
+    | '/.lovable/oauth/consent'
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/onboard/$token'
     | '/sign/$token'
     | '/track/$token'
+    | '/.lovable/oauth/consent'
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
@@ -285,6 +297,7 @@ export interface RootRouteChildren {
   OnboardTokenRoute: typeof OnboardTokenRoute
   SignTokenRoute: typeof SignTokenRoute
   TrackTokenRoute: typeof TrackTokenRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
   OauthQuickbooksReturnRoute: typeof OauthQuickbooksReturnRoute
   ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/google_mail/return': {
       id: '/oauth/google_mail/return'
       path: '/oauth/google_mail/return'
@@ -479,6 +499,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardTokenRoute: OnboardTokenRoute,
   SignTokenRoute: SignTokenRoute,
   TrackTokenRoute: TrackTokenRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
   OauthQuickbooksReturnRoute: OauthQuickbooksReturnRoute,
   ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
