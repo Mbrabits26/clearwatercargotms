@@ -7,6 +7,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): { access?: "pending"; next?: string } => ({
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { access } = Route.useSearch();
+  const { access, next } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,10 @@ function AuthPage() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
     const { data: approved } = await supabase.rpc("is_approved", { _uid: u.user.id });
-    if (approved) navigate({ to: "/dispatch" });
+    if (approved) {
+      if (next) navigate({ href: next });
+      else navigate({ to: "/dispatch" });
+    }
     else {
       await supabase.auth.signOut();
       toast.error("This account has not been approved by an administrator.");
@@ -69,7 +73,9 @@ function AuthPage() {
   };
 
   const google = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
+    // Keep the return path through the Google round-trip so connection requests aren't lost.
+    const back = next ? `/auth?next=${encodeURIComponent(next)}` : "/auth";
+    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: new URL(back, window.location.origin).href });
     if (r.error) toast.error(String(r.error.message ?? r.error));
   };
 

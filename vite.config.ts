@@ -7,6 +7,7 @@
 import path from "node:path";
 import { loadEnv } from "vite";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
 // Load all env vars (no prefix) into process.env for server-side code only.
 // Never add these to client `define` — that would leak secrets into the bundle.
