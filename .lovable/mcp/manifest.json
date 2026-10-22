@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "sdk_version": "3.2.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://uuzkuqopohogczuhuhcf.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "clearwater-cargo-flow",
+      "version": "0.1.0",
+      "title": "Clearwater Cargo Flow"
+    },
+    "tools": [
+      {
+        "name": "list_loads",
+        "title": "List loads",
+        "description": "List loads on the Clearwater Cargo board, newest pickup first, optionally filtered by status, text search or pickup date range.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "available",
+                "vetting",
+                "booked",
+                "dispatched",
+                "rolling",
+                "delivered",
+                "invoiced",
+                "paid",
+                "issue",
+                "cancelled"
+              ],
+              "description": "Only loads with this status."
+            },
+            "search": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Match load #, customer ref #, shipper PO/PU ref #, origin or destination city."
+            },
+            "pickup_from": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Earliest pickup date, YYYY-MM-DD."
+            },
+            "pickup_to": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Latest pickup date, YYYY-MM-DD."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max loads to return (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_load",
+        "title": "Get load details",
+        "description": "Get full details for one load by its load number (e.g. the RC #) or its id from list_loads.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "load": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Load number or load id."
+            }
+          },
+          "required": [
+            "load"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_carriers",
+        "title": "Search carriers",
+        "description": "Find carriers by name, DBA, MC # or DOT # and see their vetting status, authority, safety rating and insurance expiry.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Carrier name, DBA, MC # or DOT #."
+            },
+            "include_inactive": {
+              "type": "boolean",
+              "description": "Include inactive and Do Not Use carriers (default false)."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_companies",
+        "title": "Search customers & facilities",
+        "description": "Find customers, shippers and consignees in the directory by name or city.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Company name or city."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
