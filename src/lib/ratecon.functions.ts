@@ -15,13 +15,61 @@ async function loadRequest(token: string) {
   return { supabaseAdmin, req, problem };
 }
 
+const SITE = "https://tms.clearwatercargo.com";
+
 export const getRateConForSigning = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => tokenSchema.parse(d))
   .handler(async ({ data }) => {
-    const { req, problem } = await loadRequest(data.token);
-    if (problem || !req) return { ok: false as const, problem: problem ?? "Invalid link" };
+    const { supabaseAdmin, req, problem } = await loadRequest(data.token);
+    if (req && req.status === "signed" && req.pdf_path) {
+      const { data: s } = await supabaseAdmin.storage.from("load-docs").createSignedUrl(req.pdf_path, 60 * 60);
+      const rc = req.snapshot as unknown as RateConData;
+      return {
+        ok: false as const, signed: true as const, problem: problem ?? "",
+        rcNumber: rc.rc, signerName: req.signer_name, signedAt: req.signed_at, downloadUrl: s?.signedUrl ?? null,
+      };
+    }
+    if (problem || !req) return { ok: false as const, signed: false as const, problem: problem ?? "Invalid link" };
     return { ok: true as const, rc: req.snapshot as unknown as RateConData };
   });
+
+async function sendSignedEmails(supabaseAdmin: any, req: any, rc: RateConData, signerName: string, signerTitle: string | undefined, signedAt: string) {
+  try {
+    const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+    const when = new Date(signedAt).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" }) + " ET";
+    const base = {
+      rc: rc.rc, lane: rc.lane, carrier: rc.carrier,
+      total: `$${Number(rc.total).toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+      signerName, signerTitle, signedAt: when, downloadUrl: `${SITE}/sign/${req.token}`,
+    };
+    const { data: load } = await supabaseAdmin.from("loads").select("broker_id").eq("id", req.load_id).maybeSingle();
+    let brokerEmail: string | null = null;
+    const brokerId = load?.broker_id ?? req.created_by;
+    if (brokerId) {
+      const { data: p } = await supabaseAdmin.from("profiles").select("email").eq("id", brokerId).maybeSingle();
+      brokerEmail = p?.email ?? null;
+    }
+    const jobs: Promise<unknown>[] = [];
+    if (req.carrier_email) {
+      jobs.push(sendTemplateEmail("ratecon-signed", req.carrier_email, {
+        templateData: { ...base, audience: "carrier" },
+        idempotencyKey: `ratecon-signed-carrier-${req.id}`,
+        replyTo: brokerEmail ?? "admin@clearwatercargo.com",
+      }));
+    }
+    const brokerData = { ...base, audience: "broker", loadUrl: `${SITE}/dispatch` };
+    if (brokerEmail) {
+      jobs.push(sendTemplateEmail("ratecon-signed", brokerEmail, { templateData: brokerData, idempotencyKey: `ratecon-signed-broker-${req.id}` }));
+    }
+    if (brokerEmail?.toLowerCase() !== "admin@clearwatercargo.com") {
+      jobs.push(sendTemplateEmail("ratecon-signed", "admin@clearwatercargo.com", { templateData: brokerData, idempotencyKey: `ratecon-signed-admin-${req.id}` }));
+    }
+    const results = await Promise.allSettled(jobs);
+    results.forEach((r) => { if (r.status === "rejected") console.error("ratecon email failed", r.reason); });
+  } catch (e) {
+    console.error("ratecon emails failed", e);
+  }
+}
 
 export const signRateCon = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -45,5 +93,6 @@ export const signRateCon = createServerFn({ method: "POST" })
       status: "signed", signer_name: data.name, signer_title: data.title || null, signed_at: data.signedAt, pdf_path: path,
     }).eq("id", req.id);
     await supabaseAdmin.from("loads").update({ ratecon_signed: true, ratecon_pdf_path: path }).eq("id", req.load_id);
+    await sendSignedEmails(supabaseAdmin, req, rc, data.name, data.title || undefined, data.signedAt);
     return { ok: true as const };
   });
