@@ -28,6 +28,8 @@ import { batchEligible, needsWork, type WorkFilter } from "@/lib/loadWork";
 import { invoiceable } from "@/lib/batchInvoice";
 import { CopyLoadDialog } from "@/components/CopyLoadDialog";
 import { CopyLoadString } from "@/components/CopyLoadString";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 import { BolDialog } from "@/components/BolDialog";
 import { CarrierPicker } from "@/components/CarrierPicker";
 import { cn } from "@/lib/utils";
@@ -70,15 +72,20 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
 
 const ROW_STEP = 150;
 
-/** Search box that keeps its own text, so typing never redraws the board; the list updates once you pause. */
-function SearchBox({ onChange }: { onChange: (v: string) => void }) {
+/** Search box that keeps its own text, so typing never redraws the board; the list updates once you pause.
+ *  `seed` lets a browser agent set the text (a new object each time). */
+function SearchBox({ onChange, seed }: { onChange: (v: string) => void; seed?: { text: string } }) {
   const [v, setV] = useState("");
+  useEffect(() => { if (seed) setV(seed.text); }, [seed]);
   useEffect(() => {
     const t = setTimeout(() => startTransition(() => onChange(v)), v ? 250 : 0);
     return () => clearTimeout(t);
   }, [v, onChange]);
   return <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
 }
+
+const WORK_VIEWS = ["delivery", "invoice", "closeout", "closed"];
+const BOARD_VIEWS = ["active", "all", ...WORK_VIEWS, ...STATUSES.map((s) => s.value)];
 
 /** One row on the board. Memoized so typing in search only redraws rows that changed. */
 const LoadRow = memo(function LoadRow({ load: l, companies, selected, picked, onSelect, onPick }: {
