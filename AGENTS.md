@@ -21,7 +21,7 @@
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails get admin via the grant_named_admins trigger after email verification (edit its list).
 - FMCSA/SAFER: `lookupFmcsa` (staff-only server fn, FMCSA_WEBKEY) → carriers.authority_status/safety_rating.
-- Email via `composeEmail`. Chat channels: 'team' or sorted 'dm:<a>:<b>' (RLS by name). getMarketRates: Firecrawl + AI, cached 24h.
+- Email: user-sent mail via `composeEmail` (each user's own Gmail); automated app alerts only via server-side `sendTemplateEmail` (Lovable managed email, templates in src/lib/email-templates/registry.ts). Chat channels: 'team' or sorted 'dm:<a>:<b>' (RLS by name). getMarketRates: Firecrawl + AI, cached 24h.
 - Load offers: carriers respond on public /offer/$token via token-validated server fns (offers.functions.ts); staff manage offers under load-visibility RLS.
 - Lane pricing math lives in laneStats/RateView, fed by lane_history_loads() (staff-only security definer, no broker_id) so brokers see company-wide history, not who earned it.
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
