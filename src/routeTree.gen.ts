@@ -29,6 +29,7 @@ import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
 import { Route as OauthQuickbooksReturnRouteImport } from './routes/oauth/quickbooks/return'
 import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -130,6 +131,12 @@ const ApiPublicHooksCarrierRecheckRoute =
     path: '/api/public/hooks/carrier-recheck',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/lovable/email/transactional/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/lovable/email/transactional/preview'
   id:
     | '__root__'
     | '/'
@@ -261,6 +273,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/lovable/email/transactional/preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -275,6 +288,7 @@ export interface RootRouteChildren {
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
   OauthQuickbooksReturnRoute: typeof OauthQuickbooksReturnRoute
   ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -419,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCarrierRecheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -461,6 +482,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
   OauthQuickbooksReturnRoute: OauthQuickbooksReturnRoute,
   ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
