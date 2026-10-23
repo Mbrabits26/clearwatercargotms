@@ -4,7 +4,7 @@ import { carriersQuery } from "@/lib/queries";
 import { useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { FileUp, Loader2 } from "lucide-react";
+import { FileUp, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
