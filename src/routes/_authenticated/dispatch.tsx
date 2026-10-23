@@ -272,6 +272,11 @@ function Dispatch() {
   const [limit, setLimit] = useState(ROW_STEP);
   useEffect(() => { setLimit(ROW_STEP); }, [dq, status, broker, showAll]);
   const visible = useMemo(() => filtered.slice(0, limit), [filtered, limit]);
+  // Make sure the opened load isn't hidden below "Show more".
+  useEffect(() => {
+    const i = selectedId ? filtered.findIndex((l) => l.id === selectedId) : -1;
+    if (i >= limit) setLimit(i + 1);
+  }, [selectedId, filtered, limit]);
   const pickSet = useMemo(() => new Set(pick), [pick]);
   const selectLoad = useCallback((id: string) => { setSelectedId(id); setMobileDetail(true); }, []);
   const togglePick = useCallback((id: string, on: boolean) => setPick((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id))), []);
