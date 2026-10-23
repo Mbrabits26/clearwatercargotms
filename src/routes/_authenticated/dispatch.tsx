@@ -228,13 +228,26 @@ function Dispatch() {
   useEffect(() => {
     if (search.work) { setShowAll(true); setStatus(search.work); setBroker(search.owner ?? "all"); setPick([]); }
   }, [search.work, search.owner]);
+  // "Open load" links from other pages: keep trying until the load shows up (older loads need full history),
+  // then select it and widen the filter so it is visible in the list.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  useEffect(() => { if (search.load) setFocusId(search.load); }, [search.load]);
   useEffect(() => {
-    if (search.load && loads.some((l) => l.id === search.load)) {
-      setSelectedId(search.load);
-      setMobileDetail(true);
+    if (!focusId) return;
+    const target = loads.find((l) => l.id === focusId);
+    if (!target) {
+      if (!showAll) setShowAll(true);
+      else if (allLoads) setFocusId(null); // not found anywhere (deleted or no access)
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.load]);
+    setSelectedId(focusId);
+    setMobileDetail(true);
+    const hiddenByActive = !!target.closed_at || ["paid", "cancelled"].includes(target.status);
+    if ((status === "active" && hiddenByActive) || (status !== "active" && status !== "all" && target.status !== status) || ["delivery", "invoice", "closeout", "closed"].includes(status)) setStatus("all");
+    if (broker !== "all") setBroker("all");
+    setQ("");
+    setFocusId(null);
+  }, [focusId, loads, showAll, allLoads, status, broker]);
 
   const cName = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
   const kName = useMemo(() => new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`])), [carriers]);
