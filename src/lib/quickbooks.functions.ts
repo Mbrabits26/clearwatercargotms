@@ -92,14 +92,21 @@ export const qbScanInvoices = createServerFn({ method: "POST" })
 /** Links an existing QuickBooks invoice to a load without creating anything in QuickBooks. */
 export const qbLinkInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ loadId: z.string().uuid(), qbId: z.string().min(1).max(40), amount: z.number(), paid: z.boolean(), entity: z.enum(["brokerage", "fleet"]).default("brokerage") }).parse(d))
+  .inputValidator((d) => z.object({ loadId: z.string().uuid(), qbId: z.string().min(1).max(40), amount: z.number(), paid: z.boolean(), entity: z.enum(["brokerage", "fleet"]).default("brokerage"), docNumber: z.string().max(40).nullish(), customer: z.string().max(200).nullish() }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context as never);
     const now = new Date().toISOString();
+    // Keep QuickBooks' own invoice number + customer so the TMS shows the real invoice, not a generated INV- number.
+    const real: Record<string, string> = {};
+    if (data.docNumber) real.invoice_number = data.docNumber;
+    if (data.customer) real.payee = data.customer;
     const { data: ex } = await admin.from("qb_sync").select("id").eq("load_id", data.loadId).eq("kind", data.entity === "fleet" ? "fleet_invoice" : "invoice").maybeSingle();
-    if (ex) await admin.from("qb_sync").update({ qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
+    if (ex) await admin.from("qb_sync").update({ ...real, qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
     else {
-      const { error } = await admin.from("qb_sync").insert({ load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never);
+      const { data: ins, error } = await admin.from("qb_sync").insert({ ...real, load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never).select("id").single();
+      if (error) throw new Error(error.message);
+      // The numbering trigger may assign an INV-/FF- number on insert; restore the real one.
+      if (ins && data.docNumber) await admin.from("qb_sync").update({ invoice_number: data.docNumber }).eq("id", (ins as { id: string }).id);
       if (error) throw new Error(error.message);
     }
     const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["delivered", "invoiced"]);
