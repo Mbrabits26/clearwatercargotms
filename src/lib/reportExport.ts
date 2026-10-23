@@ -122,7 +122,7 @@ export function buildReportPdf(s: ReportSpec, img?: HTMLImageElement | null) {
     const lines = head.map((_, i) => doc.splitTextToSize(pdfSafe(cells[i]), widths[i]! - 6) as string[]);
     const h = Math.max(1, ...lines.map((l) => l.length)) * LH + 5;
     ensure(h);
-    if (fill !== undefined) doc.setFillColor(fill).rect(L, y, avail, h, "F");
+    if (fill !== undefined) doc.setFillColor(fill, fill, fill).rect(L, y, avail, h, "F");
     lines.forEach((l, i) => doc.text(l, right.has(i) ? colX[i]! + widths[i]! - 3 : colX[i]! + 3, y + 9, { align: right.has(i) ? "right" : "left" }));
     if (bold) doc.setDrawColor(120).line(L, y, R, y);
     y += h;
