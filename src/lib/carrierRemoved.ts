@@ -1,6 +1,6 @@
 // Pure rules for the "removed from load" carrier email (shared by server + tests).
 
-export type RcRequestLite = { id: string; status: string; carrier_email: string | null; created_at: string; snapshot: unknown };
+export type RcRequestLite = { id: string; status: string; carrier_email: string | null; created_at: string; snapshot: unknown; pdf_path?: string | null };
 export type CarrierLite = { legal_name: string; email: string | null; mc_number?: string | null; dot_number?: string | null };
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -27,8 +27,8 @@ export function requestsForCarrier(reqs: RcRequestLite[], c: CarrierLite): RcReq
  * for this load. Uses the address the rate con went to, else the carrier's email.
  */
 export function removalRecipient(reqs: RcRequestLite[], c: CarrierLite): { to: string; requestId: string } | null {
-  const mine = requestsForCarrier(reqs, c);
-  if (!mine.length) return null;
-  const to = firstEmail(mine[0].carrier_email) ?? firstEmail(c.email);
-  return to ? { to, requestId: mine[0].id } : null;
+  const latest = requestsForCarrier(reqs, c)[0];
+  if (!latest) return null;
+  const to = firstEmail(latest.carrier_email) ?? firstEmail(c.email);
+  return to ? { to, requestId: latest.id } : null;
 }
