@@ -25,7 +25,7 @@ const cellsOf = (r: ReportRow) => (Array.isArray(r) ? r : "group" in r ? [r.grou
 
 /** Built-in PDF fonts only cover Latin-1, so swap arrows and other symbols for plain text. */
 export const pdfSafe = (v: unknown) =>
-  String(v ?? "").replace(/\s*→\s*/g, " to ").replace(/[−–]/g, "-").replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/…/g, "...").replace(/[^\x00-\xff—]/g, "");
+  String(v ?? "").replace(/\s*→\s*/g, " to ").replace(/[−–—]/g, "-").replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/…/g, "...").replace(/[^\x00-\xff]/g, "");
 
 /** CSV with title, filters and summary on top, then the table. Opens cleanly in Excel. */
 export function reportCsv(s: ReportSpec): string {
