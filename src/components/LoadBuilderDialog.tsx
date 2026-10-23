@@ -4,7 +4,7 @@ import { carriersQuery } from "@/lib/queries";
 import { useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { FileUp, Loader2 } from "lucide-react";
+import { FileUp, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -275,13 +275,19 @@ export function LoadBuilderDialog({
     }
   };
 
-  const combo = (kind: Kind) => (
+  // "123 Main St, Raleigh, NC 27601" — street first so similar names are easy to tell apart.
+  const fullAddress = (a: { address?: string | null; city?: string | null; state?: string | null; zip?: string | null }) =>
+    [a.address, a.city, [a.state, a.zip].filter(Boolean).join(" ")].map((x) => (x ?? "").trim()).filter(Boolean).join(", ");
+  const combo = (kind: Kind) => {
+    const chosen = parties[kind]?.id ? companies.find((x) => x.id === parties[kind].id) : null;
+    const shown = chosen ? fullAddress(chosen) : parties[kind]?.name?.trim() ? fullAddress(parties[kind]) : "";
+    return (
     <>
     <EntityCombobox
       value={parties[kind]}
       newLabel={`new ${kind}`}
       placeholder={`Type ${kind} name`}
-      options={companies.filter((c) => c.kind === kind).map((c) => ({ id: c.id, label: c.name, sub: [c.city, c.state].filter(Boolean).join(", ") }))}
+      options={companies.filter((c) => c.kind === kind).map((c) => ({ id: c.id, label: c.name, sub: fullAddress(c) || "No address on file" }))}
       onChange={(v) => {
         setParties((p) => ({ ...p, [kind]: { ...p[kind], ...v } }));
         const c = v.id ? companies.find((x) => x.id === v.id) : null;
@@ -289,6 +295,7 @@ export function LoadBuilderDialog({
         if (c && kind === "consignee") setF((p) => ({ ...p, dest_city: c.city ?? p.dest_city ?? "", dest_state: c.state ?? p.dest_state ?? "" }));
       }}
     />
+    {shown && (chosen || parties[kind]?.city) && <div className="mt-0.5 flex items-start gap-1 text-[11px] text-muted-foreground"><MapPin className="mt-0.5 h-3 w-3 shrink-0 text-gold" />{shown}</div>}
     {!parties[kind]?.id && parties[kind]?.name?.trim() && (
       <AddressAutocomplete value={parties[kind]?.address ?? ""} placeholder={`New ${kind} address (Google)`}
         onChange={(v) => setParties((p) => ({ ...p, [kind]: { ...p[kind], address: v } }))}
@@ -299,7 +306,8 @@ export function LoadBuilderDialog({
         }} />
     )}
     </>
-  );
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
