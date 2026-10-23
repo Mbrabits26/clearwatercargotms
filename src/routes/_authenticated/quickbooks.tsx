@@ -327,7 +327,9 @@ function Accounting() {
           <span className="flex-1 text-muted-foreground">Queued items go to the matching company's QuickBooks automatically.</span>
           <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
           {isFinance && <Button size="sm" variant="outline" onClick={() => setReconOpen(true)}>Match QuickBooks invoices</Button>}
+          {isFinance && <Button size="sm" variant="outline" onClick={() => setAssistOpen(true)}>Review assistant</Button>}
           <QbReconcileDialog open={reconOpen} onOpenChange={setReconOpen} loads={loads} companies={companies} sync={sync} available={{ brokerage: !!qbs?.brokerage.connected, fleet: !!qbs?.fleet.connected }} />
+          {assistOpen && <ReviewAssistantDialog open={assistOpen} onOpenChange={setAssistOpen} loads={loads} companies={companies} sync={sync} />}
         </div>
       ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
