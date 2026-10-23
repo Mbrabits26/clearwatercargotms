@@ -173,7 +173,7 @@ function Reports() {
     };
     const rangeLabel = range === "custom" || !rangeOptions().some((o) => o.value === range) ? "Custom" : rangeOptions().find((o) => o.value === range)!.label;
     const filters = [
-      `Pickup dates: ${from || to ? `${from ? fmtDate(from + "T12:00:00") : "start"} to ${to ? fmtDate(to + "T12:00:00") : "today"} (${rangeLabel})` : "All dates"}`,
+      `Pickup dates: ${from || to ? `${from ? dayText(from) : "start"} to ${to ? dayText(to) : "today"} (${rangeLabel})` : "All dates"}`,
       broker !== "all" && `Broker: ${nameOf(broker, profiles)}`,
       customer !== "all" && `Customer: ${nameOf(customer, companies)}`,
       carrier !== "all" && `Carrier: ${nameOf(carrier, carriers)}`,

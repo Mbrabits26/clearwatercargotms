@@ -171,3 +171,10 @@ export async function printReport(s: ReportSpec) {
     else doc.save(reportFileName(s.title, "pdf"));
   } catch (e) { w?.close(); throw e; }
 }
+
+/** "2026-10-23" → "10/23/2026" for filter lines. */
+export const dayText = (d: string) => new Date(d.slice(0, 10) + "T12:00:00").toLocaleDateString("en-US");
+
+/** Filter line for a From/To date pair, e.g. "Delivery dates: 1/1/2026 to 10/23/2026". */
+export const datesLine = (label: string, from: string, to: string) =>
+  from || to ? `${label}: ${from ? dayText(from) : "start"} to ${to ? dayText(to) : "today"}` : `${label}: All dates`;
