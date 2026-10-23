@@ -17,6 +17,8 @@ import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
 import { QbReconcileDialog } from "@/components/QbReconcileDialog";
 import { ReviewAssistantDialog } from "@/components/ReviewAssistantDialog";
+import { ReportExport } from "@/components/ReportExport";
+import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
@@ -295,6 +297,51 @@ function Accounting() {
   const apB = bucket(sync.filter((s) => s.kind === "bill"));
   const qpRevenue = sync.filter((s) => s.kind === "bill").reduce((t, s) => t + Number(s.quickpay_fee || 0), 0);
 
+  // Print / PDF / CSV of exactly what this tab shows (all matching rows, not just the first page).
+  const TAB_TITLE: Record<string, string> = { invoice: "Customer invoices (AR)", fleet_invoice: "Fleet billing (AR) — Foust Farms", bill: "Carrier bills (AP)", log: "QuickBooks sync log" };
+  const qbText = (s?: SyncRow) => (s ? `${s.status}${s.qb_ref ? ` · QB ${s.qb_ref}` : ""}` : "Not sent");
+  const day = (d?: string | null) => (d ? dayText(d) : "");
+  const exportSpec = (): ReportSpec => {
+    const filters = [
+      datesLine(tab === "log" ? "Load dates (or queued date)" : "Delivery dates", from, to) + (range !== "all" && range !== "custom" ? ` (${rangeOptions().find((o) => o.value === range)?.label ?? ""})` : ""),
+      needle && `Search: "${q.trim()}"`,
+      reviewOnly && tab !== "bill" && tab !== "log" && "Only invoiced loads not yet in QuickBooks",
+    ].filter((x): x is string => !!x);
+    const aging = (k: string, b: ReturnType<typeof bucket>): [string, string][] => [[`${k} open`, usd(b.total)], ["0–30 days", usd(b.a)], ["31–60 days", usd(b.b)], ["60+ days", usd(b.c)]];
+    if (tab === "log") {
+      return {
+        title: TAB_TITLE.log!, filters,
+        summary: [["Entries", String(shownSync.length)], ["Sent", String(shownSync.filter((s) => s.status === "sent").length)], ["Queued", String(shownSync.filter((s) => s.status === "queued").length)], ["Failed", String(shownSync.filter((s) => s.status === "error").length)]],
+        head: ["Type", "Invoice #", "Load", "Payee / customer", "Amount", "Deductions", "Owed", "Status", "Queued", "Sent", "Error"],
+        right: [4, 6],
+        rows: shownSync.map((s) => [KIND_LABEL[s.kind] ?? s.kind, s.invoice_number ?? "", loadById.get(s.load_id)?.load_number ?? "", s.payee ?? "", usd(Number(s.amount)),
+          parseDeductions(s.deductions).map((d) => `${d.label} ${d.pct}%`).join(", "), usd(owed(s)), qbText(s), day(s.created_at), day(s.sent_at), [s.error, s.attach_error && `Attachments: ${s.attach_error}`].filter(Boolean).join(" · ")]),
+        total: ["Total", "", `${shownSync.length} entries`, "", usd(shownSync.reduce((t, s) => t + Number(s.amount), 0)), "", usd(shownSync.reduce((t, s) => t + owed(s), 0)), "", "", "", ""],
+      };
+    }
+    const lane = (l: Load) => `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`;
+    const age = (l: Load) => { const a = ageDays(l); return a === null ? "" : `${a}d`; };
+    if (tab === "bill") {
+      const t = shown.reduce((a, l) => { const b = billMath(l); return { g: a.g + b.gross, f: a.f + b.fee, n: a.n + b.net }; }, { g: 0, f: 0, n: 0 });
+      return {
+        title: TAB_TITLE.bill!, filters, summary: [["Loads", String(shown.length)], ...aging("AP", apB)],
+        head: ["Load", "Lane", "Pay to", "Delivered", "Age", "Carrier pay", "Quick Pay fee", "Net to pay", "Pay terms", "Carrier invoice", "QuickBooks"],
+        right: [4, 5, 6, 7, 9],
+        rows: shown.map((l) => { const b = billMath(l); const s = synced(l.id, "bill"); return [l.load_number, lane(l), payee(l, "bill"), day(l.delivery_at), age(l), usd(b.gross), b.fee ? usd(b.fee) : "", usd(b.net), b.pt.terms, s?.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "", qbText(s)]; }),
+        total: ["Total", `${shown.length} loads`, "", "", "", usd(t.g), usd(t.f), usd(t.n), "", "", ""],
+      };
+    }
+    const kind = tab as Kind;
+    return {
+      title: TAB_TITLE[kind]!, company: kind === "fleet_invoice" ? "fleet" : "brokerage", filters, summary: [["Loads", String(shown.length)], ...aging("AR", arB)],
+      head: ["Load", "Customer ref #", "Lane", "Bill to", "Delivered", "Age", "Amount", "Invoice #", "QuickBooks"],
+      right: [5, 6],
+      rows: shown.map((l) => { const s = synced(l.id, kind); return [l.load_number, l.customer_ref ?? "", lane(l), payee(l, kind), day(l.delivery_at), age(l), usd(amountFor(l, kind)), s?.invoice_number ?? "", qbText(s)]; }),
+      total: ["Total", "", `${shown.length} loads`, "", "", "", usd(shown.reduce((t, l) => t + amountFor(l, kind), 0)), "", ""],
+    };
+  };
+
+
   return (
     <div className="space-y-5 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -366,6 +413,7 @@ function Accounting() {
           Invoiced — not yet in QuickBooks
         </label>
       )}
+      <ReportExport className="ml-auto" build={exportSpec} />
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (

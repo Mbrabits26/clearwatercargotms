@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ReportExport } from "@/components/ReportExport";
+import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 
 type Sync = { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown };
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: Sync[] };
@@ -94,7 +96,30 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
     res.filter((r) => !r.ok).forEach((r) => toast.error(`${closeouts.find((l) => l.id === r.id)?.load_number}: ${r.error}`));
   };
 
-  const lvl = (m: MatchRow["match"]) => !m ? <Badge variant="outline">No match</Badge> : <Badge variant={m.level === "high" ? "default" : "secondary"}>{m.level === "high" ? "High" : m.level === "probable" ? "Probable" : "Review"} · {m.score}</Badge>;
+  const lvlText = (m: MatchRow["match"]) => !m ? "No match" : `${m.level === "high" ? "High" : m.level === "probable" ? "Probable" : "Review"} · ${m.score}`;
+  const lvl = (m: MatchRow["match"]) => !m ? <Badge variant="outline">No match</Badge> : <Badge variant={m.level === "high" ? "default" : "secondary"}>{lvlText(m)}</Badge>;
+  const day = (d?: string | null) => (d ? dayText(d) : "");
+
+  /** Print / PDF / CSV of the assistant's current list. */
+  const exportSpec = (): ReportSpec | null => {
+    if (!plan) return null;
+    const filters = [`Request: "${q.trim()}"`, plan.customer && `Customer: ${plan.customer}`, datesLine("Dates", plan.from ?? "", plan.to ?? ""), `Company: ${plan.entity === "fleet" ? "Foust Farms" : "Clearwater Cargo"}`].filter((x): x is string => !!x);
+    const base = { title: plan.mode === "closeout" ? "Review assistant — loads to close out" : "Review assistant — QuickBooks matches", subtitle: plan.summary, company: plan.entity, filters };
+    if (plan.mode === "closeout") return {
+      ...base, summary: [["Loads", String(closeouts.length)], ["Customer amount", usd(closeouts.reduce((t, l) => t + l.customer_rate, 0))], ["Closed out here", String(closeouts.filter((l) => done.has(l.id)).length)]],
+      head: ["Load", "Customer", "Delivered", "Rate", "Status"], right: [3],
+      rows: closeouts.map((l) => [l.load_number, l.customer, day(l.delivery_at ?? l.pickup_at), usd(l.customer_rate), done.has(l.id) ? "Closed out" : l.status]),
+    };
+    return {
+      ...base, summary: [["QuickBooks invoices", String(matches.length)], ["With a suggested load", String(matches.filter((m) => m.match).length)], ["High confidence", String(matches.filter((m) => m.match?.level === "high").length)], ["QB total", usd(matches.reduce((t, m) => t + m.invoice.total, 0))]],
+      head: ["QB invoice", "QB date", "QB customer", "Total", "Balance", "TMS load", "TMS customer", "TMS rate", "TMS status", "Confidence", "Why"], right: [3, 4, 7],
+      rows: matches.map((r) => {
+        const l = r.match && loads.find((x) => x.id === r.match!.load.id);
+        return [`#${r.invoice.docNumber ?? r.invoice.id}`, day(r.invoice.date), r.invoice.customer, usd(r.invoice.total), r.invoice.balance <= 0 ? "Paid" : usd(r.invoice.balance),
+          r.match?.load.load_number ?? "", r.match?.load.customer ?? "", r.match ? usd(r.match.load.customer_rate) : "", done.has(r.invoice.id) ? "Linked" : l?.status ?? "", lvlText(r.match), r.match?.reasons.join(", ") ?? ""];
+      }),
+    };
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
@@ -106,7 +131,10 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
           <Button type="submit" disabled={busy || q.trim().length < 2}>{busy ? "Working…" : "Search"}</Button>
         </form>
         <div className="flex flex-wrap gap-2">{EXAMPLES.map((x) => <Button key={x} size="sm" variant="outline" disabled={busy} onClick={() => run(x)}>{x}</Button>)}</div>
-        {plan && <p className="text-sm"><span className="text-gold">Showing:</span> {plan.summary}{plan.customer ? ` · ${plan.customer}` : ""}{plan.from || plan.to ? ` · ${plan.from ?? "…"} → ${plan.to ?? "today"}` : ""} · {plan.entity === "fleet" ? "Foust Farms" : "Clearwater"}</p>}
+        {plan && <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm"><span className="text-gold">Showing:</span> {plan.summary}{plan.customer ? ` · ${plan.customer}` : ""}{plan.from || plan.to ? ` · ${plan.from ?? "…"} → ${plan.to ?? "today"}` : ""} · {plan.entity === "fleet" ? "Foust Farms" : "Clearwater"}</p>
+          <ReportExport build={exportSpec} />
+        </div>}
 
         {plan && plan.mode !== "closeout" && <>
           <div className="overflow-auto rounded border">

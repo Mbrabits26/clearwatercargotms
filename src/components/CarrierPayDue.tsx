@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DocLink, type DocItem } from "@/components/DocPreview";
+import { ReportExport } from "@/components/ReportExport";
+import type { ReportSpec } from "@/lib/reportExport";
 
 const LEAD_KEY = "cw_pay_lead_days";
 const day = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -114,9 +116,23 @@ export function CarrierPayDue() {
             <PayDetail group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
           ) : (
             <>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
                 <Button size="sm" variant={scope === "due" ? "default" : "outline"} onClick={() => setScope("due")}>Due now ({dueGroups.length})</Button>
                 <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid ({groups.length})</Button>
+                <ReportExport className="ml-auto" build={(): ReportSpec => {
+                  const loadsN = list.reduce((t, g) => t + g.items.length, 0), net = list.reduce((t, g) => t + g.net, 0);
+                  return {
+                    title: scope === "due" ? "Carriers due to be paid" : "All unpaid carriers",
+                    summary: [["Carriers", String(list.length)], ["Loads", String(loadsN)], ["Net to pay", usd(net)], ["Quick Pay carriers", String(list.filter((g) => g.quickPay).length)]],
+                    head: ["Carrier", "Pay to", "Terms", "Load #s", "Loads", "Newest", "Next due", "Carrier pay", "Quick Pay fee", "Net to pay"], right: [4, 7, 8, 9],
+                    rows: list.map((g) => {
+                      const left = Math.ceil((g.soonest - Date.now()) / 86_400_000);
+                      return [g.carrier?.legal_name ?? "Unknown carrier", payTo(g.carrier).name, [...new Set(g.items.map((x) => x.d.pt.terms))].join(" / "), g.items.map((x) => x.l.load_number).join(", "), String(g.items.length),
+                        day(g.newest), `${day(g.soonest)} (${dueText(left)})`, usd(g.items.reduce((t, x) => t + x.d.gross, 0)), usd(g.items.reduce((t, x) => t + x.d.fee, 0)), usd(g.net)];
+                    }),
+                    total: ["Total", "", "", "", String(loadsN), "", "", usd(list.reduce((t, g) => t + g.items.reduce((a, x) => a + x.d.gross, 0), 0)), usd(list.reduce((t, g) => t + g.items.reduce((a, x) => a + x.d.fee, 0), 0)), usd(net)],
+                  };
+                }} />
               </div>
               <div className="min-h-0 flex-1 overflow-auto rounded border">
                 <table className="w-full min-w-[700px] text-sm">
@@ -299,6 +315,19 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
 
       <div className="flex flex-wrap items-end gap-2 rounded border p-3">
         <div className="mr-auto text-sm">Selected: <b>{chosen.length}</b> load(s) · <b className="text-gold">{usd(total)}</b></div>
+        {/* Pay sheet: pay-to + loads. Bank numbers are never printed or exported. */}
+        <ReportExport build={(): ReportSpec => {
+          const its = chosen.length ? chosen : group.items;
+          return {
+            title: `Carrier pay — ${c?.legal_name ?? "Carrier"}`,
+            subtitle: `Pay to: ${to.name}${to.factored ? ` (factoring company for ${to.forCarrier})` : ""}${to.address ? ` · ${to.address.replace(/\n/g, ", ")}` : ""}`,
+            filters: [`MC ${c?.mc_number || "—"} · DOT ${c?.dot_number || "—"}`, `Terms: ${[...new Set(its.map((x) => x.d.pt.terms))].join(" / ")}`, chosen.length && chosen.length < group.items.length ? `${chosen.length} of ${group.items.length} loads selected` : `All ${group.items.length} unpaid loads`, ...(to.noaMissing ? ["NOA not on file — confirm before paying the factoring company"] : [])],
+            summary: [["Loads", String(its.length)], ["Carrier pay", usd(its.reduce((t, x) => t + x.d.gross, 0))], ["Quick Pay fee", usd(its.reduce((t, x) => t + x.d.fee, 0))], ["Net to pay", usd(its.reduce((t, x) => t + x.d.net, 0))]],
+            head: ["Load", "Lane", "Clock from", "Due", "Terms", "Carrier pay", "Quick Pay fee", "Net to pay", "QuickBooks bill"], right: [5, 6, 7],
+            rows: its.map(({ l, d, bill }) => [l.load_number, `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`, `${day(d.podAt)} (${d.fromPod ? "POD in" : "delivery, no POD"})`, `${day(d.due)} (${dueText(d.daysLeft)})`, d.pt.terms, usd(d.gross), d.fee ? usd(d.fee) : "", usd(d.net), bill ? (bill.qb_ref ? "In QuickBooks" : bill.status) : "Not sent"]),
+            total: ["Total", `${its.length} loads`, "", "", "", usd(its.reduce((t, x) => t + x.d.gross, 0)), usd(its.reduce((t, x) => t + x.d.fee, 0)), usd(its.reduce((t, x) => t + x.d.net, 0)), ""],
+          };
+        }} />
         <label className="text-xs text-muted-foreground">Check # / ACH ref (optional)<Input className="mt-1 h-9 w-48" value={ref} onChange={(e) => setRef(e.target.value)} /></label>
         <Button variant="outline" asChild><Link to="/quickbooks" onClick={onLeave}>Open Accounting</Link></Button>
         <Button disabled={busy} onClick={markPaid}>{busy ? "Saving…" : "Mark paid"}</Button>

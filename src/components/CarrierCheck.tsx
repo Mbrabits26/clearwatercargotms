@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ClipboardCheck, Download, Loader2, Printer, Sparkles } from "lucide-react";
+import { ClipboardCheck, Loader2, Sparkles } from "lucide-react";
+import { ReportExport } from "@/components/ReportExport";
+import type { ReportSpec } from "@/lib/reportExport";
 import { supabase } from "@/integrations/supabase/client";
 import { fixCarrierWithAi } from "@/lib/carrierFix.functions";
 import { carrierIssues, type Carrier } from "@/lib/tms";
@@ -43,11 +45,12 @@ export function CarrierCheck({ carriers, onDone }: { carriers: Carrier[]; onDone
     catch (e) { toast.error((e as Error).message); } finally { mark(c.id, false); }
   };
   const checkAll = async () => { for (const r of rows.slice(0, 25)) if (!fixes[r.c.id]) await check(r.c); };
-  const csv = () => {
-    const lines = [["Carrier", "MC", "DOT", "Status", "Problems"], ...rows.map((r) => [r.c.legal_name, r.c.mc_number ?? "", r.c.dot_number ?? "", r.c.status, r.issues.map((i) => i.text).join("; ")])];
-    const blob = new Blob([lines.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "carrier-check.csv"; a.click();
-  };
+  const FLT_LABEL = FILTERS.find(([k]) => k === flt)?.[1] ?? "All";
+  const spec = (): ReportSpec => ({
+    title: "Carrier check", filters: [`Showing: ${FLT_LABEL}`], summary: [["Carriers with problems", String(rows.length)]],
+    head: ["Carrier", "MC", "DOT", "Status", "Problems"],
+    rows: rows.map((r) => [r.c.legal_name, r.c.mc_number ?? "", r.c.dot_number ?? "", r.c.status, r.issues.map((i) => i.text).join("; ")]),
+  });
 
   return (
     <div className="space-y-3">
@@ -55,8 +58,7 @@ export function CarrierCheck({ carriers, onDone }: { carriers: Carrier[]; onDone
         {FILTERS.map(([k, l]) => <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground")}>{l}</button>)}
         <div className="ml-auto flex gap-2 print:hidden">
           <Button size="sm" variant="outline" onClick={checkAll} disabled={busy.size > 0}><Sparkles className="mr-1 h-4 w-4" />Fix with AI (first 25)</Button>
-          <Button size="sm" variant="outline" onClick={csv}><Download className="mr-1 h-4 w-4" />CSV</Button>
-          <Button size="sm" variant="outline" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
+          <ReportExport build={spec} />
         </div>
       </div>
       <p className="text-xs text-muted-foreground">{rows.length} carriers with problems. Fix with AI reads the carrier's uploaded documents and free FMCSA data and fills only blank fields — you approve each change. Each AI read uses a small amount of AI credit.</p>

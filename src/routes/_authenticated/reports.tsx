@@ -3,10 +3,10 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { useStickyState } from "@/hooks/useStickyState";
-import { Download, Printer } from "lucide-react";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
-import { Button } from "@/components/ui/button";
+import { ReportExport } from "@/components/ReportExport";
+import { dayText, type ReportRow, type ReportSpec } from "@/lib/reportExport";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
@@ -155,29 +155,47 @@ function Reports() {
   const money: Col[] = ["revenue", "cost", "margin", "commission"];
   const sum = (ls: Load[], c: Col) => ls.reduce((s, l) => { const t = loadTotals(l); return s + (c === "revenue" ? t.revenue : c === "cost" ? t.cost : c === "commission" ? commOf(l) : t.margin); }, 0);
 
-  const exportCsv = () => {
+  const buildSpec = (): ReportSpec => {
     const grouped = cfg.groupBy !== "none";
-    const head = [...(grouped ? ["Group"] : []), ...cfg.cols.map((c) => COLS.find((x) => x.id === c)!.label)];
-    const totalRow = (label: string, ls: Load[]) => {
+    const totalCells = (label: string, ls: Load[]) => {
       const rev = sum(ls, "revenue"), mar = sum(ls, "margin");
-      return [...(grouped ? [label] : []), ...cfg.cols.map((c, i) => {
+      return cfg.cols.map((c, i) => {
         if (c === "revenue") return usd(rev);
         if (c === "cost") return usd(sum(ls, "cost"));
         if (c === "commission") return usd(sum(ls, "commission"));
         if (c === "margin") return fleetView ? "No margin — company truck" : `${usd(mar)} (${(rev ? (mar / rev) * 100 : 0).toFixed(1)}%)`;
-        if (i === 0) return grouped ? `${ls.length} loads` : `${label} — ${ls.length} loads`;
+        if (i === 0) return `${label} · ${ls.length} loads`;
         return "";
-      })];
+      });
     };
-    const lines = [head, ...groups.flatMap(([g, ls]) => [
-      ...ls.map((l) => [...(grouped ? [g] : []), ...cfg.cols.map((c) => cell(l, c))]),
-      ...(grouped ? [totalRow(`${g} TOTAL`, ls), []] : []),
-    ]), totalRow("GRAND TOTAL", rows)];
-    const csv = lines.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `${fleetView ? "foust-fleet" : "clearwater"}-${preset}-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    const nameOf = (id: string, list: { id: string; name?: string | null; full_name?: string | null; legal_name?: string | null; email?: string | null }[]) => {
+      const x = list.find((y) => y.id === id); return x?.name ?? x?.full_name ?? x?.legal_name ?? x?.email ?? id;
+    };
+    const rangeLabel = range === "custom" || !rangeOptions().some((o) => o.value === range) ? "Custom" : rangeOptions().find((o) => o.value === range)!.label;
+    const filters = [
+      `Pickup dates: ${from || to ? `${from ? dayText(from) : "start"} to ${to ? dayText(to) : "today"} (${rangeLabel})` : "All dates"}`,
+      broker !== "all" && `Broker: ${nameOf(broker, profiles)}`,
+      customer !== "all" && `Customer: ${nameOf(customer, companies)}`,
+      carrier !== "all" && `Carrier: ${nameOf(carrier, carriers)}`,
+      salesRep !== "all" && `Brought in by: ${salesRep === "none" ? "Not set" : nameOf(salesRep, profiles)}`,
+      cfg.statuses.length < STATUSES.length && `Statuses: ${cfg.statuses.map((s) => STATUSES.find((x) => x.value === s)?.label ?? s).join(", ")}`,
+      grouped && `Grouped by: ${cfg.groupBy === "salesrep" ? "Customer brought in by" : cfg.groupBy}`,
+      q && `Search: "${q}"`,
+    ].filter((x): x is string => !!x);
+    return {
+      title: fleetView ? "Internal fleet records (Foust Farms)" : PRESETS[preset]!.label,
+      company: fleetView ? "fleet" : "brokerage",
+      filters,
+      summary: [["Loads", String(rows.length)], ["Customer amount", usd(sum(rows, "revenue"))], ["Carrier amount", usd(sum(rows, "cost"))], ["Margin", fleetView ? "None (company trucks)" : usd(sum(rows, "margin"))]],
+      head: cfg.cols.map((c) => COLS.find((x) => x.id === c)!.label),
+      right: cfg.cols.flatMap((c, i) => (money.includes(c) || c === "age" ? [i] : [])),
+      rows: groups.flatMap(([g, ls]): ReportRow[] => [
+        ...(grouped ? [{ group: `${g} · ${ls.length} load${ls.length === 1 ? "" : "s"}` }] : []),
+        ...ls.map((l) => cfg.cols.map((c) => cell(l, c))),
+        ...(grouped ? [{ subtotal: totalCells("Subtotal", ls) }] : []),
+      ]),
+      total: rows.length ? totalCells("Grand total", rows) : undefined,
+    };
   };
 
   const toggleStatus = (s: LoadStatus) => { setPreset("custom"); setCfg((c) => ({ ...c, statuses: c.statuses.includes(s) ? c.statuses.filter((x) => x !== s) : [...c.statuses, s] })); };
@@ -187,10 +205,7 @@ function Reports() {
     <div className="space-y-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <h1 className="text-3xl font-bold uppercase">Reports</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
-          <Button onClick={exportCsv}><Download className="mr-1 h-4 w-4" />Export CSV</Button>
-        </div>
+        {!carrierView && <ReportExport size="default" build={buildSpec} />}
       </div>
       <div className="flex flex-wrap gap-2 print:hidden">
         {Object.entries(PRESETS).filter(([k]) => k !== "commission" || isAdmin).map(([k, p]) => (
