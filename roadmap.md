@@ -151,3 +151,6 @@
 - [x] Rename uploaded documents (load docs, Accounting attachments, carrier docs)
 - [x] Dispatch search still freezes while typing
 - [x] Agent integrations (MCP): read-only loads/carriers/directory tools with sign-in consent + Dispatch browser tools
+
+## Oct 23
+- [x] Print / PDF / CSV on Reports, Accounting tabs, review assistant, QuickBooks matching, carrier pay and invoiced review lists
