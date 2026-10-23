@@ -16,6 +16,7 @@ import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loa
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
 import { QbReconcileDialog } from "@/components/QbReconcileDialog";
+import { ReviewAssistantDialog } from "@/components/ReviewAssistantDialog";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
@@ -109,6 +110,7 @@ function Accounting() {
   const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
   const [syncing, setSyncing] = useState(false);
   const [reconOpen, setReconOpen] = useState(false);
+  const [assistOpen, setAssistOpen] = useState(false);
   const search = Route.useSearch();
   const [q, setQ] = useState(search.q ?? "");
   const [reviewOnly, setReviewOnly] = useState(!!search.review);
