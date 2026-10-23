@@ -6,7 +6,7 @@ import { useStickyState } from "@/hooks/useStickyState";
 import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
 import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { ReportExport } from "@/components/ReportExport";
-import type { ReportRow, ReportSpec } from "@/lib/reportExport";
+import { dayText, type ReportRow, type ReportSpec } from "@/lib/reportExport";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
