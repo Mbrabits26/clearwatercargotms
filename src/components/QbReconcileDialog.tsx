@@ -50,7 +50,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
   };
   const doLink = async (inv: QbInvoice, loadId: string) => {
     try {
-      const r = await link({ data: { loadId, qbId: inv.id, amount: inv.total, paid: inv.balance <= 0, entity } });
+      const r = await link({ data: { loadId, qbId: inv.id, amount: inv.total, paid: inv.balance <= 0, entity, docNumber: inv.docNumber, customer: inv.customer || null } });
       setDone((d) => new Set(d).add(inv.id));
       toast.success(r.statusNote ? `Linked. Load status not changed: ${r.statusNote}` : "Linked to load.");
       qc.invalidateQueries({ queryKey: ["qb_sync"] }); qc.invalidateQueries({ queryKey: ["loads"] });
