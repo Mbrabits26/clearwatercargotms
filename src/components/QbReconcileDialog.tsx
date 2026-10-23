@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/DatePicker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ReportExport } from "@/components/ReportExport";
+import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean } };
 
@@ -57,6 +59,23 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
     } catch (e) { toast.error((e as Error).message); }
   };
 
+  const exportSpec = (): ReportSpec | null => {
+    if (!invoices) return null;
+    const list = invoices.filter((i) => !done.has(i.id));
+    return {
+      title: "QuickBooks invoices to match", company: entity,
+      filters: [`Company: ${entity === "fleet" ? "Foust Farms Trucking" : "Clearwater Cargo"}`, datesLine("Invoice dates", from, to), openOnly ? "Unpaid only" : "Paid and unpaid"],
+      summary: [["Unlinked invoices", String(list.length)], ["Total", usd(list.reduce((t, i) => t + i.total, 0))], ["Open balance", usd(list.reduce((t, i) => t + i.balance, 0))]],
+      head: ["QB invoice", "Date", "Customer", "Amount", "Balance", "Suggested load", "Match", "Why"], right: [3, 4],
+      rows: list.map((inv) => {
+        const m = bestMatches(inv, candidates); const best = m[0];
+        const pick = candidates.find((c) => c.id === (manual[inv.id] ?? best?.load.id));
+        return [`#${inv.docNumber ?? inv.id}`, inv.date ? dayText(inv.date) : "", inv.customer, usd(inv.total), inv.balance > 0 ? usd(inv.balance) : "Paid",
+          pick ? `${pick.load_number} · ${pick.customer} · ${usd(pick.customer_rate)}` : "", best ? (best.level === "high" ? "High" : best.level === "probable" ? "Probable" : "Weak") : "No match", best?.reasons.join(", ") ?? ""];
+      }),
+    };
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={full ? "flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden sm:max-w-none sm:rounded-none" : "flex h-[90dvh] max-h-[90dvh] w-[96vw] max-w-none flex-col overflow-hidden sm:max-w-[96vw]"}>
@@ -84,6 +103,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
           <label className="text-xs text-muted-foreground">To<DatePicker className="mt-1" value={to} onChange={(v) => { setRange("custom"); setDates([from, v]); }} /></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />Unpaid only</label>
           <Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button>
+          {invoices && <ReportExport className="ml-auto" build={exportSpec} />}
         </div>
         {invoices && (
           <div className="min-h-0 flex-1 overflow-auto rounded-md border [&>div]:overflow-visible">

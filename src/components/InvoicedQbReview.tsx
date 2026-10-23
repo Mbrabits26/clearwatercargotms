@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { ReportExport } from "@/components/ReportExport";
+import { dayText, type ReportSpec } from "@/lib/reportExport";
 
 type SyncLite = { load_id: string; kind: string; status: string; qb_ref: string | null; invoice_number: string | null };
 type Item = { l: Load; state: QbReviewState; customer: string; invoice: string | null };
@@ -99,7 +101,14 @@ export function InvoicedQbReview() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-between gap-2">
+            <ReportExport build={(): ReportSpec => ({
+              title: "Invoiced loads — QuickBooks review",
+              summary: [["Loads", String(data.length)], ["Amount", usd(total)], ["Not queued", String(count("not_queued"))], ["Queued", String(count("queued"))], ["Failed", String(errors)]],
+              head: ["Load", "Customer", "Lane", "Delivered", "Amount", "Invoice #", "QuickBooks"], right: [4],
+              rows: data.map(({ l, state, customer, invoice }) => [l.load_number, customer, `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`, l.delivery_at ? dayText(l.delivery_at) : "", usd(loadTotals(l).revenue), invoice ?? "", QB_REVIEW_LABEL[state]]),
+              total: ["Total", `${data.length} loads`, "", "", usd(total), "", ""],
+            })} />
             <Button asChild><Link to="/quickbooks" search={{ review: true }} onClick={() => setOpen(false)}>Review all in Accounting</Link></Button>
           </div>
         </DialogContent>
