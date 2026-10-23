@@ -11,7 +11,7 @@ import {
   STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, FLEET_CARRIER_ID, sortForBoard, latePickup, lateDelivery, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
 } from "@/lib/tms";
-import { RateConPanel } from "@/components/RateConPanel";
+import { RateConPanel, tellRemovedCarrier } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -632,10 +632,17 @@ const Cockpit = memo(function Cockpit({
               carriers={carriers}
               currentId={load.carrier_id}
               isAdmin={canOverride}
-              onPick={(id, reason) => update({
-                carrier_id: id, status: id && load.status === "available" ? "booked" : load.status,
-                ...(reason ? { override_reason: reason } : canOverride && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
-              }, id ? (reason ? "Carrier assigned with admin override" : "Carrier assigned") : "Carrier removed")}
+              onPick={async (id, reason) => {
+                const prev = load.carrier_id;
+                const { error } = await supabase.from("loads").update({
+                  carrier_id: id, status: id && load.status === "available" ? "booked" : load.status,
+                  ...(reason ? { override_reason: reason } : canOverride && load.override_reason ? { override_reason: null, override_by: null, override_at: null } : {}),
+                }).eq("id", load.id);
+                if (error) return void toast.error(error.message);
+                toast.success(id ? (reason ? "Carrier assigned with admin override" : "Carrier assigned") : "Carrier removed");
+                qc.invalidateQueries({ queryKey: ["loads"] });
+                if (prev && prev !== id) void tellRemovedCarrier(load.id, prev, qc);
+              }}
               onAdded={() => qc.invalidateQueries({ queryKey: ["carriers"] })}
             />
           </div>

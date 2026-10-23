@@ -1,5 +1,5 @@
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Download, FileSignature, FileText, Mail, Pencil, Plus, Trash2 } from "lucide-react";
@@ -11,6 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+/** Email a carrier that was taken off a load (only if they'd been sent a rate con) and cancel their open links. */
+export async function tellRemovedCarrier(loadId: string, carrierId: string, qc: QueryClient) {
+  try {
+    const { notifyCarrierRemoved } = await import("@/lib/carrierRemoved.functions");
+    const r = await notifyCarrierRemoved({ data: { loadId, carrierId } });
+    if (r.sent) toast.success(`Removal notice emailed to ${r.to}`);
+    else if (r.reason === "no_email") toast.warning("Carrier removed, but they have no email on file — let them know by phone.");
+    else if (r.reason === "suppressed") toast.warning(`Couldn't email ${r.to} — that address has blocked our emails. Let them know by phone.`);
+    qc.invalidateQueries({ queryKey: ["ratecon_requests", loadId] });
+    qc.invalidateQueries({ queryKey: ["load_notes", loadId] });
+    qc.invalidateQueries({ queryKey: ["loads"] });
+  } catch (e) {
+    console.error(e);
+    toast.error("Carrier removed, but the removal email couldn't be sent. Let them know by phone.");
+  }
+}
 
 export function RateConPanel({ load, carrier, shipper, consignee, customer, onSaved }: {
   load: Load; carrier?: Carrier; shipper?: Company; consignee?: Company; customer?: Company; onSaved: () => void;
@@ -107,6 +124,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [voidReason, setVoidReason] = useState("Incorrect information");
   const [voidNote, setVoidNote] = useState("");
   const [dropCarrier, setDropCarrier] = useState(false);
+  const [emailDropped, setEmailDropped] = useState(true);
   const voidSigned = async () => {
     if (!voidNote.trim()) return toast.error("Add a note explaining why");
     const { data: u } = await supabase.auth.getUser();
@@ -119,6 +137,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     if (e2) return toast.error(e2.message);
     if (u.user) await supabase.from("load_notes").insert({ load_id: load.id, author_id: u.user.id, body: `Signed rate con deleted — ${voidReason}: ${voidNote.trim()}${dropCarrier && carrier ? ` (carrier ${carrier.legal_name} removed)` : ""}` });
     toast.success(dropCarrier ? "Rate con deleted. Assign the new carrier, then send a new rate con." : "Rate con deleted. Edit it and send the revised version.");
+    if (dropCarrier && carrier && emailDropped) void tellRemovedCarrier(load.id, carrier.id, qc);
     setVoidOpen(false); setVoidNote(""); setDropCarrier(false); setDraft(null);
     qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["load_notes", load.id] }); onSaved();
   };
@@ -178,6 +197,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
             </label>
             <label className="block text-xs">Note (required)<Textarea rows={3} value={voidNote} onChange={(e) => setVoidNote(e.target.value)} placeholder="What changed and why" /></label>
             {carrier && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={dropCarrier} onChange={(e) => setDropCarrier(e.target.checked)} />Remove {carrier.legal_name} from this load so I can assign a new carrier</label>}
+            {carrier && dropCarrier && <label className="ml-5 flex items-center gap-2 text-xs"><input type="checkbox" checked={emailDropped} onChange={(e) => setEmailDropped(e.target.checked)} />Email {carrier.legal_name} that they've been removed and the rate con is cancelled</label>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setVoidOpen(false)}>Cancel</Button>
               <Button variant="destructive" onClick={voidSigned}>Delete rate con</Button>
