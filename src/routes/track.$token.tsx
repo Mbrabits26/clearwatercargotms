@@ -31,24 +31,38 @@ function TrackPage() {
   const [done, setDone] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const getPos = (): Promise<{ lat: number; lng: number } | null> =>
+  const [geoBlocked, setGeoBlocked] = useState(false);
+
+  const tryPos = (opts: PositionOptions): Promise<{ lat: number; lng: number } | null> =>
     new Promise((res) => {
-      if (!navigator.geolocation) return res(null);
       navigator.geolocation.getCurrentPosition(
         (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => res(null),
-        { timeout: 8000 },
+        (err) => { if (err.code === err.PERMISSION_DENIED) setGeoBlocked(true); res(null); },
+        opts,
       );
     });
+
+  const getPos = async (): Promise<{ lat: number; lng: number } | null> => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return null;
+    // Fast: accept a recent fix (e.g. from Maps); then fall back to a fresh high-accuracy fix.
+    return (await tryPos({ maximumAge: 120000, timeout: 6000, enableHighAccuracy: false }))
+      ?? (await tryPos({ maximumAge: 0, timeout: 20000, enableHighAccuracy: true }));
+  };
 
   const send = async (kind: "location" | "status", status?: string) => {
     setBusy(true);
     const pos = await getPos();
+    if (!pos && kind === "location") {
+      setBusy(false);
+      return toast.error("Couldn't get your location. Turn on Location for your browser and try again.");
+    }
     const r = await postPing({ data: { token, kind, status, note: note || undefined, lat: pos?.lat, lng: pos?.lng } });
     setBusy(false);
     if (!r.ok) return toast.error(r.problem);
     if (status) setDone((d) => [...new Set([...d, status])]);
-    toast.success(status ? `Update sent: ${status}` : "Location sent");
+    if (pos) setGeoBlocked(false);
+    toast.success(status ? `Update sent: ${status}${pos ? "" : " (without location)"}` : "Location sent");
+    if (!pos) toast.warning("Your location wasn't shared. Allow location access, then tap “Send my location”.");
     setNote("");
   };
 
@@ -76,8 +90,14 @@ function TrackPage() {
         <div className="text-sm text-muted-foreground">{l.equipment}{l.commodity ? ` · ${l.commodity}` : ""}</div>
       </div>
 
+      {geoBlocked && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
+          Location is blocked. In your phone settings, allow Location for this browser (Safari or Chrome), then reload this page.
+        </div>
+      )}
       <div className="space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status update</div>
+        <p className="text-xs text-muted-foreground">Tap “Allow” when your phone asks for your location.</p>
         {STEPS.map((s) => (
           <Button key={s} variant="outline" className="w-full justify-start" disabled={busy || done.includes(s)} onClick={() => send("status", s)}>
             {done.includes(s) ? <CheckCircle2 className="mr-2 h-4 w-4 text-success" /> : <Truck className="mr-2 h-4 w-4" />}
