@@ -54,7 +54,7 @@ type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; stages?: Bil
 const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
   ar: { label: "Outstanding customer invoices", cfg: { statuses: ["delivered", "invoiced"], groupBy: "customer", cols: ["load", "status", "customer", "custref", "invoice", "lane", "delivery", "revenue", "age"] } },
   ap: { label: "Outstanding carrier payments", cfg: { statuses: ["delivered", "invoiced"], groupBy: "carrier", cols: ["load", "status", "carrier", "lane", "delivery", "cost", "age"] } },
-  pod: { label: "Loads missing POD", cfg: { statuses: ["delivered", "invoiced", "paid"], pod: "no", groupBy: "carrier", cols: ["load", "status", "carrier", "customer", "custref", "lane", "delivery", "age", "pod"] } },
+  pod: { label: "Loads missing POD", cfg: { statuses: ["delivered", "invoiced", "paid"], pod: "no", closed: "no", groupBy: "carrier", cols: ["load", "status", "carrier", "customer", "custref", "lane", "delivery", "age", "pod"] } },
   billing: { label: "Billing status", cfg: { statuses: STATUSES.map((s) => s.value), stages: ["needs_invoice", "invoiced", "sent"], groupBy: "billing", cols: ["load", "billing", "customer", "custref", "shipref", "invoice", "delivery", "revenue", "age"] } },
   broker: { label: "Broker loads booked", cfg: { statuses: ["booked", "dispatched", "rolling", "delivered", "invoiced", "paid", "issue"], groupBy: "broker", cols: ["load", "status", "customer", "lane", "pickup", "revenue", "cost", "margin"] } },
   lane: { label: "Lane profitability", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "lane", cols: ["load", "customer", "carrier", "pickup", "revenue", "cost", "margin"] } },
