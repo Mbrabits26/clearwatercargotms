@@ -239,7 +239,7 @@ function Reports() {
     <div className="space-y-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <h1 className="text-3xl font-bold uppercase">Reports</h1>
-        {!carrierView && <ReportExport size="default" build={buildSpec} />}
+        {!carrierView && <ReportExport size="default" build={buildSpec} hotkey />}
       </div>
       <div className="flex flex-wrap gap-2 print:hidden">
         {Object.entries(PRESETS).filter(([k]) => k !== "commission" || isAdmin).map(([k, p]) => (
