@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { batchEligible, needsWork, type WorkLoad } from "@/lib/loadWork";
 
-const load = (changes: Partial<WorkLoad> = {}): WorkLoad => ({ id: "old-its", load_number: "CW-123", status: "delivered", broker_id: "broker", delivery_at: "2026-01-01T00:00:00Z", source: "its", pod_received: false, closed_at: null, ...changes });
+const load = (changes: Partial<WorkLoad> = {}): WorkLoad => ({ id: "old-its", load_number: "CW-123", status: "delivered", broker_id: "broker", delivery_at: "2026-01-01T00:00:00Z", source: "its", pod_received: false, closed_at: null, customer_id: null, customer_ref: null, origin_city: "Raleigh", dest_city: "Durham", ...changes });
 describe("Unfinished loads across all dates", () => {
   it("includes older ITS loads needing invoices", () => expect(needsWork(load(), "invoice", new Set())).toBe(true));
   it("excludes already invoiced loads from invoice notices", () => expect(needsWork(load(), "invoice", new Set(["old-its"]))).toBe(false));
