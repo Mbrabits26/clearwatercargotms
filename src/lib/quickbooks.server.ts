@@ -175,7 +175,6 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   };
   // Combined invoices: several rows share one invoice_number → one QuickBooks invoice with a line per load.
   const made = new Map<string, string>();
-  const laneOf = (x?: LoadLite) => (x ? `${x.load_number}: ${x.origin_city ?? ""}, ${x.origin_state ?? ""} to ${x.dest_city ?? ""}, ${x.dest_state ?? ""}` : "");
   for (const r of list) {
     const l = byId.get(r.load_id);
     try {
