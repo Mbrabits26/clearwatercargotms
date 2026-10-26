@@ -149,7 +149,8 @@ function Reports() {
   const groups = useMemo(() => {
     const m = new Map<string, Load[]>();
     rows.forEach((l) => m.set(keyOf(l), [...(m.get(keyOf(l)) ?? []), l]));
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const order = (g: string) => BILLING_STAGES.findIndex((s) => s.label === g);
+    return [...m.entries()].sort((a, b) => (cfg.groupBy === "billing" ? order(a[0]) - order(b[0]) : a[0].localeCompare(b[0])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, cfg.groupBy]);
 
@@ -158,17 +159,24 @@ function Reports() {
     switch (c) {
       case "load": return l.load_number;
       case "status": return STATUSES.find((s) => s.value === l.status)!.label;
+      case "billing": return stageLabel(stageOf(l)) + (l.closed_at ? " · Closed out" : "");
       case "customer": return custName(l);
+      case "custref": return l.customer_ref ?? "";
+      case "shipref": return l.ship_ref ?? "";
+      case "destref": return l.dest_ref ?? "";
+      case "invoice": return invNo(l);
       case "carrier": return carrName(l);
       case "broker": return brokerName(l);
       case "lane": return laneOf(l);
       case "pickup": return fmtDate(l.pickup_at);
       case "delivery": return fmtDate(l.delivery_at);
       case "equipment": return l.equipment;
+      case "commodity": return l.commodity ?? "";
       case "revenue": return usd(t.revenue);
       case "cost": return usd(t.cost);
       case "margin": return marginText(t);
       case "age": return String(age(l));
+      case "carrierpaid": return l.carrier_paid_at ? `Paid ${fmtDate(l.carrier_paid_at)}` : l.carrier_id ? "Unpaid" : "";
       case "salesrep": return repName(l);
       case "commission": return usd(commOf(l));
     }
