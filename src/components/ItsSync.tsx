@@ -22,6 +22,8 @@ type ItsRow = {
   revenue: number | null;
   carrierPay: number | null;
   po: string;
+  wo: string;
+  mc: string;
 };
 
 type Profile = { id: string; full_name: string | null; email: string | null };
@@ -51,12 +53,15 @@ const COLS: Record<string, string[]> = {
   origin: ["origin"],
   dest: ["destination"],
   po: ["po numbers"],
+  wo: ["w/o #", "w/o", "wo #", "wo", "w0 #", "w0", "w/o number", "wo number", "work order", "work order #", "customer ref", "customer ref #"],
+  mc: ["carrier mc", "carrier mc #", "mc #", "mc", "mc number", "carrier mc number"],
   equip: ["equipment type"],
   weight: ["weight"],
   revenue: ["revenue"],
   carrier: ["carrier name"],
   carrierPay: ["carrier pay"],
 };
+const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 
 async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
   const XLSX = await import("xlsx");
