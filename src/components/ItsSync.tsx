@@ -155,6 +155,8 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
             revenue: cur.revenue ?? r.revenue,
             carrierPay: cur.carrierPay ?? r.carrierPay,
             po: cur.po || r.po,
+            wo: cur.wo || r.wo,
+            mc: cur.mc || r.mc,
           });
         }
       }
