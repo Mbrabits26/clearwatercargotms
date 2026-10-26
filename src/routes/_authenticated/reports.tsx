@@ -232,6 +232,8 @@ function Reports() {
 
   const toggleStatus = (s: LoadStatus) => { setPreset("custom"); setCfg((c) => ({ ...c, statuses: c.statuses.includes(s) ? c.statuses.filter((x) => x !== s) : [...c.statuses, s] })); };
   const toggleCol = (col: Col) => { setPreset("custom"); setCfg((c) => ({ ...c, cols: c.cols.includes(col) ? c.cols.filter((x) => x !== col) : COLS.map((x) => x.id).filter((x) => x === col || c.cols.includes(x)) })); };
+  const toggleStage = (s: BillingStage) => { setPreset("custom"); setCfg((c) => { const cur = c.stages ?? ALL_STAGES; return { ...c, stages: cur.includes(s) ? cur.filter((x) => x !== s) : ALL_STAGES.filter((x) => x === s || cur.includes(x)) }; }); };
+  const setOpt = (key: "closed" | "carrierPaid", v: YesNo) => { setPreset("custom"); setCfg((c) => ({ ...c, [key]: v })); };
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -264,11 +266,14 @@ function Reports() {
           <label className="text-xs text-muted-foreground">Group by
             <Select value={cfg.groupBy} onValueChange={(v) => { setPreset("custom"); setCfg((c) => ({ ...c, groupBy: v as GroupBy })); }}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>{["none", "customer", "carrier", "broker", "salesrep", "lane", "status", "equipment", "month"].map((g) => <SelectItem key={g} value={g}>{g === "none" ? "No grouping" : g === "salesrep" ? "Customer brought in by" : g[0]!.toUpperCase() + g.slice(1)}</SelectItem>)}</SelectContent>
+              <SelectContent>{GROUPS.map(([g, label]) => <SelectItem key={g} value={g}>{label}</SelectItem>)}</SelectContent>
             </Select>
           </label>
+          <Filter label="Closed out" value={closed} set={(v) => setOpt("closed", v as YesNo)} opts={[["no", "Not closed out"], ["yes", "Closed out only"]]} />
+          <Filter label="Carrier paid" value={carrierPaid} set={(v) => setOpt("carrierPaid", v as YesNo)} opts={[["no", "Carrier not paid"], ["yes", "Carrier paid"]]} />
         </div>
-        <Input placeholder="Search load #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="Search load #, customer ref #, PO / PU ref #, invoice #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Chips title="Billing stage" items={BILLING_STAGES.map((s) => [s.value, s.label])} on={stages} toggle={(v) => toggleStage(v as BillingStage)} />
         <Chips title="Statuses" items={STATUSES.map((s) => [s.value, s.label])} on={cfg.statuses} toggle={(v) => toggleStatus(v as LoadStatus)} />
         <Chips title="Columns" items={COLS.filter((c) => c.id !== "commission" || isAdmin).map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
       </div>
