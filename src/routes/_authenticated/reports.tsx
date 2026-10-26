@@ -37,24 +37,30 @@ export const Route = createFileRoute("/_authenticated/reports")({
   component: Reports,
 });
 
-type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month" | "salesrep";
-type Col = "load" | "status" | "customer" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "revenue" | "cost" | "margin" | "age" | "salesrep" | "commission";
+type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month" | "salesrep" | "billing";
+type Col = "load" | "status" | "billing" | "customer" | "custref" | "shipref" | "destref" | "invoice" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "commodity" | "revenue" | "cost" | "margin" | "age" | "carrierpaid" | "salesrep" | "commission";
 const COLS: { id: Col; label: string }[] = [
-  { id: "load", label: "Load #" }, { id: "status", label: "Status" }, { id: "customer", label: "Customer" },
+  { id: "load", label: "Load #" }, { id: "status", label: "Status" }, { id: "billing", label: "Billing stage" }, { id: "customer", label: "Customer" },
+  { id: "custref", label: "Customer ref #" }, { id: "shipref", label: "Shipper PO / PU Ref #" }, { id: "destref", label: "Delivery ref / appt #" },
+  { id: "invoice", label: "Invoice #" },
   { id: "carrier", label: "Carrier / pay to" }, { id: "broker", label: "Broker" }, { id: "lane", label: "Lane" },
-  { id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivered" }, { id: "equipment", label: "Equipment" },
+  { id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivered" }, { id: "equipment", label: "Equipment" }, { id: "commodity", label: "Commodity" },
   { id: "revenue", label: "Customer amount" }, { id: "cost", label: "Carrier amount" }, { id: "margin", label: "Margin" },
-  { id: "age", label: "Days outstanding" }, { id: "salesrep", label: "Customer brought in by" }, { id: "commission", label: "Commission" },
+  { id: "age", label: "Days outstanding" }, { id: "carrierpaid", label: "Carrier paid" }, { id: "salesrep", label: "Customer brought in by" }, { id: "commission", label: "Commission" },
 ];
-type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; needPod?: boolean };
+type YesNo = "all" | "yes" | "no";
+type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; needPod?: boolean; stages?: BillingStage[]; closed?: YesNo; carrierPaid?: YesNo };
 const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
-  ar: { label: "Outstanding customer invoices", cfg: { statuses: ["delivered", "invoiced"], groupBy: "customer", cols: ["load", "status", "customer", "lane", "delivery", "revenue", "age"] } },
+  ar: { label: "Outstanding customer invoices", cfg: { statuses: ["delivered", "invoiced"], groupBy: "customer", cols: ["load", "status", "customer", "custref", "invoice", "lane", "delivery", "revenue", "age"] } },
   ap: { label: "Outstanding carrier payments", cfg: { statuses: ["delivered", "invoiced"], groupBy: "carrier", cols: ["load", "status", "carrier", "lane", "delivery", "cost", "age"] } },
+  billing: { label: "Billing status", cfg: { statuses: STATUSES.map((s) => s.value), stages: ["needs_invoice", "invoiced", "sent"], groupBy: "billing", cols: ["load", "billing", "customer", "custref", "shipref", "invoice", "delivery", "revenue", "age"] } },
   broker: { label: "Broker loads booked", cfg: { statuses: ["booked", "dispatched", "rolling", "delivered", "invoiced", "paid", "issue"], groupBy: "broker", cols: ["load", "status", "customer", "lane", "pickup", "revenue", "cost", "margin"] } },
   lane: { label: "Lane profitability", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "lane", cols: ["load", "customer", "carrier", "pickup", "revenue", "cost", "margin"] } },
   commission: { label: "Customer commissions", cfg: { statuses: ["delivered", "invoiced", "paid"], groupBy: "salesrep", cols: ["load", "customer", "salesrep", "pickup", "revenue", "cost", "margin", "commission"] } },
   custom: { label: "Custom report", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "none", cols: ["load", "status", "customer", "carrier", "broker", "lane", "pickup", "revenue", "cost", "margin"] } },
 };
+const GROUPS: [GroupBy, string][] = [["none", "No grouping"], ["customer", "Customer"], ["carrier", "Carrier"], ["broker", "Broker"], ["salesrep", "Customer brought in by"], ["billing", "Billing stage"], ["lane", "Lane"], ["status", "Status"], ["equipment", "Equipment"], ["month", "Month"]];
+type SyncRow = { load_id: string | null; kind: string; status: string; qb_ref: string | null; invoice_number: string | null };
 
 function Reports() {
   const { isAdmin, user } = useRouteContext({ from: "/_authenticated" });
