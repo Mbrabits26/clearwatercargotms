@@ -13,6 +13,7 @@ import {
 } from "@/lib/tms";
 import { RateConPanel, tellRemovedCarrier } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
+import { ActionButton, Hint } from "@/components/ActionGuard";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -444,9 +445,9 @@ function Dispatch() {
             <label className="flex items-center gap-2"><Checkbox aria-label="Select all visible loads" checked={visible.some((l) => !l.closed_at && l.status !== "cancelled") && visible.filter((l) => !l.closed_at && l.status !== "cancelled").every((l) => pickSet.has(l.id))} onCheckedChange={(checked) => setPick(checked === true ? visible.filter((l) => !l.closed_at && l.status !== "cancelled").map((l) => l.id) : [])} />Select visible</label>
             <span>{pick.length} selected</span>
             {!!pick.length && <>
-              <Button size="sm" variant="outline" disabled={!invoiceLoads.length} onClick={() => setInvOpen(true)}>Invoice {invoiceLoads.length}</Button>
-              <Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "delivered"))} onClick={() => setBatchAction("delivered")}>Mark delivered</Button>
-              <Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "closeout"))} onClick={() => setBatchAction("closeout")}>Close out</Button>
+              <Hint text="Opens a window to create invoices for the ticked delivered loads. You review and confirm there before anything is saved."><Button size="sm" variant="outline" disabled={!invoiceLoads.length} onClick={() => setInvOpen(true)}>Invoice {invoiceLoads.length}</Button></Hint>
+              <Hint text="Opens a review window to mark the ticked loads Delivered. Nothing changes until you confirm."><Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "delivered"))} onClick={() => setBatchAction("delivered")}>Mark delivered</Button></Hint>
+              <Hint text="Opens a review window to close out the ticked loads (file them away as finished). Status, invoices and payments stay the same."><Button size="sm" variant="outline" disabled={!pickedLoads.some((l) => batchEligible(l, "closeout"))} onClick={() => setBatchAction("closeout")}>Close out</Button></Hint>
               <Button size="sm" variant="ghost" onClick={() => setPick([])}>Clear</Button>
             </>}
           </div>
@@ -589,7 +590,7 @@ const Cockpit = memo(function Cockpit({
           {load.status === "cancelled" && <div className="mt-1 text-xs text-destructive">Cancelled{load.cancel_reason ? ` — ${load.cancel_reason}` : ""}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {load.closed_at && <><span className="text-xs text-warning">Closed out · {load.closeout_note}</span><Button size="sm" variant="outline" onClick={() => update({ closed_at: null, closed_by: null, closeout_note: null }, "Load reopened")}>Reopen load</Button></>}
+          {load.closed_at && <><span className="text-xs text-warning">Closed out · {load.closeout_note}</span><ActionButton size="sm" variant="outline" hint="Undoes the closeout so the load is active again." confirm={{ title: `Reopen ${load.load_number}?`, points: ["The load goes back on the active Dispatch board and the unfinished-load notices.", "Its status, invoice, payments and QuickBooks stay exactly as they are.", "The closeout note is cleared (the note in the load's notes stays)."], confirmLabel: "Reopen" }} onClick={() => update({ closed_at: null, closed_by: null, closeout_note: null }, "Load reopened")}>Reopen load</ActionButton></>}
           <StatusSelect load={load} />
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3.5 w-3.5" />Edit load</Button>
           <CopyLoadDialog load={load} />

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Download, FileDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Hint } from "@/components/ActionGuard";
 import type { ReportSpec } from "@/lib/reportExport";
 
 /**
@@ -34,9 +35,9 @@ export function ReportExport({ build, size = "sm", className, hotkey }: { build:
   }, [hotkey]);
   return (
     <div className={cn("flex gap-1.5 print:hidden", className)}>
-      <Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("print")}><Printer className="mr-1 h-4 w-4" />Print</Button>
-      <Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("pdf")}><FileDown className="mr-1 h-4 w-4" />PDF</Button>
-      <Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("csv")}><Download className="mr-1 h-4 w-4" />CSV</Button>
+      <Hint text="Print this list as a plain report."><Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("print")}><Printer className="mr-1 h-4 w-4" />Print</Button></Hint>
+      <Hint text="Download this list as a PDF file."><Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("pdf")}><FileDown className="mr-1 h-4 w-4" />PDF</Button></Hint>
+      <Hint text="Download this list as a spreadsheet (CSV) file."><Button type="button" size={size} variant="outline" disabled={busy} onClick={() => go("csv")}><Download className="mr-1 h-4 w-4" />CSV</Button></Hint>
     </div>
   );
 }
