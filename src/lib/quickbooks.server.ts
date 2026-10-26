@@ -1,4 +1,5 @@
 import { deductionLines } from "./invoiceDeductions";
+import { customerRefs, freightLineText } from "./qbInvoiceText";
 import { pendingAttachments, qbContentType, qbUploadBody } from "./qbAttachments";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
 export const QB_REDIRECT_URI = "https://tms.clearwatercargo.com/oauth/quickbooks/return";
@@ -155,7 +156,7 @@ async function klass(qb: Qb, name: string | null) {
 }
 
 type SyncRow = { id: string; kind: string; payee: string | null; amount: number; invoice_number: string | null; qb_class: string | null; qb_ref: string | null; load_id: string; deductions?: unknown };
-type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null };
+type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null; customer_ref: string | null };
 
 export async function deliverQueued(admin: Admin, ids?: string[]) {
   let q = admin.from("qb_sync").select("*").in("status", ["queued", "error"]).is("qb_ref", null);
@@ -163,7 +164,7 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   const { data: rows } = await q.limit(100);
   const list = (rows ?? []) as SyncRow[];
   if (!list.length) return { sent: 0, failed: 0 };
-  const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at").in("id", list.map((r) => r.load_id));
+  const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at, customer_ref").in("id", list.map((r) => r.load_id));
   const byId = new Map(((loads ?? []) as LoadLite[]).map((l) => [l.id, l]));
   let sent = 0, failed = 0;
   // Each row goes to its own company's QuickBooks (connections are opened lazily, once per company).
@@ -174,7 +175,6 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
   };
   // Combined invoices: several rows share one invoice_number → one QuickBooks invoice with a line per load.
   const made = new Map<string, string>();
-  const laneOf = (x?: LoadLite) => (x ? `${x.load_number}: ${x.origin_city ?? ""}, ${x.origin_state ?? ""} to ${x.dest_city ?? ""}, ${x.dest_state ?? ""}` : "");
   for (const r of list) {
     const l = byId.get(r.load_id);
     try {
@@ -209,12 +209,16 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
         else if (dup[0]) ref = dup[0].Id;
         else {
           const item = await freightItem(qb);
+          const groupLoads = group.map((g) => byId.get(g.load_id)).filter((x): x is LoadLite => !!x);
+          const refs = customerRefs(groupLoads);
+          const memo = refs.length ? `Customer ref # ${refs.join(", ")}` : undefined;
           const j = await qb.req<{ Invoice: Ref }>("invoice", {
-            CustomerRef: { value: cust }, DocNumber: doc, TxnDate: txnDate, PrivateNote: lane, ...classRef,
+            CustomerRef: { value: cust }, DocNumber: doc, TxnDate: txnDate, PrivateNote: memo ? `${lane} — ${memo}` : lane, ...classRef,
+            ...(memo ? { CustomerMemo: { value: memo.slice(0, 1000) } } : {}),
             SalesTermRef: undefined,
-            // Freight line per load, then each percentage deduction as a negative line so QuickBooks totals what the customer owes.
+            // Freight line per load (with the customer's ref #), then each percentage deduction as a negative line so QuickBooks totals what the customer owes.
             Line: group.flatMap((g) => [
-              { Amount: Number(g.amount), DetailType: "SalesItemLineDetail", Description: `Freight — ${laneOf(byId.get(g.load_id)) || lane}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(g.amount), ...classRef } },
+              { Amount: Number(g.amount), DetailType: "SalesItemLineDetail", Description: freightLineText(byId.get(g.load_id) ?? l), SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: Number(g.amount), ...classRef } },
               ...deductionLines(Number(g.amount), g.deductions).map((d) => ({ Amount: d.amount, DetailType: "SalesItemLineDetail", Description: `${d.label} — ${byId.get(g.load_id)?.load_number ?? ""}`, SalesItemLineDetail: { ItemRef: { value: item }, Qty: 1, UnitPrice: d.amount, ...classRef } })),
             ]),
           });
