@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalFileDrop } from "@/components/GlobalFileDrop";
+import { ActionGuardProvider } from "@/components/ActionGuard";
 import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
@@ -118,8 +119,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <GlobalFileDrop />
+      <ActionGuardProvider>
+        <Outlet />
+        <GlobalFileDrop />
+      </ActionGuardProvider>
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
