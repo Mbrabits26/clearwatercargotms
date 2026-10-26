@@ -83,7 +83,7 @@ export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDon
             hint="Gives each load (or the combined group) an invoice number, moves delivered loads to Invoiced and adds them to the QuickBooks queue. Asks you first."
             confirm={() => {
               const combined = mode === "consolidated" && !problem;
-              const ff = loads.length - (loads.length - fleet);
+              const ff = fleet;
               return {
                 title: `Create invoices for ${loads.length} load${loads.length === 1 ? "" : "s"}?`,
                 body: `Total ${usd(total)}.`,

@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { ReportExport } from "@/components/ReportExport";
 import type { ReportSpec } from "@/lib/reportExport";
+import { Hint, useConfirm } from "@/components/ActionGuard";
 
 const LEAD_KEY = "cw_pay_lead_days";
 const day = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -194,15 +195,31 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
 
   const saveAcct = async () => {
     if (!edit) return;
+    if (!(await ask({
+      title: `Save payment details for ${c?.legal_name ?? "this carrier"}?`,
+      points: [acct ? "Replaces the bank / remittance details on file." : "Adds bank / remittance details for this carrier.", "Only admins and accountants can see them. They are never printed or exported.", "Double-check routing and account numbers against the carrier's voided check."],
+      confirmLabel: "Save details",
+    }))) return;
     const { error } = await supabase.from("carrier_payment_accounts").upsert({ carrier_id: group.id, ...edit });
     if (error) return toast.error(error.message);
     toast.success("Payment account saved");
     setEdit(null);
     qc.invalidateQueries({ queryKey: ["carrier_payment_account", group.id] });
   };
+  const ask = useConfirm();
   const markPaid = async () => {
     if (!chosen.length) return toast.info("Tick the loads you paid.");
-    if (!confirm(`Mark ${chosen.length} load(s) paid to ${to.name} for ${usd(total)}?`)) return;
+    if (!(await ask({
+      title: `Mark ${chosen.length} load${chosen.length === 1 ? "" : "s"} paid to ${to.name}?`,
+      body: `Total ${usd(total)}${ref.trim() ? ` · Ref ${ref.trim()}` : " · no check # / ACH ref entered"}.`,
+      points: [
+        "Records today as the carrier paid date on these loads, with your reference.",
+        "They drop off Carriers to be paid.",
+        "This does not send money, and does not change QuickBooks or the customer invoice. Pay the carrier through your bank or QuickBooks.",
+        "The load status (Delivered, Invoiced, Paid) does not change.",
+      ],
+      confirmLabel: "Mark paid",
+    }))) return;
     setBusy(true);
     const { error } = await supabase.from("loads").update({ carrier_paid_at: new Date().toISOString(), carrier_paid_ref: ref.trim() || null }).in("id", chosen.map((x) => x.l.id));
     setBusy(false);
@@ -245,8 +262,8 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
           <div className="mb-1 flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase text-gold">Payment account</h3>
             <div className="flex">
-              {acct?.account_number && <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={reveal ? "Hide numbers" : "Show numbers"} onClick={() => setReveal(!reveal)}>{reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</Button>}
-              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edit payment account" onClick={() => setEdit(edit ? null : { ...EMPTY, ...(acct ?? {}) })}><Pencil className="h-3.5 w-3.5" /></Button>
+              {acct?.account_number && <Hint text={reveal ? "Hide the full bank numbers." : "Show the full routing and account numbers on screen."}><Button size="icon" variant="ghost" className="h-7 w-7" aria-label={reveal ? "Hide numbers" : "Show numbers"} onClick={() => setReveal(!reveal)}>{reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</Button></Hint>}
+              <Hint text="Add or change this carrier's bank / remittance details. You confirm before saving."><Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edit payment account" onClick={() => setEdit(edit ? null : { ...EMPTY, ...(acct ?? {}) })}><Pencil className="h-3.5 w-3.5" /></Button></Hint>
             </div>
           </div>
           {edit ? (
@@ -329,8 +346,8 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
           };
         }} />
         <label className="text-xs text-muted-foreground">Check # / ACH ref (optional)<Input className="mt-1 h-9 w-48" value={ref} onChange={(e) => setRef(e.target.value)} /></label>
-        <Button variant="outline" asChild><Link to="/quickbooks" onClick={onLeave}>Open Accounting</Link></Button>
-        <Button disabled={busy} onClick={markPaid}>{busy ? "Saving…" : "Mark paid"}</Button>
+        <Hint text="Go to the Accounting screen."><Button variant="outline" asChild><Link to="/quickbooks" onClick={onLeave}>Open Accounting</Link></Button></Hint>
+        <Hint text="Records the ticked loads as paid to this carrier (after you confirm). Doesn't send money or change QuickBooks."><Button disabled={busy} onClick={markPaid}>{busy ? "Saving…" : "Mark paid"}</Button></Hint>
       </div>
     </div>
   );
