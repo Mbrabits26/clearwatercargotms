@@ -146,6 +146,13 @@ export function downloadReportPdf(s: ReportSpec) {
 export function printReport(s: ReportSpec) {
   const doc = buildReportPdf(s);
   const url = URL.createObjectURL(doc.output("blob"));
+  // Safari can't print a PDF inside a frame; give it its own tab with the print dialog built in.
+  if (/^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent)) {
+    doc.autoPrint();
+    const w = window.open(String(doc.output("bloburl")), "_blank");
+    if (!w) doc.save(reportFileName(s.title, "pdf"));
+    return;
+  }
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   Object.assign(frame.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
