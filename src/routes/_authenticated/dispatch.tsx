@@ -70,7 +70,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
   component: Dispatch,
 });
 
-const ROW_STEP = 150;
+const ROW_STEP = 60;
 
 /** Search box that keeps its own text, so typing never redraws the board; the list updates once you pause.
  *  `seed` lets a browser agent set the text (a new object each time). */
