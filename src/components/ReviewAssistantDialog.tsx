@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
+import { Hint, useConfirm } from "@/components/ActionGuard";
 
 type Sync = { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown };
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: Sync[]; onMinimize?: () => void };
@@ -259,7 +260,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
         <p className="text-xs text-muted-foreground">Ask in plain English. The assistant only builds a list — nothing changes until you check rows and confirm.</p>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); run(); }}>
           <Input aria-label="Ask the review assistant" placeholder="e.g. Loads paid in QuickBooks but still open in the TMS" value={q} onChange={(e) => setQ(e.target.value)} />
-          <Button type="submit" disabled={busy || q.trim().length < 2}>{busy ? "Working…" : "Search"}</Button>
+          <Hint text="Uses AI to turn your request into a list (uses a small amount of AI credits). Read-only — nothing changes."><Button type="submit" disabled={busy || q.trim().length < 2}>{busy ? "Working…" : "Search"}</Button></Hint>
         </form>
         <div className="flex flex-wrap gap-2">{EXAMPLES.map((x) => <Button key={x} size="sm" variant="outline" disabled={busy} onClick={() => run(x)}>{x}</Button>)}</div>
         <div className="flex flex-wrap items-end gap-2 rounded border border-gold/30 p-2">
@@ -272,7 +273,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
             <SelectTrigger className="w-44" aria-label="Dates"><SelectValue /></SelectTrigger>
             <SelectContent>{rangeOptions().filter((o) => o.value !== "custom").map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
-          <Button disabled={busy} onClick={startCross}>{busy && plan?.mode === "crosscheck" ? "Checking…" : "Run check"}</Button>
+          <Hint text="Reads QuickBooks and compares it with TMS loads for the chosen company and dates. Read-only, no AI."><Button disabled={busy} onClick={startCross}>{busy && plan?.mode === "crosscheck" ? "Checking…" : "Run check"}</Button></Hint>
         </div>
         {plan && <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm"><span className="text-gold">Showing:</span> {plan.summary}{plan.customer ? ` · ${plan.customer}` : ""}{plan.from || plan.to ? ` · ${plan.from ?? "…"} → ${plan.to ?? "today"}` : ""} · {plan.entity === "fleet" ? "Foust Farms" : "Clearwater"}</p>
@@ -298,7 +299,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
             </table>
             {!cross.qbOnly.length && !busy && <p className="p-4 text-sm text-muted-foreground">Every QuickBooks invoice in this range is already linked or matches an invoiced load.</p>}
           </div>
-          <div className="flex justify-end"><Button disabled={busy || !picked.size} onClick={syncPicked}>Match {picked.size || ""} to QuickBooks status</Button></div>
+          <div className="flex justify-end"><Hint text="Links the ticked loads to their QuickBooks invoices and sets them to Invoiced or Paid, as QuickBooks shows. Asks you first."><Button disabled={busy || !picked.size} onClick={syncPicked}>Match {picked.size || ""} to QuickBooks status</Button></Hint></div>
 
           <h3 className="text-sm font-semibold">Not invoiced in the TMS or QuickBooks ({cross.tmsOnly.length})</h3>
           <div className="overflow-auto rounded border">
@@ -313,7 +314,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
             </table>
             {!cross.tmsOnly.length && !busy && <p className="p-4 text-sm text-muted-foreground">No unbilled loads in this range.</p>}
           </div>
-          <div className="flex justify-end"><Button disabled={busy || !pickLoads.size} onClick={invoicePicked}>Move {pickLoads.size || ""} to Invoiced</Button></div>
+          <div className="flex justify-end"><Hint text="Changes the ticked loads to Invoiced so they land on the review list for sending. Asks you first."><Button disabled={busy || !pickLoads.size} onClick={invoicePicked}>Move {pickLoads.size || ""} to Invoiced</Button></Hint></div>
           <p className="text-xs text-muted-foreground">Matching uses customer, amount, load #, customer ref #, shipper PO #, cities and dates. Moving to Invoiced only changes the TMS status; the loads then show on the invoiced review list to be sent to QuickBooks.</p>
         </>}
 
@@ -339,8 +340,8 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
             {!matches.length && !busy && <p className="p-4 text-sm text-muted-foreground">No unlinked QuickBooks invoices found for this search.</p>}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setPicked(new Set(matches.filter((m) => m.match?.level === "high" && !done.has(m.invoice.id)).map((m) => m.invoice.id)))}>Select high-confidence</Button>
-            <Button disabled={busy || !picked.size} onClick={linkPicked}>Link {picked.size || ""} to QuickBooks invoices</Button>
+            <Hint text="Ticks only the high-confidence matches. Nothing changes until you press Link."><Button size="sm" variant="ghost" onClick={() => setPicked(new Set(matches.filter((m) => m.match?.level === "high" && !done.has(m.invoice.id)).map((m) => m.invoice.id)))}>Select high-confidence</Button></Hint>
+            <Hint text="Ties the ticked loads to their existing QuickBooks invoices. Asks you first."><Button disabled={busy || !picked.size} onClick={linkPicked}>Link {picked.size || ""} to QuickBooks invoices</Button></Hint>
           </div>
           <p className="text-xs text-muted-foreground">Linking attaches the load to the existing QuickBooks invoice (keeping its real number). Paid invoices mark the load Paid. Nothing is sent or created in QuickBooks.</p>
         </>}
@@ -357,7 +358,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
             {!closeouts.length && !busy && <p className="p-4 text-sm text-muted-foreground">No paid loads waiting to be closed out for this search.</p>}
           </div>
           <Textarea aria-label="Closeout note" placeholder="Closeout note — e.g. paid in QuickBooks, reviewed" value={note} onChange={(e) => setNote(e.target.value)} />
-          <div className="flex justify-end"><Button disabled={busy || !picked.size || !note.trim()} onClick={closePicked}>Close out {picked.size || ""} loads</Button></div>
+          <div className="flex justify-end"><Hint text="Files the ticked loads away as finished, with your note. Status and payments stay the same. Asks you first."><Button disabled={busy || !picked.size || !note.trim()} onClick={closePicked}>Close out {picked.size || ""} loads</Button></Hint></div>
         </>}
       </DialogContent>
     </Dialog>
