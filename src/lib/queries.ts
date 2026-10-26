@@ -9,19 +9,26 @@ export async function fetchAllPaged(
   ascending: boolean,
 ): Promise<Record<string, any>[]> {
   const PAGE = 1000;
+  // Count first, then fetch all pages in parallel (much faster than sequential).
+  const { count, error: cErr } = await supabase
+    .from(table as "companies")
+    .select("id", { count: "exact", head: true });
+  if (cErr) throw cErr;
+  const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE) + 1);
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) =>
+      supabase
+        .from(table as "companies")
+        .select("*")
+        .order(order, { ascending })
+        .order("id", { ascending: true })
+        .range(i * PAGE, i * PAGE + PAGE - 1),
+    ),
+  );
   const out: Record<string, any>[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from(table as "companies")
-      .select("*")
-      .order(order, { ascending })
-      .range(from, from + PAGE - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    out.push(...(data as Record<string, any>[]));
-    if (data.length < PAGE) break;
-    from += PAGE;
+  for (const r of results) {
+    if (r.error) throw r.error;
+    out.push(...((r.data ?? []) as Record<string, any>[]));
   }
   return out;
 }
@@ -39,7 +46,10 @@ export const recentLoadsQuery = queryOptions({
     const { data, error } = await supabase
       .from("loads")
       .select("*")
-      .or(`pickup_at.gte.${cutoff},pickup_at.is.null`)
+      // Undated loads only while still open (skips old imported history).
+      .or(
+        `pickup_at.gte.${cutoff},and(pickup_at.is.null,closed_at.is.null,status.in.(available,vetting,booked,dispatched,rolling,issue))`,
+      )
       .order("pickup_at", { ascending: false });
     if (error) throw error;
     return data;
