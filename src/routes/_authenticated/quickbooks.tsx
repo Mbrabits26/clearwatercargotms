@@ -33,7 +33,7 @@ import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
-import { ActionButton, Hint, useConfirm, type ConfirmSpec } from "@/components/ActionGuard";
+import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
 
 /** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
 const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
@@ -224,7 +224,6 @@ function Accounting() {
   };
 
   const ageDays = (l: Load) => (l.delivery_at ? Math.max(0, Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)) : null);
-  const ask = useConfirm();
   const kindCompany = (k: string) => (k === "fleet_invoice" ? "Foust Farms" : "Clearwater Cargo");
   const live = (k: string) => !!(k === "fleet_invoice" ? qbs?.fleet.connected : qbs?.brokerage.connected);
 

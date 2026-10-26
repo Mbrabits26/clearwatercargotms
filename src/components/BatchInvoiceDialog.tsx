@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ActionGuard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { consolidateProblem, invoiceKind, kindFor, queueInvoices, type BillThrough, type InvoiceMode } from "@/lib/batchInvoice";
 import { loadTotals, usd, type Company, type Load } from "@/lib/tms";
@@ -79,7 +79,25 @@ export function BatchInvoiceDialog({ loads, companies, open, onOpenChange, onDon
             })}
           </div>
           {problem && loads.length > 1 && <p className="text-xs text-muted-foreground">{problem}</p>}
-          <Button className="w-full" disabled={busy || !loads.length} onClick={go}>{busy ? "Creating…" : "Create invoices"}</Button>
+          <ActionButton className="w-full" hintClassName="flex w-full" disabled={busy || !loads.length}
+            hint="Gives each load (or the combined group) an invoice number, moves delivered loads to Invoiced and adds them to the QuickBooks queue. Asks you first."
+            confirm={() => {
+              const combined = mode === "consolidated" && !problem;
+              const ff = loads.length - (loads.length - fleet);
+              return {
+                title: `Create invoices for ${loads.length} load${loads.length === 1 ? "" : "s"}?`,
+                body: `Total ${usd(total)}.`,
+                points: [
+                  combined ? "One combined invoice number for all of these loads." : `${loads.length === 1 ? "One new invoice number" : `${loads.length} separate invoice numbers`} (one per load).`,
+                  ff ? `${ff} billed by Foust Farms (FF-), ${loads.length - ff} by Clearwater Cargo (INV-).` : "Billed by Clearwater Cargo (INV- numbers).",
+                  "Delivered loads change to Invoiced. Loads that already have an invoice are skipped, so nothing is duplicated.",
+                  "Added to the QuickBooks queue. From Accounting they send right away when QuickBooks is connected.",
+                  "The customer is not emailed.",
+                ],
+                confirmLabel: "Create invoices",
+              };
+            }}
+            onClick={go}>{busy ? "Creating…" : "Create invoices"}</ActionButton>
         </div>
       </DialogContent>
     </Dialog>

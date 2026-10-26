@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
+import { Hint } from "@/components/ActionGuard";
 
 const ITEMS = [["delivery", "delivery overdue"], ["invoice", "need invoicing"], ["closeout", "ready for closeout"]] as const;
 
@@ -53,8 +54,8 @@ function WorkListDialog({ filter, label, loads, onClose, owner }: { filter: Work
         <Input className="max-w-xs" placeholder="Search load #, customer, ref, city" value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="text-xs text-muted-foreground">{pick.size} selected</span>
         <div className="ml-auto flex gap-2">
-          {batch && <Button size="sm" disabled={!picked.some((l) => batchEligible(l, batch))} onClick={() => setAction(batch)}>{batch === "delivered" ? "Mark selected delivered" : "Close out selected"}</Button>}
-          <Button size="sm" variant="outline" asChild><Link to="/dispatch" search={{ work: filter, owner }} onClick={onClose}>View on Dispatch board</Link></Button>
+          {batch && <Hint text={batch === "delivered" ? "Opens a review window to mark the ticked loads Delivered. Nothing changes until you confirm there." : "Opens a review window to close out the ticked loads (file them away as finished). Status and payments don't change. Nothing happens until you confirm there."}><Button size="sm" disabled={!picked.some((l) => batchEligible(l, batch))} onClick={() => setAction(batch)}>{batch === "delivered" ? "Mark selected delivered" : "Close out selected"}</Button></Hint>}
+          <Hint text="Shows this same list on the Dispatch board."><Button size="sm" variant="outline" asChild><Link to="/dispatch" search={{ work: filter, owner }} onClick={onClose}>View on Dispatch board</Link></Button></Hint>
         </div>
       </div>
       {filter === "invoice" && <p className="text-xs text-muted-foreground">Open a load to create its invoice, or invoice several from the Dispatch board.</p>}
