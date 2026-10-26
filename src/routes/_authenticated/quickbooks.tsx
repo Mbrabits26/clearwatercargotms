@@ -33,6 +33,7 @@ import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
+import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
 
 /** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
 const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
@@ -64,6 +65,12 @@ type SyncRow = {
 };
 const attachCount = (s: SyncRow) => parseAttachments(s.attachments).length;
 type Kind = "invoice" | "fleet_invoice" | "bill";
+const HINT = {
+  edit: "Change the payee, amount, terms, due date, deductions or billing company. You review the changes before they save.",
+  attach: "Pick POD, BOL or other load files to send to QuickBooks with this invoice or bill.",
+  retry: "This failed to send. Puts it back in the queue to try again.",
+  remove: "Removes this entry from the TMS queue. Asks you first; does not delete anything in QuickBooks.",
+};
 const KIND_LABEL: Record<string, string> = { invoice: "Invoice (AR)", fleet_invoice: "Fleet billing (AR)", bill: "Carrier bill (AP)" };
 
 export const Route = createFileRoute("/_authenticated/quickbooks")({
@@ -217,6 +224,30 @@ function Accounting() {
   };
 
   const ageDays = (l: Load) => (l.delivery_at ? Math.max(0, Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)) : null);
+  const kindCompany = (k: string) => (k === "fleet_invoice" ? "Foust Farms" : "Clearwater Cargo");
+  const live = (k: string) => !!(k === "fleet_invoice" ? qbs?.fleet.connected : qbs?.brokerage.connected);
+
+  /** Warning box for "Send selected to QuickBooks". */
+  const sendSpec = (): ConfirmSpec | null => {
+    const chosen = rows.filter((l) => picked.includes(l.id));
+    if (!chosen.length) return null;
+    const kind = tab as Kind;
+    const bill = kind === "bill";
+    const total = chosen.reduce((t, l) => t + amountFor(l, kind), 0);
+    const dlv = chosen.filter((l) => l.status === "delivered").length;
+    const inQb = chosen.filter((l) => synced(l.id, kind)?.qb_ref).length;
+    return {
+      title: `Send ${chosen.length} ${bill ? "carrier bill" : "customer invoice"}${chosen.length === 1 ? "" : "s"} to QuickBooks?`,
+      body: `Total ${usd(total)} to ${kindCompany(kind)} QuickBooks.`,
+      points: [
+        live(kind) ? `Sends right away. QuickBooks gets a new ${bill ? "bill" : "invoice"} for each one, unless it already has one with the same number.` : `${kindCompany(kind)} QuickBooks isn't connected, so these wait in the queue until it is.`,
+        !bill && dlv ? `${dlv} delivered load${dlv === 1 ? "" : "s"} will change to Invoiced.` : null,
+        inQb ? `${inQb} already in QuickBooks — those are not sent again.` : null,
+        bill ? "Bill amount = rate con total minus any Quick Pay fee. This does not pay the carrier or mark it paid." : "The customer is not emailed. Use the envelope button to email the invoice.",
+      ].filter(Boolean),
+      confirmLabel: "Send to QuickBooks",
+    };
+  };
 
   const send = async () => {
     const chosen = rows.filter((l) => picked.includes(l.id));
@@ -264,17 +295,29 @@ function Accounting() {
     try { const { url } = await qbStart({ data: { entity } }); window.location.href = url; } catch (e) { toast.error((e as Error).message); }
   };
   const disconnect = async (entity: "brokerage" | "fleet" = "brokerage") => {
-    if (!confirm(`Disconnect ${entity === "fleet" ? "Foust Farms" : "Clearwater Cargo"} QuickBooks? Nothing already sent is changed.`)) return;
     await qbOff({ data: { entity } }); refetchQb();
   };
+  const disconnectSpec = (entity: "brokerage" | "fleet"): ConfirmSpec => ({
+    title: `Disconnect ${entity === "fleet" ? "Foust Farms" : "Clearwater Cargo"} QuickBooks?`,
+    points: ["The TMS stops sending invoices and bills to this QuickBooks company.", "Anything already in QuickBooks stays there, unchanged.", "New items wait in the queue until someone connects again."],
+    confirmLabel: "Disconnect", danger: true,
+  });
 
   const remove = async (s: SyncRow) => {
-    if (!confirm(`Remove this ${s.kind === "bill" ? "bill" : "invoice"} from the queue? The load itself is not changed.`)) return;
     const { error } = await supabase.from("qb_sync").delete().eq("id", s.id);
     if (error) return toast.error(error.message);
     toast.success("Removed from the queue.");
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
   };
+  const removeSpec = (s: SyncRow): ConfirmSpec => ({
+    title: `Remove this ${s.kind === "bill" ? "carrier bill" : `invoice${s.invoice_number ? ` ${s.invoice_number}` : ""}`} from the TMS?`,
+    points: [
+      s.qb_ref ? "It's already in QuickBooks — removing it here does NOT delete it in QuickBooks. Delete or void it there if needed." : "It hasn't reached QuickBooks, so it will not be sent.",
+      "The load itself and its status are not changed.",
+      s.kind !== "bill" ? "The load shows as needing an invoice again." : "The load shows as needing a bill again.",
+    ],
+    confirmLabel: "Remove", danger: true,
+  });
 
   const retry = async (s: SyncRow) => {
     const { error } = await supabase.from("qb_sync").update({ status: "queued", error: null }).eq("id", s.id);
@@ -282,6 +325,23 @@ function Accounting() {
     toast.success("Queued again for sending.");
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
   };
+  const retrySpec = (s: SyncRow): ConfirmSpec => ({
+    title: "Try sending this again?",
+    body: s.error ? `Last error: ${s.error}` : undefined,
+    points: ["Clears the error and puts it back in the queue.", `It goes to ${kindCompany(s.kind)} QuickBooks on the next sync (press Sync now to send it right away).`, "Fix the cause first (customer name, missing vendor, etc.) or it will fail again."],
+    confirmLabel: "Queue again",
+  });
+  const queuedCount = sync.filter((s) => (s.status === "queued" || s.status === "error") && !s.qb_ref).length;
+  const syncSpec = (): ConfirmSpec => ({
+    title: "Sync with QuickBooks now?",
+    points: [
+      queuedCount ? `Sends ${queuedCount} waiting item${queuedCount === 1 ? "" : "s"} (queued or failed) to QuickBooks.` : "Nothing is waiting in the queue right now.",
+      "Creates new invoices and bills in QuickBooks. If QuickBooks already has one with the same number, it's linked instead of duplicated.",
+      "Uploads any documents you picked to attach.",
+      "Customers and carriers are not emailed.",
+    ],
+    confirmLabel: "Sync now",
+  });
 
   const paidStatus = (l?: Load) => l?.status === "paid";
   const loadOf = (id: string) => loadById.get(id);
@@ -346,9 +406,9 @@ function Accounting() {
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
         <div className="flex flex-wrap gap-2">
           {(tab === "invoice" || tab === "fleet_invoice") && (
-            <Button variant="outline" onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</Button>
+            <ActionButton variant="outline" hint="Opens a window to create invoice numbers for the ticked loads — one per load or one combined. You review it before anything is saved." onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</ActionButton>
           )}
-          {tab !== "log" && <Button onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</Button>}
+          {tab !== "log" && <ActionButton hint={tab === "bill" ? "Queues the ticked carrier bills and sends them to Clearwater QuickBooks. Does not pay the carrier." : "Queues the ticked invoices, moves delivered loads to Invoiced, and sends them to QuickBooks. Asks you first."} confirm={sendSpec} onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</ActionButton>}
         </div>
       </div>
       <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow(); }} />
@@ -363,8 +423,10 @@ function Accounting() {
                 <div className="text-xs text-muted-foreground">{what} · {st?.connected ? `Connected${st.company ? ` — ${st.company}` : ""}` : "Not connected — items wait in the queue"}</div>
               </div>
               {isFinance && (st?.connected
-                ? <Button size="sm" variant="ghost" onClick={() => disconnect(ent)}>Disconnect</Button>
-                : <Button size="sm" onClick={() => connect(ent)}>Connect</Button>)}
+                ? <ActionButton size="sm" variant="ghost" hint={`Stops the TMS from sending to ${name} QuickBooks. Nothing already in QuickBooks changes.`} confirm={disconnectSpec(ent)} onClick={() => disconnect(ent)}>Disconnect</ActionButton>
+                : <ActionButton size="sm" hint={`Takes you to Intuit to sign in and link ${name} QuickBooks. Only works on tms.clearwatercargo.com.`}
+                    confirm={() => window.location.hostname !== "tms.clearwatercargo.com" ? null : { title: `Connect ${name} QuickBooks?`, points: ["You'll leave the TMS to sign in to Intuit, then come back here.", `Queued ${ent === "fleet" ? "fleet invoices" : "invoices and carrier bills"} start sending to this company once connected.`], confirmLabel: "Go to Intuit" }}
+                    onClick={() => connect(ent)}>Connect</ActionButton>)}
             </div>
           );
         })}
@@ -372,9 +434,9 @@ function Accounting() {
       {(qbs?.brokerage.connected || qbs?.fleet.connected) ? (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1 text-muted-foreground">Queued items go to the matching company's QuickBooks automatically.</span>
-          <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
-          {isFinance && <Button size="sm" variant="outline" onClick={() => openWindow("qbMatch")}>Match QuickBooks invoices</Button>}
-          {isFinance && <Button size="sm" variant="outline" onClick={() => openWindow("reviewAssistant")}>Review assistant</Button>}
+          <ActionButton size="sm" hint="Sends everything waiting in the queue (and any failed items) to QuickBooks now, plus any picked attachments." confirm={syncSpec} onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</ActionButton>
+          {isFinance && <ActionButton size="sm" variant="outline" hint="Opens a window that reads invoices from QuickBooks (without changing them) and suggests which TMS load each belongs to. You choose what to link." onClick={() => openWindow("qbMatch")}>Match QuickBooks invoices</ActionButton>}
+          {isFinance && <ActionButton size="sm" variant="outline" hint="Opens the assistant: ask in plain English or compare the TMS with QuickBooks. It only builds lists — nothing changes until you tick rows and confirm." onClick={() => openWindow("reviewAssistant")}>Review assistant</ActionButton>}
         </div>
       ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
@@ -430,10 +492,10 @@ function Accounting() {
                   <TableCell>{fmtDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
-                      <Button size="sm" variant="ghost" className="h-8 px-2" title="Attach documents for QuickBooks" onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</Button>
-                      {s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                      {isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
+                      {isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
+                      <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>
+                      {s.status === "error" && <ActionButton size="icon" variant="ghost" aria-label="Retry" hint={HINT.retry} confirm={retrySpec(s)} onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></ActionButton>}
+                      {isFinance && <ActionButton size="icon" variant="ghost" aria-label="Remove from queue" hint={HINT.remove} confirm={removeSpec(s)} onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></ActionButton>}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -475,24 +537,26 @@ function Accounting() {
                           <div className="flex flex-col gap-1 text-xs">
                             {s.carrier_invoice_path ? <DocLink items={[{ name: "Carrier invoice", bucket: "load-docs", path: s.carrier_invoice_path }]}><FileText className="mr-1 inline h-3 w-3" />{s.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "View"}</DocLink> : null}
                             {mismatch && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Differs from rate con {usd(bm!.gross)}</span>}
-                            <label className="cursor-pointer text-muted-foreground underline"><Upload className="mr-1 inline h-3 w-3" />{s.carrier_invoice_path ? "Replace" : "Attach"}
-                              <input type="file" className="hidden" onChange={(e) => { uploadCarrierInvoice(s, e.target.files?.[0]); e.target.value = ""; }} /></label>
+                            <Hint text="Upload the carrier's own invoice so you can compare it to the rate con. It's stored on the load; nothing is sent."><label className="cursor-pointer text-muted-foreground underline"><Upload className="mr-1 inline h-3 w-3" />{s.carrier_invoice_path ? "Replace" : "Attach"}
+                              <input type="file" className="hidden" onChange={(e) => { uploadCarrierInvoice(s, e.target.files?.[0]); e.target.value = ""; }} /></label></Hint>
                           </div>
                         ) : <span className="text-xs text-muted-foreground">Queue bill first</span>
                       ) : s?.invoice_number ? (
                         <div className="flex items-center gap-1 text-xs">
-                          <button className="text-gold underline" onClick={() => viewInvoice(s)}>{s.invoice_number}</button>
-                          <Button size="icon" variant="ghost" title="Email invoice" onClick={() => emailInvoice(s)}><Mail className="h-3.5 w-3.5" /></Button>
+                          <Hint text="View the invoice PDF."><button className="text-gold underline" onClick={() => viewInvoice(s)}>{s.invoice_number}</button></Hint>
+                          <ActionButton size="icon" variant="ghost" aria-label="Email invoice" hint="Downloads the invoice PDF and opens an email to the customer in your Gmail. Nothing is sent until you press Send there."
+                            confirm={{ title: `Email invoice ${s.invoice_number}?`, points: ["Downloads the invoice PDF to this computer.", `Opens a new email to ${companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.email || "the customer (no email on file — add it in the email)"} from your Gmail.`, "Attach the PDF and press Send yourself — nothing goes out automatically.", "Does not change the invoice, the load or QuickBooks."], confirmLabel: "Open email" }}
+                            onClick={() => emailInvoice(s)}><Mail className="h-3.5 w-3.5" /></ActionButton>
                         </div>
                       ) : <span className="text-xs text-muted-foreground">Assigned when queued</span>}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
-                        {s && isFinance && <Button size="icon" variant="ghost" title="Edit invoice / terms" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>}
-                        {s && <Button size="sm" variant="ghost" className="h-8 px-2" title="Attach documents for QuickBooks" onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</Button>}
-                        {s && s.status === "error" && <Button size="icon" variant="ghost" title="Retry" onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                        {s && isFinance && <Button size="icon" variant="ghost" title="Remove from queue" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
+                        {s && isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
+                        {s && <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>}
+                        {s && s.status === "error" && <ActionButton size="icon" variant="ghost" aria-label="Retry" hint={HINT.retry} confirm={retrySpec(s)} onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></ActionButton>}
+                        {s && isFinance && <ActionButton size="icon" variant="ghost" aria-label="Remove from queue" hint={HINT.remove} confirm={removeSpec(s)} onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></ActionButton>}
                       </div>
                       {s?.attach_error && <div className="mt-1 max-w-56 text-[10px] text-destructive">Attachments: {s.attach_error}</div>}
                     </TableCell>
@@ -621,7 +685,7 @@ function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow
               <div className="mt-2 flex justify-between font-semibold"><span>Customer owes</span><span className="text-gold">{usd(invoiceNet(Number(amount) || 0, deds))}</span></div>
             </div>
           </>}
-          <Button className="w-full" onClick={save}>Save changes</Button>
+          <ActionButton className="w-full" hintClassName="flex w-full" hint="Shows a before/after list of your changes to confirm. Invoices already in QuickBooks are not updated there." onClick={save}>Save changes</ActionButton>
         </div>
       </DialogContent>
     </Dialog>

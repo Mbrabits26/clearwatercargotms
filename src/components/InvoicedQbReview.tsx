@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ReportExport } from "@/components/ReportExport";
+import { Hint } from "@/components/ActionGuard";
 import { dayText, type ReportSpec } from "@/lib/reportExport";
 
 type SyncLite = { load_id: string; kind: string; status: string; qb_ref: string | null; invoice_number: string | null };
@@ -92,9 +93,9 @@ export function InvoicedQbReview() {
                       <span className={cn("rounded border px-1.5 py-0.5 text-[11px]", state === "error" ? "border-destructive text-destructive" : state === "queued" ? "border-warning text-warning" : "border-muted-foreground/50 text-muted-foreground")}>{QB_REVIEW_LABEL[state]}</span>
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" asChild>
+<Hint text="Opens this load in Accounting so you can create or send its invoice."><Button size="sm" variant="ghost" className="h-7 px-2 text-xs" asChild>
                         <Link to="/quickbooks" search={{ q: l.load_number, review: true }} onClick={() => setOpen(false)}>Open</Link>
-                      </Button>
+                      </Button></Hint>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -109,7 +110,7 @@ export function InvoicedQbReview() {
               rows: data.map(({ l, state, customer, invoice }) => [l.load_number, customer, `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`, l.delivery_at ? dayText(l.delivery_at) : "", usd(loadTotals(l).revenue), invoice ?? "", QB_REVIEW_LABEL[state]]),
               total: ["Total", `${data.length} loads`, "", "", usd(total), "", ""],
             })} />
-            <Button asChild><Link to="/quickbooks" search={{ review: true }} onClick={() => setOpen(false)}>Review all in Accounting</Link></Button>
+            <Hint text="Opens Accounting filtered to invoiced loads not yet in QuickBooks."><Button asChild><Link to="/quickbooks" search={{ review: true }} onClick={() => setOpen(false)}>Review all in Accounting</Link></Button></Hint>
           </div>
         </DialogContent>
       </Dialog>
