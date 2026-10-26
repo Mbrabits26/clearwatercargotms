@@ -208,7 +208,10 @@ function Reports() {
       carrier !== "all" && `Carrier: ${nameOf(carrier, carriers)}`,
       salesRep !== "all" && `Brought in by: ${salesRep === "none" ? "Not set" : nameOf(salesRep, profiles)}`,
       cfg.statuses.length < STATUSES.length && `Statuses: ${cfg.statuses.map((s) => STATUSES.find((x) => x.value === s)?.label ?? s).join(", ")}`,
-      grouped && `Grouped by: ${cfg.groupBy === "salesrep" ? "Customer brought in by" : cfg.groupBy}`,
+      stages.length < ALL_STAGES.length && `Billing stage: ${stages.map(stageLabel).join(", ")}`,
+      closed !== "all" && (closed === "yes" ? "Closed out only" : "Not closed out"),
+      carrierPaid !== "all" && (carrierPaid === "yes" ? "Carrier paid only" : "Carrier not paid"),
+      grouped && `Grouped by: ${GROUPS.find(([g]) => g === cfg.groupBy)?.[1] ?? cfg.groupBy}`,
       q && `Search: "${q}"`,
     ].filter((x): x is string => !!x);
     return {
