@@ -9,6 +9,7 @@ import { bestMatches, type MatchLoad, type QbInvoice } from "@/lib/qbMatch";
 import { invoiceNet } from "@/lib/invoiceDeductions";
 import { fmtDate, usd, isFleetLoad, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
@@ -131,10 +132,23 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
                           ))}
                         </SelectContent>
                       </Select>
+                      <Input className="mt-1 h-8 w-72" placeholder="Or type a TMS load # and press Enter"
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          const q = e.currentTarget.value.trim().toUpperCase().replace(/[\s-]/g, "");
+                          if (!q) return;
+                          const hit = loads.find((l) => { const n = l.load_number.toUpperCase().replace(/[\s-]/g, ""); return n === q || n === `CW${q}` || n.replace(/^[A-Z]+/, "") === q; });
+                          if (!hit) { toast.error(`No TMS load found for "${e.currentTarget.value.trim()}".`); return; }
+                          if (sync.some((s) => s.load_id === hit.id && s.kind === kind && s.qb_ref)) toast.warning(`${hit.load_number} is already linked to a QuickBooks invoice.`);
+                          setManual((s) => ({ ...s, [inv.id]: hit.id }));
+                          toast.success(`Selected ${hit.load_number}.`);
+                        }} />
+                      {chosen && !candidates.some((c) => c.id === chosen) && (() => { const l = loads.find((x) => x.id === chosen); return l ? <div className="mt-1 text-xs text-muted-foreground">Selected: {l.load_number} · {companies.find((c) => c.id === l.customer_id)?.name ?? "—"} · {usd(Number(l.customer_rate))}</div> : null; })()}
                     </TableCell>
                     <TableCell><ActionButton size="sm" disabled={!chosen} hint="Ties this QuickBooks invoice to the chosen load. Asks you first."
                       confirm={() => {
-                        const l = candidates.find((c) => c.id === chosen);
+                        const raw = loads.find((x) => x.id === chosen);
+                        const l = candidates.find((c) => c.id === chosen) ?? (raw ? { load_number: raw.load_number, customer: companies.find((c) => c.id === raw.customer_id)?.name ?? "", customer_rate: Number(raw.customer_rate) } : undefined);
                         return {
                           title: `Link QuickBooks #${inv.docNumber ?? inv.id} to ${l?.load_number ?? "this load"}?`,
                           body: `${inv.customer} · ${usd(inv.total)} → ${l ? `${l.customer || "—"} · ${usd(l.customer_rate)}` : ""}`,
