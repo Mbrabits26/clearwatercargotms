@@ -105,6 +105,8 @@ async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
       revenue: num(cell(r, "revenue")),
       carrierPay: num(cell(r, "carrierPay")),
       po: String(cell(r, "po") ?? "").trim(),
+      wo: String(cell(r, "wo") ?? "").trim(),
+      mc: String(cell(r, "mc") ?? "").trim(),
     });
   }
   return { type, rows };
