@@ -3,10 +3,11 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { useStickyState } from "@/hooks/useStickyState";
-import { carriersQuery, companiesQuery, loadsQuery, profilesQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, fetchAllPaged, loadsQuery, profilesQuery } from "@/lib/queries";
 import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { ReportExport } from "@/components/ReportExport";
 import { dayText, type ReportRow, type ReportSpec } from "@/lib/reportExport";
+import { ALL_STAGES, BILLING_STAGES, billingStage, invoiceNumberOf, stageLabel, syncByLoad, type BillingStage } from "@/lib/reportBilling";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
@@ -37,24 +38,30 @@ export const Route = createFileRoute("/_authenticated/reports")({
   component: Reports,
 });
 
-type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month" | "salesrep";
-type Col = "load" | "status" | "customer" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "revenue" | "cost" | "margin" | "age" | "salesrep" | "commission";
+type GroupBy = "none" | "customer" | "carrier" | "broker" | "lane" | "status" | "equipment" | "month" | "salesrep" | "billing";
+type Col = "load" | "status" | "billing" | "customer" | "custref" | "shipref" | "destref" | "invoice" | "carrier" | "broker" | "lane" | "pickup" | "delivery" | "equipment" | "commodity" | "revenue" | "cost" | "margin" | "age" | "carrierpaid" | "salesrep" | "commission";
 const COLS: { id: Col; label: string }[] = [
-  { id: "load", label: "Load #" }, { id: "status", label: "Status" }, { id: "customer", label: "Customer" },
+  { id: "load", label: "Load #" }, { id: "status", label: "Status" }, { id: "billing", label: "Billing stage" }, { id: "customer", label: "Customer" },
+  { id: "custref", label: "Customer ref #" }, { id: "shipref", label: "Shipper PO / PU Ref #" }, { id: "destref", label: "Delivery ref / appt #" },
+  { id: "invoice", label: "Invoice #" },
   { id: "carrier", label: "Carrier / pay to" }, { id: "broker", label: "Broker" }, { id: "lane", label: "Lane" },
-  { id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivered" }, { id: "equipment", label: "Equipment" },
+  { id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivered" }, { id: "equipment", label: "Equipment" }, { id: "commodity", label: "Commodity" },
   { id: "revenue", label: "Customer amount" }, { id: "cost", label: "Carrier amount" }, { id: "margin", label: "Margin" },
-  { id: "age", label: "Days outstanding" }, { id: "salesrep", label: "Customer brought in by" }, { id: "commission", label: "Commission" },
+  { id: "age", label: "Days outstanding" }, { id: "carrierpaid", label: "Carrier paid" }, { id: "salesrep", label: "Customer brought in by" }, { id: "commission", label: "Commission" },
 ];
-type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; needPod?: boolean };
+type YesNo = "all" | "yes" | "no";
+type Cfg = { statuses: LoadStatus[]; groupBy: GroupBy; cols: Col[]; needPod?: boolean; stages?: BillingStage[]; closed?: YesNo; carrierPaid?: YesNo };
 const PRESETS: Record<string, { label: string; cfg: Cfg }> = {
-  ar: { label: "Outstanding customer invoices", cfg: { statuses: ["delivered", "invoiced"], groupBy: "customer", cols: ["load", "status", "customer", "lane", "delivery", "revenue", "age"] } },
+  ar: { label: "Outstanding customer invoices", cfg: { statuses: ["delivered", "invoiced"], groupBy: "customer", cols: ["load", "status", "customer", "custref", "invoice", "lane", "delivery", "revenue", "age"] } },
   ap: { label: "Outstanding carrier payments", cfg: { statuses: ["delivered", "invoiced"], groupBy: "carrier", cols: ["load", "status", "carrier", "lane", "delivery", "cost", "age"] } },
+  billing: { label: "Billing status", cfg: { statuses: STATUSES.map((s) => s.value), stages: ["needs_invoice", "invoiced", "sent"], groupBy: "billing", cols: ["load", "billing", "customer", "custref", "shipref", "invoice", "delivery", "revenue", "age"] } },
   broker: { label: "Broker loads booked", cfg: { statuses: ["booked", "dispatched", "rolling", "delivered", "invoiced", "paid", "issue"], groupBy: "broker", cols: ["load", "status", "customer", "lane", "pickup", "revenue", "cost", "margin"] } },
   lane: { label: "Lane profitability", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "lane", cols: ["load", "customer", "carrier", "pickup", "revenue", "cost", "margin"] } },
   commission: { label: "Customer commissions", cfg: { statuses: ["delivered", "invoiced", "paid"], groupBy: "salesrep", cols: ["load", "customer", "salesrep", "pickup", "revenue", "cost", "margin", "commission"] } },
   custom: { label: "Custom report", cfg: { statuses: STATUSES.map((s) => s.value), groupBy: "none", cols: ["load", "status", "customer", "carrier", "broker", "lane", "pickup", "revenue", "cost", "margin"] } },
 };
+const GROUPS: [GroupBy, string][] = [["none", "No grouping"], ["customer", "Customer"], ["carrier", "Carrier"], ["broker", "Broker"], ["salesrep", "Customer brought in by"], ["billing", "Billing stage"], ["lane", "Lane"], ["status", "Status"], ["equipment", "Equipment"], ["month", "Month"]];
+type SyncRow = { load_id: string | null; kind: string; status: string; qb_ref: string | null; invoice_number: string | null };
 
 function Reports() {
   const { isAdmin, user } = useRouteContext({ from: "/_authenticated" });
@@ -92,6 +99,14 @@ function Reports() {
   const brokerName = (l: Load) => profiles.find((p) => p.id === l.broker_id)?.full_name ?? "Unassigned";
   const laneOf = (l: Load) => `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`;
   const age = (l: Load) => (l.delivery_at ? Math.max(0, Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)) : 0);
+  // Invoice records drive the billing stage and invoice # (paged: the database caps one read at 1000 rows).
+  const { data: sync = [] } = useQuery({ queryKey: ["qb_sync", "report"], queryFn: async () => (await fetchAllPaged("qb_sync", "created_at", false)) as SyncRow[] });
+  const syncMap = useMemo(() => syncByLoad(sync), [sync]);
+  const stageOf = (l: Load) => billingStage(l, syncMap.get(l.id) ?? []);
+  const invNo = (l: Load) => invoiceNumberOf(l.id, syncMap.get(l.id) ?? []);
+  const stages = cfg.stages ?? ALL_STAGES;
+  const closed = cfg.closed ?? "all";
+  const carrierPaid = cfg.carrierPaid ?? "all";
 
   const rows = useMemo(
     () =>
@@ -100,6 +115,9 @@ function Reports() {
         if (isFleetLoad(l) !== fleetView) return false;
         if (!cfg.statuses.includes(l.status)) return false;
         if (preset === "ap" && !l.carrier_id) return false;
+        if (stages.length < ALL_STAGES.length && !stages.includes(stageOf(l))) return false;
+        if (closed !== "all" && !!l.closed_at !== (closed === "yes")) return false;
+        if (carrierPaid !== "all" && !!l.carrier_paid_at !== (carrierPaid === "yes")) return false;
         const d = l.pickup_at ? l.pickup_at.slice(0, 10) : "";
         if (from && d < from) return false;
         if (to && d > to) return false;
@@ -107,9 +125,11 @@ function Reports() {
         if (customer !== "all" && l.customer_id !== customer) return false;
         if (carrier !== "all" && l.carrier_id !== carrier) return false;
         if (salesRep !== "all" && (salesRep === "none" ? repOf(l) : repOf(l) !== salesRep)) return false;
-        return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""}`.toLowerCase().includes(q.toLowerCase());
+        if (!q) return true;
+        return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""} ${l.customer_ref ?? ""} ${l.ship_ref ?? ""} ${l.dest_ref ?? ""} ${invNo(l)}`.toLowerCase().includes(q.toLowerCase());
       }),
-    [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies, syncMap],
   );
 
   const keyOf = (l: Load): string => {
@@ -119,6 +139,7 @@ function Reports() {
       case "broker": return brokerName(l);
       case "lane": return laneOf(l);
       case "status": return STATUSES.find((s) => s.value === l.status)!.label;
+      case "billing": return stageLabel(stageOf(l));
       case "equipment": return l.equipment;
       case "month": return l.pickup_at ? l.pickup_at.slice(0, 7) : "No date";
       case "salesrep": return repName(l);
@@ -128,7 +149,8 @@ function Reports() {
   const groups = useMemo(() => {
     const m = new Map<string, Load[]>();
     rows.forEach((l) => m.set(keyOf(l), [...(m.get(keyOf(l)) ?? []), l]));
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const order = (g: string) => BILLING_STAGES.findIndex((s) => s.label === g);
+    return [...m.entries()].sort((a, b) => (cfg.groupBy === "billing" ? order(a[0]) - order(b[0]) : a[0].localeCompare(b[0])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, cfg.groupBy]);
 
@@ -137,17 +159,24 @@ function Reports() {
     switch (c) {
       case "load": return l.load_number;
       case "status": return STATUSES.find((s) => s.value === l.status)!.label;
+      case "billing": return stageLabel(stageOf(l)) + (l.closed_at ? " · Closed out" : "");
       case "customer": return custName(l);
+      case "custref": return l.customer_ref ?? "";
+      case "shipref": return l.ship_ref ?? "";
+      case "destref": return l.dest_ref ?? "";
+      case "invoice": return invNo(l);
       case "carrier": return carrName(l);
       case "broker": return brokerName(l);
       case "lane": return laneOf(l);
       case "pickup": return fmtDate(l.pickup_at);
       case "delivery": return fmtDate(l.delivery_at);
       case "equipment": return l.equipment;
+      case "commodity": return l.commodity ?? "";
       case "revenue": return usd(t.revenue);
       case "cost": return usd(t.cost);
       case "margin": return marginText(t);
       case "age": return String(age(l));
+      case "carrierpaid": return l.carrier_paid_at ? `Paid ${fmtDate(l.carrier_paid_at)}` : l.carrier_id ? "Unpaid" : "";
       case "salesrep": return repName(l);
       case "commission": return usd(commOf(l));
     }
@@ -179,7 +208,10 @@ function Reports() {
       carrier !== "all" && `Carrier: ${nameOf(carrier, carriers)}`,
       salesRep !== "all" && `Brought in by: ${salesRep === "none" ? "Not set" : nameOf(salesRep, profiles)}`,
       cfg.statuses.length < STATUSES.length && `Statuses: ${cfg.statuses.map((s) => STATUSES.find((x) => x.value === s)?.label ?? s).join(", ")}`,
-      grouped && `Grouped by: ${cfg.groupBy === "salesrep" ? "Customer brought in by" : cfg.groupBy}`,
+      stages.length < ALL_STAGES.length && `Billing stage: ${stages.map(stageLabel).join(", ")}`,
+      closed !== "all" && (closed === "yes" ? "Closed out only" : "Not closed out"),
+      carrierPaid !== "all" && (carrierPaid === "yes" ? "Carrier paid only" : "Carrier not paid"),
+      grouped && `Grouped by: ${GROUPS.find(([g]) => g === cfg.groupBy)?.[1] ?? cfg.groupBy}`,
       q && `Search: "${q}"`,
     ].filter((x): x is string => !!x);
     return {
@@ -200,6 +232,8 @@ function Reports() {
 
   const toggleStatus = (s: LoadStatus) => { setPreset("custom"); setCfg((c) => ({ ...c, statuses: c.statuses.includes(s) ? c.statuses.filter((x) => x !== s) : [...c.statuses, s] })); };
   const toggleCol = (col: Col) => { setPreset("custom"); setCfg((c) => ({ ...c, cols: c.cols.includes(col) ? c.cols.filter((x) => x !== col) : COLS.map((x) => x.id).filter((x) => x === col || c.cols.includes(x)) })); };
+  const toggleStage = (s: BillingStage) => { setPreset("custom"); setCfg((c) => { const cur = c.stages ?? ALL_STAGES; return { ...c, stages: cur.includes(s) ? cur.filter((x) => x !== s) : ALL_STAGES.filter((x) => x === s || cur.includes(x)) }; }); };
+  const setOpt = (key: "closed" | "carrierPaid", v: YesNo) => { setPreset("custom"); setCfg((c) => ({ ...c, [key]: v })); };
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -232,11 +266,14 @@ function Reports() {
           <label className="text-xs text-muted-foreground">Group by
             <Select value={cfg.groupBy} onValueChange={(v) => { setPreset("custom"); setCfg((c) => ({ ...c, groupBy: v as GroupBy })); }}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>{["none", "customer", "carrier", "broker", "salesrep", "lane", "status", "equipment", "month"].map((g) => <SelectItem key={g} value={g}>{g === "none" ? "No grouping" : g === "salesrep" ? "Customer brought in by" : g[0]!.toUpperCase() + g.slice(1)}</SelectItem>)}</SelectContent>
+              <SelectContent>{GROUPS.map(([g, label]) => <SelectItem key={g} value={g}>{label}</SelectItem>)}</SelectContent>
             </Select>
           </label>
+          <Filter label="Closed out" value={closed} set={(v) => setOpt("closed", v as YesNo)} opts={[["no", "Not closed out"], ["yes", "Closed out only"]]} />
+          <Filter label="Carrier paid" value={carrierPaid} set={(v) => setOpt("carrierPaid", v as YesNo)} opts={[["no", "Carrier not paid"], ["yes", "Carrier paid"]]} />
         </div>
-        <Input placeholder="Search load #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="Search load #, customer ref #, PO / PU ref #, invoice #, lane, commodity" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Chips title="Billing stage" items={BILLING_STAGES.map((s) => [s.value, s.label])} on={stages} toggle={(v) => toggleStage(v as BillingStage)} />
         <Chips title="Statuses" items={STATUSES.map((s) => [s.value, s.label])} on={cfg.statuses} toggle={(v) => toggleStatus(v as LoadStatus)} />
         <Chips title="Columns" items={COLS.filter((c) => c.id !== "commission" || isAdmin).map((c) => [c.id, c.label])} on={cfg.cols} toggle={(v) => toggleCol(v as Col)} />
       </div>

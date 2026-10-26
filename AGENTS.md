@@ -43,3 +43,4 @@
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
 - Per-user alert choices live in notification_prefs (own-row RLS; missing row = all on); server emails check them via notifyPrefs.server.ts, the bell filters in-app alerts.
 - Agent integrations (MCP): server tools in `src/lib/mcp/` (read-only, `supabaseForUser` so RLS applies as the OAuth caller; never admin client); consent at `src/routes/[.]lovable.oauth.consent.tsx`; /auth honors a validated `next` (oauthReturnPath) through password + Google. Browser-agent (WebMCP) tools live in the screen that renders the controls (Dispatch) and share its handlers.
+- Reports' billing stage / invoice # come from `src/lib/reportBilling.ts` (paged qb_sync; a sent or linked customer invoice beats load status, except Paid/Cancelled).
