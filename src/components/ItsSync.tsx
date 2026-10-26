@@ -37,7 +37,9 @@ const num = (v: unknown): number | null => {
 const dt = (v: unknown): string | null => {
   if (!v) return null;
   if (v instanceof Date) return v.toISOString();
-  const d = new Date(String(v));
+  const str = String(v).trim();
+  // Date-only values ("2025-10-27") are kept on that calendar day instead of shifting to the evening before.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(str) ? `${str}T12:00:00` : str);
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 const splitCity = (s: string): [string, string] => {
@@ -85,8 +87,12 @@ export function resolveColumns(headerRow: unknown[]): Record<string, number> {
   const idx: Record<string, number> = {};
   // Exact matches first (more specific keys like originCity before origin).
   for (const k of Object.keys(COLS)) {
-    const set = aliasSet(k);
-    const i = headers.findIndex((h, j) => !used.has(j) && (set.has(h) || set.has(h.replace(/ number$/, ""))));
+    let i = -1;
+    // Aliases are in priority order (e.g. "Equipment Type" beats "Trailer").
+    for (const a of COLS[k]!.map(hnorm)) {
+      i = headers.findIndex((h, j) => !used.has(j) && (h === a || h.replace(/ number$/, "") === a));
+      if (i >= 0) break;
+    }
     idx[k] = i; if (i >= 0) used.add(i);
   }
   for (const [k, subs] of Object.entries(FUZZY)) {
