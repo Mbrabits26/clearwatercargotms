@@ -70,7 +70,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
   };
   const runCross = async (p: ReviewPlan) => {
     const y = new Date().getFullYear(), today = new Date().toISOString().slice(0, 10);
-    const from = p.from ?? `${y}-01-01`, to = p.to ?? today;
+    const from = p.from ?? `${y}-01-01`, to = p.to || today;
     // Invoices are often dated after delivery, so read QuickBooks up to 30 days past the range.
     const qbTo = new Date(Math.min(Date.now(), new Date(to).getTime() + 30 * 86400_000)).toISOString().slice(0, 10);
     const r = await scan({ data: { from, to: qbTo, openOnly: false, entity: p.entity } });
