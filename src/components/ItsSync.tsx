@@ -170,8 +170,8 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [missingCols, setMissingCols] = useState<string[]>([]);
-  const [stats, setStats] = useState<{ total: number; existing: number; toUpdate: number; newCustomers: string[]; newCarriers: string[]; noBroker: string[] } | null>(null);
-  const [match, setMatch] = useState<{ customers: Map<string, string>; carriers: Map<string, string>; mcs: Map<string, string>; existing: Set<string>; newCarrierMc: Map<string, string> } | null>(null);
+  const [stats, setStats] = useState<{ total: number; existing: number; incomplete: number; toUpdate: number; newCustomers: string[]; newCarriers: string[]; noBroker: string[] } | null>(null);
+  const [match, setMatch] = useState<{ customers: Map<string, string>; carriers: Map<string, string>; mcs: Map<string, string>; existing: Set<string>; incomplete: Set<string>; newCarrierMc: Map<string, string> } | null>(null);
 
   const { data: runs = [] } = useQuery({
     queryKey: ["its_sync_runs"],
@@ -183,6 +183,7 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
     const fs = Array.from(list);
     setFiles(fs);
     setResult(null);
+    setMissingCols([]);
     setStats(null);
     setMatch(null);
     const map = new Map<string, ItsRow>();
@@ -244,23 +245,26 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
       const noBroker = new Set<string>();
       const existing = new Set<string>();
       let toUpdate = 0;
+      const incomplete = new Set<string>();
       for (const r of merged.values()) {
         const hit = byKey.get(`x:${r.its}`) ?? byKey.get(`n:CW-${r.its}`);
         if (hit) {
           existing.add(r.its);
           const wo = woOf(r);
-          if ((wo && hit.customer_ref !== wo) || (!hit.ship_ref && r.po) || (!Number(hit.customer_rate) && r.revenue != null) || (!Number(hit.carrier_rate) && r.carrierPay != null)) toUpdate++;
+          if ((wo && hit.customer_ref !== wo) || (!hit.ship_ref && r.po) || (!Number(hit.customer_rate) && r.revenue != null) || (!Number(hit.carrier_rate) && r.carrierPay != null)
+            || (!hit.origin_city && r.origin) || (!hit.dest_city && r.dest) || (!hit.pickup_at && r.ship) || (!hit.delivery_at && r.del) || (!hit.customer_id && r.customer) || (!hit.carrier_id && r.carrier) || (!hit.weight_lbs && r.weight != null)) toUpdate++;
           continue;
         }
+        if (!r.origin && !r.dest && !r.customer) { incomplete.add(r.its); continue; }
         if (r.customer && !customers.has(norm(r.customer))) newCustomers.add(r.customer);
         const assigned = r.carrier && !/unassigned/i.test(r.carrier);
         if (assigned && !(r.mc && mcMap.has(digits(r.mc))) && !carrierMap.has(norm(r.carrier))) newCarriers.set(norm(r.carrier), r.mc);
         if (r.dispatcher && !profiles.some((p) => norm(p.full_name ?? "") === norm(r.dispatcher))) noBroker.add(r.dispatcher);
       }
-      setMatch({ customers, carriers: carrierMap, mcs: mcMap, existing, newCarrierMc: newCarriers });
+      setMatch({ customers, carriers: carrierMap, mcs: mcMap, existing, incomplete, newCarrierMc: newCarriers });
       const names = new Map<string, string>();
       for (const r of merged.values()) if (newCarriers.has(norm(r.carrier))) names.set(norm(r.carrier), r.carrier);
-      setStats({ total: merged.size, existing: existing.size, toUpdate, newCustomers: [...newCustomers], newCarriers: [...names.values()], noBroker: [...noBroker] });
+      setStats({ total: merged.size, existing: existing.size, incomplete: incomplete.size, toUpdate, newCustomers: [...newCustomers], newCarriers: [...names.values()], noBroker: [...noBroker] });
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -291,7 +295,8 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
       };
       const brokerByName = new Map(profiles.map((p) => [norm(p.full_name ?? ""), p.id]));
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const rows = [...merged.values()].map((r) => {
+      // Never create a blank load: new rows with no origin, destination or customer are left out.
+      const rows = [...merged.values()].filter((r) => !match.incomplete.has(r.its)).map((r) => {
         const [oc, os] = splitCity(r.origin);
         const [dc, ds] = splitCity(r.dest);
         const delivered = r.del ? new Date(r.del) < today : false;
@@ -348,12 +353,13 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
         {merged && (
           <div className="space-y-2 rounded border p-3">
             <div className="text-sm"><span className="text-gold">{merged.size}</span> loads found in {files.length} file{files.length > 1 ? "s" : ""}.</div>
+            {!!missingCols.length && <div role="alert" className="rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">These columns weren't found in the spreadsheet, so they won't be filled in: {missingCols.join(", ")}. Check the column headings, or send the file so the import can learn them.</div>}
             {!stats && <Button size="sm" variant="outline" disabled={busy} onClick={check}><RefreshCw className="mr-1 h-4 w-4" />Check against the TMS</Button>}
             {stats && (
               <>
                 <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                   <div>Already in TMS: <b>{stats.existing}</b> ({stats.toUpdate} to update)</div>
-                  <div>New loads: <b className="text-gold">{stats.total - stats.existing}</b></div>
+                  <div>New loads: <b className="text-gold">{stats.total - stats.existing - stats.incomplete}</b>{stats.incomplete ? <span className="text-warning"> ({stats.incomplete} skipped — no origin, destination or customer)</span> : null}</div>
                   <div>New customers: <b>{stats.newCustomers.length}</b></div>
                   <div>New carriers: <b>{stats.newCarriers.length}</b></div>
                 </div>
@@ -367,7 +373,7 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
                     <SelectTrigger className="h-8 w-64"><SelectValue placeholder="Fallback broker for unmatched dispatchers" /></SelectTrigger>
                     <SelectContent>{profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name ?? p.email}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Button size="sm" disabled={busy} onClick={sync}><Upload className="mr-1 h-4 w-4" />Sync {stats.total - stats.existing} new + update {stats.toUpdate}</Button>
+                  <Button size="sm" disabled={busy} onClick={sync}><Upload className="mr-1 h-4 w-4" />Sync {stats.total - stats.existing - stats.incomplete} new + update {stats.toUpdate}</Button>
                 </div>
               </>
             )}
