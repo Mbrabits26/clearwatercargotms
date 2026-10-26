@@ -46,70 +46,120 @@ const splitCity = (s: string): [string, string] => {
   return [s.slice(0, i).trim(), s.slice(i + 1).trim()];
 };
 
+// Header aliases, compared after normalizing (lowercase, punctuation → spaces).
+// ITS exports come in several layouts (group reports and the flat "All Loads" export).
 const COLS: Record<string, string[]> = {
-  its: ["load #"],
-  ship: ["ship/date"],
-  del: ["del/date"],
-  origin: ["origin"],
-  dest: ["destination"],
-  po: ["po numbers"],
-  wo: ["w/o #", "w/o", "wo #", "wo", "w0 #", "w0", "w/o number", "wo number", "work order", "work order #", "customer ref", "customer ref #"],
-  mc: ["carrier mc", "carrier mc #", "mc #", "mc", "mc number", "carrier mc number"],
-  equip: ["equipment type"],
-  weight: ["weight"],
-  revenue: ["revenue"],
-  carrier: ["carrier name"],
-  carrierPay: ["carrier pay"],
+  its: ["load", "load number", "load no", "its load", "its load number", "load id"],
+  ship: ["ship date", "ship", "pickup date", "pick up date", "pu date", "pickup", "pick up", "ship dt", "pickup appt", "shipped"],
+  del: ["del date", "delivery date", "deliver date", "del", "delivery", "drop date", "delivered", "delivery appt", "del dt"],
+  origin: ["origin", "from", "pickup location", "origin location", "shipper location", "origin city state"],
+  originCity: ["origin city", "shipper city", "pickup city", "pu city", "from city"],
+  originState: ["origin state", "origin st", "shipper state", "shipper st", "pickup state", "pu state", "from state"],
+  dest: ["destination", "dest", "to", "delivery location", "consignee location", "destination city state"],
+  destCity: ["destination city", "dest city", "consignee city", "delivery city", "to city"],
+  destState: ["destination state", "dest state", "destination st", "dest st", "consignee state", "consignee st", "delivery state", "to state"],
+  po: ["po numbers", "po number", "po", "po s", "shipper po", "pu ref", "pickup ref", "pickup number", "bol", "bol number"],
+  wo: ["w o", "w o number", "w o no", "wo", "wo number", "w0", "w0 number", "work order", "work order number", "customer ref", "customer ref number", "cust ref", "customer reference"],
+  mc: ["carrier mc", "carrier mc number", "mc", "mc number", "carrier mc no"],
+  equip: ["equipment type", "equipment", "equip", "trailer type", "trailer"],
+  weight: ["weight", "weight lbs", "lbs", "total weight"],
+  revenue: ["revenue", "customer rate", "total revenue", "rate", "customer total", "total charges", "charges", "billed", "bill amount", "invoice amount", "customer pay", "gross"],
+  carrier: ["carrier name", "carrier"],
+  carrierPay: ["carrier pay", "carrier rate", "carrier cost", "carrier total", "carrier amount", "cost", "pay", "truck pay"],
+  customer: ["customer", "customer name", "bill to", "billto", "bill to name", "shipper customer"],
+  dispatcher: ["dispatcher", "dispatcher name", "broker", "sales rep", "salesperson", "agent", "booked by"],
 };
+// Substring fallbacks when no exact header alias is found.
+const FUZZY: Record<string, string[]> = {
+  ship: ["ship", "pickup"], del: ["deliver"], revenue: ["revenue"], carrierPay: ["carrier pay", "carrier rate"],
+  wo: ["w o", "work order"], equip: ["equip"], weight: ["weight"], mc: ["mc"],
+};
+const KEY_LABELS: Record<string, string> = { origin: "Origin", dest: "Destination", ship: "Pickup date", del: "Delivery date", customer: "Customer", revenue: "Revenue", carrierPay: "Carrier pay", carrier: "Carrier", wo: "W/O #" };
 const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
+const hnorm = (h: unknown) => String(h ?? "").toLowerCase().replace(/#/g, " number ").replace(/[^a-z0-9]+/g, " ").replace(/\bnumber\b\s*$/, "number").trim();
+const aliasSet = (k: string) => new Set(COLS[k]!.map(hnorm));
 
-async function parseFile(f: File): Promise<{ type: string; rows: ItsRow[] }> {
+export function resolveColumns(headerRow: unknown[]): Record<string, number> {
+  const headers = headerRow.map(hnorm);
+  const used = new Set<number>();
+  const idx: Record<string, number> = {};
+  // Exact matches first (more specific keys like originCity before origin).
+  for (const k of Object.keys(COLS)) {
+    const set = aliasSet(k);
+    const i = headers.findIndex((h, j) => !used.has(j) && (set.has(h) || set.has(h.replace(/ number$/, ""))));
+    idx[k] = i; if (i >= 0) used.add(i);
+  }
+  for (const [k, subs] of Object.entries(FUZZY)) {
+    if (idx[k]! >= 0) continue;
+    const i = headers.findIndex((h, j) => !used.has(j) && subs.some((s) => h.includes(s)));
+    idx[k] = i; if (i >= 0) used.add(i);
+  }
+  return idx;
+}
+
+export type ParsedFile = { type: string; rows: ItsRow[]; missing: string[] };
+
+async function parseFile(f: File): Promise<ParsedFile> {
   const XLSX = await import("xlsx");
   const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]!]!;
   const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" });
   const title = String(grid[0]?.[0] ?? "");
   const type = title.includes("CUSTOMER") ? "customer" : title.includes("DISPATCHER") ? "dispatcher" : title.includes("CARRIER") ? "carrier" : "unknown";
-  const hi = grid.findIndex((r) => String(r[0]).trim() === "Load #");
-  if (hi < 0) return { type, rows: [] };
-  const headers = (grid[hi] ?? []).map((h) => String(h).trim().toLowerCase());
-  const col = (key: string) => headers.findIndex((h) => COLS[key]!.includes(h));
-  const idx: Record<string, number> = Object.fromEntries(Object.keys(COLS).map((k) => [k, col(k)]));
+  const loadAliases = aliasSet("its");
+  const hi = grid.slice(0, 40).findIndex((r) => r.some((c) => { const h = hnorm(c); return loadAliases.has(h) || loadAliases.has(h.replace(/ number$/, "")); }));
+  if (hi < 0) return { type, rows: [], missing: ["Load #"] };
+  const idx = resolveColumns(grid[hi] ?? []);
+  const has = (k: string) => idx[k]! >= 0;
+  const missing = Object.entries(KEY_LABELS).filter(([k]) => {
+    if (k === "origin") return !has("origin") && !has("originCity");
+    if (k === "dest") return !has("dest") && !has("destCity");
+    if (k === "customer") return !has("customer") && type !== "customer";
+    if (k === "carrier") return !has("carrier") && type !== "carrier";
+    return !has(k);
+  }).map(([, l]) => l);
   const rows: ItsRow[] = [];
   let group = "";
-  const cell = (r: unknown[], k: string): unknown => {
+  const cell = (r: unknown[], k: string): string => {
     const i = idx[k];
-    return i == null || i < 0 ? "" : r[i];
+    if (i == null || i < 0) return "";
+    const v = r[i];
+    return v instanceof Date ? v.toISOString() : String(v ?? "").trim();
+  };
+  const raw = (r: unknown[], k: string): unknown => { const i = idx[k]; return i == null || i < 0 ? "" : r[i]; };
+  const place = (r: unknown[], full: string, city: string, st: string) => {
+    const c = cell(r, city), s2 = cell(r, st);
+    if (c) return s2 ? `${c}, ${s2}` : c;
+    return cell(r, full);
   };
   for (let i = hi + 1; i < grid.length; i++) {
     const r = grid[i]!;
     const c0 = String(r[0] ?? "").trim();
-    if (!c0) continue;
-    const loadNo = String(cell(r, "its") ?? "").trim();
+    const loadNo = cell(r, "its").replace(/\.0+$/, "");
     if (!/^\d+$/.test(loadNo)) {
       // group header line (customer / dispatcher / carrier name) — skip city+tel line and totals
-      if (!/tel:|total/i.test(c0) && !/^\d/.test(c0) && String(r[1] ?? "").trim() === "") group = c0;
+      if (c0 && !/tel:|total/i.test(c0) && !/^\d/.test(c0) && String(r[1] ?? "").trim() === "") group = c0;
       continue;
     }
     rows.push({
       its: loadNo,
-      customer: type === "customer" ? group : "",
-      dispatcher: type === "dispatcher" ? group : "",
-      carrier: String(cell(r, "carrier") ?? "").trim() || (type === "carrier" ? group : ""),
-      origin: String(cell(r, "origin") ?? "").trim(),
-      dest: String(cell(r, "dest") ?? "").trim(),
-      ship: dt(cell(r, "ship")),
-      del: dt(cell(r, "del")),
-      equip: String(cell(r, "equip") ?? "").trim(),
-      weight: num(cell(r, "weight")),
-      revenue: num(cell(r, "revenue")),
-      carrierPay: num(cell(r, "carrierPay")),
-      po: String(cell(r, "po") ?? "").trim(),
-      wo: String(cell(r, "wo") ?? "").trim(),
-      mc: String(cell(r, "mc") ?? "").trim(),
+      customer: cell(r, "customer") || (type === "customer" ? group : ""),
+      dispatcher: cell(r, "dispatcher") || (type === "dispatcher" ? group : ""),
+      carrier: cell(r, "carrier") || (type === "carrier" ? group : ""),
+      origin: place(r, "origin", "originCity", "originState"),
+      dest: place(r, "dest", "destCity", "destState"),
+      ship: dt(raw(r, "ship")),
+      del: dt(raw(r, "del")),
+      equip: cell(r, "equip"),
+      weight: num(raw(r, "weight")),
+      revenue: num(raw(r, "revenue")),
+      carrierPay: num(raw(r, "carrierPay")),
+      po: cell(r, "po"),
+      wo: cell(r, "wo"),
+      mc: cell(r, "mc"),
     });
   }
-  return { type, rows };
+  return { type, rows, missing };
 }
 
 export function ItsSync({ profiles }: { profiles: Profile[] }) {
@@ -119,6 +169,7 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
   const [fallback, setFallback] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [missingCols, setMissingCols] = useState<string[]>([]);
   const [stats, setStats] = useState<{ total: number; existing: number; toUpdate: number; newCustomers: string[]; newCarriers: string[]; noBroker: string[] } | null>(null);
   const [match, setMatch] = useState<{ customers: Map<string, string>; carriers: Map<string, string>; mcs: Map<string, string>; existing: Set<string>; newCarrierMc: Map<string, string> } | null>(null);
 
@@ -135,9 +186,11 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
     setStats(null);
     setMatch(null);
     const map = new Map<string, ItsRow>();
+    const missingAll: string[][] = [];
     try {
       for (const f of fs) {
-        const { rows } = await parseFile(f);
+        const { rows, missing } = await parseFile(f);
+        missingAll.push(missing);
         for (const r of rows) {
           const cur = map.get(r.its) ?? { ...r };
           // cross-file merge: fill blanks only
@@ -160,6 +213,8 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
           });
         }
       }
+      // A column counts as missing only if no uploaded file has it.
+      setMissingCols(missingAll.length ? missingAll.reduce((a, b) => a.filter((x) => b.includes(x))) : []);
       setMerged(map);
       if (!map.size) toast.error("No load rows found — are these ITS Dispatch reports?");
     } catch (e) {
