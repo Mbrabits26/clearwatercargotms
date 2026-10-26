@@ -108,6 +108,6 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
       // The numbering trigger may assign an INV-/FF- number on insert; restore the real one.
       if (ins && data.docNumber) await admin.from("qb_sync").update({ invoice_number: data.docNumber }).eq("id", (ins as { id: string }).id);
     }
-    const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["delivered", "invoiced"]);
+    const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["booked", "dispatched", "rolling", "delivered", "issue", "invoiced"]);
     return { ok: true, statusNote: le?.message ?? null };
   });

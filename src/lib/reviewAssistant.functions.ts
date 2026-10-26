@@ -7,7 +7,7 @@ const SCHEMA = {
   type: "object", additionalProperties: false,
   required: ["mode", "customer", "from", "to", "minDaysSinceDelivery", "entity", "summary"],
   properties: {
-    mode: { type: "string", enum: ["qb_match", "paid_mismatch", "closeout"] },
+    mode: { type: "string", enum: ["qb_match", "paid_mismatch", "closeout", "crosscheck"] },
     customer: nul("string"), from: nul("string"), to: nul("string"), minDaysSinceDelivery: nul("number"),
     entity: { type: "string", enum: ["brokerage", "fleet"] }, summary: { type: "string" },
   },
@@ -24,12 +24,12 @@ export const planReview = createServerFn({ method: "POST" })
     if (!key) throw new Error("AI is not set up.");
     const { readDocJson } = await import("./extract.server");
     const instructions = `You turn a freight brokerage accountant's request into a review filter. Today is ${data.today}.
-mode: "qb_match" = find QuickBooks invoices that match TMS loads (link/attach); "paid_mismatch" = invoices paid in QuickBooks whose loads aren't marked paid; "closeout" = paid loads ready to close out.
+mode: "qb_match" = find QuickBooks invoices that match TMS loads (link/attach); "paid_mismatch" = invoices paid in QuickBooks whose loads aren't marked paid; "closeout" = paid loads ready to close out; "crosscheck" = compare the TMS with QuickBooks: loads invoiced in QuickBooks but not in the TMS, and loads not invoiced anywhere.
 customer: customer name if mentioned, else null. from/to: YYYY-MM-DD date range if mentioned (months → full month, "this year" → Jan 1 to today), else null.
 minDaysSinceDelivery: e.g. "over 30 days" → 30, else null. entity: "fleet" only if Foust Farms / fleet / company trucks are mentioned, else "brokerage".
 summary: one short sentence describing what will be listed.`;
     return (await readDocJson({ instructions, ask: data.query, name: "review_plan", schema: SCHEMA }, [], key)) as {
-      mode: "qb_match" | "paid_mismatch" | "closeout"; customer: string | null; from: string | null; to: string | null;
+      mode: "qb_match" | "paid_mismatch" | "closeout" | "crosscheck"; customer: string | null; from: string | null; to: string | null;
       minDaysSinceDelivery: number | null; entity: "brokerage" | "fleet"; summary: string;
     };
   });
