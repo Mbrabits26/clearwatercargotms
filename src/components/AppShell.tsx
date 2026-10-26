@@ -40,8 +40,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
   ].filter((n) => !n.p || isAdmin || (perms ?? DEFAULT_PERMS).includes(n.p));
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-sidebar px-3 lg:px-4">
+    <div className="flex h-dvh flex-col print:block print:h-auto">
+      <header className="flex h-14 print:hidden shrink-0 items-center gap-4 border-b bg-sidebar px-3 lg:px-4">
         <Link to="/dispatch" className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <img src={logo.url} alt="Clearwater Cargo" className="h-9 w-9 shrink-0 rounded-sm bg-foreground object-contain lg:h-10 lg:w-10" />
           <div className="leading-none">
@@ -83,8 +83,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"><LoadWorkNotice />{(isAdmin || isAccountant) && <><InvoicedQbReview /><CarrierPayDue /><DueReminders /></>}{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <main className="min-h-0 flex-1 overflow-auto print:overflow-visible pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"><div className="print:hidden"><LoadWorkNotice />{(isAdmin || isAccountant) && <><InvoicedQbReview /><CarrierPayDue /><DueReminders /></>}</div>{children}</main>
+      <nav className="fixed inset-x-0 bottom-0 z-30 print:hidden grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
         {nav.filter((n) => ["/dispatch", "/carriers", "/directory"].includes(n.to)).map((n) => (
           <Link key={n.to} to={n.to} className="flex min-h-11 flex-col items-center justify-center gap-1 text-[11px] text-sidebar-foreground/70" activeProps={{ className: "text-gold bg-sidebar-accent" }}>
             <n.icon className="h-5 w-5" />{n.label.replace(" Board", "")}
@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </SheetContent>
         </Sheet>
       </nav>
-      <ChatWidget userId={user.id} />
+      <div className="print:hidden"><ChatWidget userId={user.id} /></div>
     </div>
   );
 }
