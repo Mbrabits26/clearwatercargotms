@@ -6,6 +6,7 @@ export type QbInvoice = {
 export type MatchLoad = {
   id: string; load_number: string; customer: string; customer_rate: number; net?: number;
   origin_city: string; origin_state: string; dest_city: string; dest_state: string; delivery_at: string | null; pickup_at: string | null;
+  customer_ref?: string | null; ship_ref?: string | null;
 };
 export type Match = { load: MatchLoad; score: number; level: "high" | "probable" | "weak"; reasons: string[] };
 
@@ -14,6 +15,15 @@ export const normName = (s: string) =>
     .replace(/\b(llc|inc|incorporated|co|corp|corporation|company|ltd|the|lp|llp)\b/g, " ").replace(/\s+/g, " ").trim();
 
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
+
+/** Reference numbers compared as whole tokens, ignoring case, spaces and dashes; refs shorter than 3 chars are ignored. */
+const refKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+export function textHasRef(text: string, ref: string | null | undefined): boolean {
+  const want = refKey(ref ?? "");
+  if (want.length < 3) return false;
+  const tokens = text.toLowerCase().split(/[\s,;:#/()]+/).map(refKey).filter(Boolean);
+  return tokens.includes(want) || refKey(text).length === want.length && refKey(text) === want;
+}
 
 export function scoreMatch(inv: QbInvoice, l: MatchLoad): Match {
   let score = 0; const reasons: string[] = [];
@@ -26,6 +36,8 @@ export function scoreMatch(inv: QbInvoice, l: MatchLoad): Match {
   if (l.origin_city && t.includes(l.origin_city.toLowerCase())) { score += 10; reasons.push("Pickup city"); }
   if (l.dest_city && t.includes(l.dest_city.toLowerCase())) { score += 10; reasons.push("Delivery city"); }
   if (l.load_number && t.includes(l.load_number.toLowerCase())) { score += 30; reasons.push("Load #"); }
+  if (textHasRef(inv.text, l.customer_ref)) { score += 35; reasons.push("Customer ref #"); }
+  if (refKey(l.ship_ref ?? "") !== refKey(l.customer_ref ?? "") && textHasRef(inv.text, l.ship_ref)) { score += 35; reasons.push("Shipper PO #"); }
   const ref = l.delivery_at ?? l.pickup_at;
   if (inv.date && ref) {
     const days = (new Date(inv.date).getTime() - new Date(ref).getTime()) / 86400_000;

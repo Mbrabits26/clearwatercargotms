@@ -47,7 +47,7 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
     return loads.filter((l) => !linked.has(l.id) && isFleetLoad(l) === (entity === "fleet") && ["delivered", "invoiced", "paid"].includes(l.status)).map((l) => {
       const s = sync.find((x) => x.load_id === l.id && x.kind === kind);
       return { id: l.id, load_number: l.load_number, customer: custName(l.customer_id), customer_rate: Number(l.customer_rate), net: s ? invoiceNet(Number(s.amount), s.deductions) : undefined,
-        origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at };
+        origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at, customer_ref: l.customer_ref, ship_ref: l.ship_ref };
     });
   }, [loads, sync, companies]);
 
