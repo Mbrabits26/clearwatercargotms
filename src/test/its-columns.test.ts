@@ -18,4 +18,11 @@ describe("ITS column matching", () => {
     expect(idx.carrierPay).toBe(11);
     expect(idx.wo).toBe(12);
   });
+  it("reads the ITS All Loads export", () => {
+    const h = ["Load #", "Work Order #", "Status", "Inv. Date", "Ship Date", "Del Date", "Customer", "Shipper", "Shipper City", "Shipper St.", "Shipper PO Numbers", "Consignee", "Consignee City", "Consignee St.", "Consignee PO Numbers", "Truck", "Trailer", "Carrier MC #", "Carrier Fee", "", "Line Haul", "", "Driver Pay", "", "Total Billing Rate", "", "Equipment Type"];
+    const idx = resolveColumns(h);
+    const name = (k: string) => h[idx[k]!];
+    expect([name("wo"), name("originCity"), name("destState"), name("po"), name("mc"), name("carrierPay"), name("revenue"), name("equip")])
+      .toEqual(["Work Order #", "Shipper City", "Consignee St.", "Shipper PO Numbers", "Carrier MC #", "Carrier Fee", "Total Billing Rate", "Equipment Type"]);
+  });
 });
