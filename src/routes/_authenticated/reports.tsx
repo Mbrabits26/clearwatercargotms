@@ -99,6 +99,14 @@ function Reports() {
   const brokerName = (l: Load) => profiles.find((p) => p.id === l.broker_id)?.full_name ?? "Unassigned";
   const laneOf = (l: Load) => `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`;
   const age = (l: Load) => (l.delivery_at ? Math.max(0, Math.floor((Date.now() - new Date(l.delivery_at).getTime()) / 86400_000)) : 0);
+  // Invoice records drive the billing stage and invoice # (paged: the database caps one read at 1000 rows).
+  const { data: sync = [] } = useQuery({ queryKey: ["qb_sync", "report"], queryFn: async () => (await fetchAllPaged("qb_sync", "created_at", false)) as SyncRow[] });
+  const syncMap = useMemo(() => syncByLoad(sync), [sync]);
+  const stageOf = (l: Load) => billingStage(l, syncMap.get(l.id) ?? []);
+  const invNo = (l: Load) => invoiceNumberOf(l.id, syncMap.get(l.id) ?? []);
+  const stages = cfg.stages ?? ALL_STAGES;
+  const closed = cfg.closed ?? "all";
+  const carrierPaid = cfg.carrierPaid ?? "all";
 
   const rows = useMemo(
     () =>
@@ -107,6 +115,9 @@ function Reports() {
         if (isFleetLoad(l) !== fleetView) return false;
         if (!cfg.statuses.includes(l.status)) return false;
         if (preset === "ap" && !l.carrier_id) return false;
+        if (stages.length < ALL_STAGES.length && !stages.includes(stageOf(l))) return false;
+        if (closed !== "all" && !!l.closed_at !== (closed === "yes")) return false;
+        if (carrierPaid !== "all" && !!l.carrier_paid_at !== (carrierPaid === "yes")) return false;
         const d = l.pickup_at ? l.pickup_at.slice(0, 10) : "";
         if (from && d < from) return false;
         if (to && d > to) return false;
@@ -114,9 +125,11 @@ function Reports() {
         if (customer !== "all" && l.customer_id !== customer) return false;
         if (carrier !== "all" && l.carrier_id !== carrier) return false;
         if (salesRep !== "all" && (salesRep === "none" ? repOf(l) : repOf(l) !== salesRep)) return false;
-        return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""}`.toLowerCase().includes(q.toLowerCase());
+        if (!q) return true;
+        return `${l.load_number} ${laneOf(l)} ${l.commodity ?? ""} ${l.customer_ref ?? ""} ${l.ship_ref ?? ""} ${l.dest_ref ?? ""} ${invNo(l)}`.toLowerCase().includes(q.toLowerCase());
       }),
-    [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies, syncMap],
   );
 
   const keyOf = (l: Load): string => {
@@ -126,6 +139,7 @@ function Reports() {
       case "broker": return brokerName(l);
       case "lane": return laneOf(l);
       case "status": return STATUSES.find((s) => s.value === l.status)!.label;
+      case "billing": return stageLabel(stageOf(l));
       case "equipment": return l.equipment;
       case "month": return l.pickup_at ? l.pickup_at.slice(0, 7) : "No date";
       case "salesrep": return repName(l);
