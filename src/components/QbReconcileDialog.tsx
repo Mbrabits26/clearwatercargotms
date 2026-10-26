@@ -40,7 +40,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
     return loads.filter((l) => !linked.has(l.id) && isFleetLoad(l) === (entity === "fleet") && ["delivered", "invoiced", "paid"].includes(l.status)).map((l) => {
       const s = sync.find((x) => x.load_id === l.id && x.kind === kind);
       return { id: l.id, load_number: l.load_number, customer: companies.find((c) => c.id === l.customer_id)?.name ?? "", customer_rate: Number(l.customer_rate), net: s ? invoiceNet(Number(s.amount), s.deductions) : undefined,
-        origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at };
+        origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at, customer_ref: l.customer_ref, ship_ref: l.ship_ref };
     });
   }, [loads, sync, companies, kind, entity]);
 
@@ -82,7 +82,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
         <DialogHeader className="flex-row items-center gap-2 pr-8"><DialogTitle className="min-w-0 flex-1 truncate">Match QuickBooks invoices to loads</DialogTitle>
           <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setFull((f) => !f)} aria-label={full ? "Exit full screen" : "Full screen"}>{full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
         </DialogHeader>
-        <p className="shrink-0 text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
+        <p className="shrink-0 text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, customer ref #, shipper PO #, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>
         <div className="flex shrink-0 flex-wrap items-end gap-2">
           <label className="text-xs text-muted-foreground">Company
             <Select value={entity} onValueChange={(v) => { setEntity(v as typeof entity); setInvoices(null); setManual({}); }}>
