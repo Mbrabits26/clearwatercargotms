@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
+import { ActionButton, Hint } from "@/components/ActionGuard";
 
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean }; onMinimize?: () => void };
 
@@ -103,7 +104,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
           <label className="text-xs text-muted-foreground">From<DatePicker className="mt-1" value={from} onChange={(v) => { setRange("custom"); setDates([v, to]); }} /></label>
           <label className="text-xs text-muted-foreground">To<DatePicker className="mt-1" value={to} onChange={(v) => { setRange("custom"); setDates([from, v]); }} /></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />Unpaid only</label>
-          <Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button>
+          <Hint text="Reads invoices from QuickBooks for these dates and suggests a load for each. Read-only — nothing changes in QuickBooks or the TMS."><Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button></Hint>
           {invoices && <ReportExport className="ml-auto" build={exportSpec} />}
         </div>
         {invoices && (
@@ -131,7 +132,21 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell><Button size="sm" disabled={!chosen} onClick={() => doLink(inv, chosen)}>Link</Button></TableCell>
+                    <TableCell><ActionButton size="sm" disabled={!chosen} hint="Ties this QuickBooks invoice to the chosen load. Asks you first."
+                      confirm={() => {
+                        const l = candidates.find((c) => c.id === chosen);
+                        return {
+                          title: `Link QuickBooks #${inv.docNumber ?? inv.id} to ${l?.load_number ?? "this load"}?`,
+                          body: `${inv.customer} · ${usd(inv.total)} → ${l ? `${l.customer || "—"} · ${usd(l.customer_rate)}` : ""}`,
+                          points: [
+                            "The load is linked to this existing QuickBooks invoice and keeps its real number — the TMS won't send a new invoice for it.",
+                            inv.balance <= 0 ? "QuickBooks shows it paid, so the load's status changes to Paid." : "The load's status changes to Invoiced (QuickBooks shows a balance).",
+                            "Nothing is created or changed in QuickBooks.",
+                          ],
+                          confirmLabel: "Link",
+                        };
+                      }}
+                      onClick={() => doLink(inv, chosen)}>Link</ActionButton></TableCell>
                   </TableRow>
                 );
               })}
