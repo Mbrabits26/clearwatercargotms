@@ -103,10 +103,19 @@ export function buildReportPdf(s: ReportSpec) {
   if (!s.head.length) return doc;
   drawHead();
   const drawCells = (cells: string[], bold: boolean) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(FS);
-    const lines = head.map((_, i) => doc.splitTextToSize(pdfSafe(cells[i]), widths[i]! - 6) as string[]);
+    const font = () => doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(FS);
+    font();
+    // Total/subtotal labels may run across the empty columns next to them instead of wrapping.
+    const span = (i: number) => {
+      if (!bold || i !== 0) return widths[i]!;
+      let w = widths[0]!;
+      for (let j = 1; j < head.length && !cells[j] && !right.has(j); j++) w += widths[j]!;
+      return w;
+    };
+    const lines = head.map((_, i) => doc.splitTextToSize(pdfSafe(cells[i]), span(i) - 6) as string[]);
     const h = Math.max(1, ...lines.map((l) => l.length)) * LH + 5;
     ensure(h);
+    font();
     if (bold) doc.setLineWidth(0.6).line(L, y, R, y).setLineWidth(0.3);
     lines.forEach((l, i) => textAt(l, i, y + 9.5));
     y += h;
