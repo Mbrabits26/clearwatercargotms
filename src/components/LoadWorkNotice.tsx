@@ -47,7 +47,7 @@ function WorkListDialog({ filter, label, loads, onClose, owner }: { filter: Work
   const allOn = rows.length > 0 && rows.every((r) => pick.has(r.id));
   const toggleAll = () => setPick((p) => { const n = new Set(p); rows.forEach((r) => allOn ? n.delete(r.id) : n.add(r.id)); return n; });
   return <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-    <DialogContent className="flex max-h-[90dvh] max-w-4xl flex-col">
+    <DialogContent className="flex max-h-[90dvh] w-[96vw] max-w-5xl flex-col sm:max-w-5xl">
       <DialogHeader><DialogTitle>{loads.length} loads {label}</DialogTitle></DialogHeader>
       <div className="flex flex-wrap items-center gap-2">
         <Input className="max-w-xs" placeholder="Search load #, customer, ref, city" value={q} onChange={(e) => setQ(e.target.value)} />
