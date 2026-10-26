@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { Maximize2, Minimize2, Minus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,7 @@ import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 
 type Sync = { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown };
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: Sync[] };
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: Sync[]; onMinimize?: () => void };
 
 const EXAMPLES = [
   "Find loads paid in QuickBooks but not marked paid in the TMS",
@@ -31,7 +32,8 @@ const EXAMPLES = [
   "Paid loads delivered over 30 days ago ready to close out",
 ];
 
-export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sync }: Props) {
+export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sync, onMinimize }: Props) {
+  const [full, setFull] = useState(false);
   const plan$ = useServerFn(planReview), scan = useServerFn(qbScanInvoices), link = useServerFn(qbLinkInvoice);
   const qc = useQueryClient();
   const [q, setQ] = useState("");
@@ -203,8 +205,11 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-gold" />Review assistant</DialogTitle></DialogHeader>
+      <DialogContent className={full ? "h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-auto sm:max-w-none sm:rounded-none" : "max-w-6xl max-h-[90vh] overflow-auto"}>
+        <DialogHeader className="flex-row items-center gap-2 pr-8"><DialogTitle className="flex min-w-0 flex-1 items-center gap-2"><Sparkles className="h-4 w-4 text-gold" />Review assistant</DialogTitle>
+          {onMinimize && <Button size="sm" variant="ghost" className="shrink-0" onClick={onMinimize} aria-label="Minimize" title="Minimize — keeps your work while you use other screens"><Minus className="h-4 w-4" /></Button>}
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setFull((f) => !f)} aria-label={full ? "Exit full screen" : "Full screen"}>{full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
+        </DialogHeader>
         <p className="text-xs text-muted-foreground">Ask in plain English. The assistant only builds a list — nothing changes until you check rows and confirm.</p>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); run(); }}>
           <Input aria-label="Ask the review assistant" placeholder="e.g. Loads paid in QuickBooks but still open in the TMS" value={q} onChange={(e) => setQ(e.target.value)} />

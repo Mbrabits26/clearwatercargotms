@@ -15,8 +15,7 @@ import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
 import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
-import { QbReconcileDialog } from "@/components/QbReconcileDialog";
-import { ReviewAssistantDialog } from "@/components/ReviewAssistantDialog";
+import { useAppWindows } from "@/lib/appWindows";
 import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
@@ -111,8 +110,7 @@ function Accounting() {
   const qbSync = useServerFn(qbSyncNow);
   const { data: qbs, refetch: refetchQb } = useQuery({ queryKey: ["qb_status"], queryFn: () => qbStatusFn() });
   const [syncing, setSyncing] = useState(false);
-  const [reconOpen, setReconOpen] = useState(false);
-  const [assistOpen, setAssistOpen] = useState(false);
+  const { openWindow } = useAppWindows();
   const search = Route.useSearch();
   const [q, setQ] = useState(search.q ?? "");
   const [reviewOnly, setReviewOnly] = useState(!!search.review);
@@ -375,10 +373,8 @@ function Accounting() {
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1 text-muted-foreground">Queued items go to the matching company's QuickBooks automatically.</span>
           <Button size="sm" onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</Button>
-          {isFinance && <Button size="sm" variant="outline" onClick={() => setReconOpen(true)}>Match QuickBooks invoices</Button>}
-          {isFinance && <Button size="sm" variant="outline" onClick={() => setAssistOpen(true)}>Review assistant</Button>}
-          <QbReconcileDialog open={reconOpen} onOpenChange={setReconOpen} loads={loads} companies={companies} sync={sync} available={{ brokerage: !!qbs?.brokerage.connected, fleet: !!qbs?.fleet.connected }} />
-          {assistOpen && <ReviewAssistantDialog open={assistOpen} onOpenChange={setAssistOpen} loads={loads} companies={companies} sync={sync} />}
+          {isFinance && <Button size="sm" variant="outline" onClick={() => openWindow("qbMatch")}>Match QuickBooks invoices</Button>}
+          {isFinance && <Button size="sm" variant="outline" onClick={() => openWindow("reviewAssistant")}>Review assistant</Button>}
         </div>
       ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">

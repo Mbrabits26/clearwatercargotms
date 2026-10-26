@@ -2,15 +2,14 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Load } from "@/lib/tms";
-import { batchEligible } from "@/lib/loadWork";
+import { batchEligible, type WorkLoad } from "@/lib/loadWork";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function BatchLoadActionDialog({ action, loads, onClose, onDone }: {
-  action: "delivered" | "closeout" | null; loads: Load[]; onClose: () => void; onDone: (ids: string[]) => void;
+  action: "delivered" | "closeout" | null; loads: WorkLoad[]; onClose: () => void; onDone: (ids: string[]) => void;
 }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);

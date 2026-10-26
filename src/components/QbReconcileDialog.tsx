@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Minus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { qbScanInvoices, qbLinkInvoice } from "@/lib/quickbooks.functions";
@@ -17,9 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean } };
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean }; onMinimize?: () => void };
 
-export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, available }: Props) {
+export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, available, onMinimize }: Props) {
   const scan = useServerFn(qbScanInvoices);
   const link = useServerFn(qbLinkInvoice);
   const qc = useQueryClient();
@@ -80,6 +80,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={full ? "flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden sm:max-w-none sm:rounded-none" : "flex h-[90dvh] max-h-[90dvh] w-[96vw] max-w-none flex-col overflow-hidden sm:max-w-[96vw]"}>
         <DialogHeader className="flex-row items-center gap-2 pr-8"><DialogTitle className="min-w-0 flex-1 truncate">Match QuickBooks invoices to loads</DialogTitle>
+          {onMinimize && <Button size="sm" variant="ghost" className="shrink-0" onClick={onMinimize} aria-label="Minimize" title="Minimize — keeps your work while you use other screens"><Minus className="h-4 w-4" /></Button>}
           <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setFull((f) => !f)} aria-label={full ? "Exit full screen" : "Full screen"}>{full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
         </DialogHeader>
         <p className="shrink-0 text-sm text-muted-foreground">Reads invoices from QuickBooks without changing them, then suggests loads by customer, amount, customer ref #, shipper PO #, cities and date. Linking marks the load invoiced (or paid if QuickBooks shows no balance).</p>

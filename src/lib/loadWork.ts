@@ -1,6 +1,6 @@
 import type { Load } from "@/lib/tms";
 
-export type WorkLoad = Pick<Load, "id" | "load_number" | "status" | "broker_id" | "delivery_at" | "source" | "pod_received" | "closed_at">;
+export type WorkLoad = Pick<Load, "id" | "load_number" | "status" | "broker_id" | "delivery_at" | "source" | "pod_received" | "closed_at" | "customer_id" | "customer_ref" | "origin_city" | "dest_city">;
 export type WorkFilter = "delivery" | "invoice" | "closeout" | "closed";
 export function needsWork(load: WorkLoad, filter: WorkFilter, invoiceIds: Set<string>, now = Date.now()) {
   if (filter === "closed") return !!load.closed_at;

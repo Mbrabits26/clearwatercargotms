@@ -10,6 +10,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
+import { AppWindowsProvider } from "@/lib/appWindows";
+import { AppWindowHost } from "@/components/AppWindowHost";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ConnectGmail } from "@/components/ConnectGmail";
 import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
@@ -40,6 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
   ].filter((n) => !n.p || isAdmin || (perms ?? DEFAULT_PERMS).includes(n.p));
   return (
+    <AppWindowsProvider>
     <div className="flex h-dvh flex-col print:block print:h-auto">
       <header className="flex h-14 print:hidden shrink-0 items-center gap-4 border-b bg-sidebar px-3 lg:px-4">
         <Link to="/dispatch" className="flex shrink-0 items-center gap-2 whitespace-nowrap">
@@ -107,6 +110,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Sheet>
       </nav>
       <div className="print:hidden"><ChatWidget userId={user.id} /></div>
+      <AppWindowHost />
     </div>
+    </AppWindowsProvider>
   );
 }
