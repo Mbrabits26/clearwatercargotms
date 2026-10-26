@@ -37,7 +37,9 @@ const num = (v: unknown): number | null => {
 const dt = (v: unknown): string | null => {
   if (!v) return null;
   if (v instanceof Date) return v.toISOString();
-  const d = new Date(String(v));
+  const str = String(v).trim();
+  // Date-only values ("2025-10-27") are kept on that calendar day instead of shifting to the evening before.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(str) ? `${str}T12:00:00` : str);
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 const splitCity = (s: string): [string, string] => {
@@ -58,14 +60,14 @@ const COLS: Record<string, string[]> = {
   dest: ["destination", "dest", "to", "delivery location", "consignee location", "destination city state"],
   destCity: ["destination city", "dest city", "consignee city", "delivery city", "to city"],
   destState: ["destination state", "dest state", "destination st", "dest st", "consignee state", "consignee st", "delivery state", "to state"],
-  po: ["po numbers", "po number", "po", "po s", "shipper po", "pu ref", "pickup ref", "pickup number", "bol", "bol number"],
+  po: ["shipper po numbers", "shipper po number", "po numbers", "po number", "po", "po s", "shipper po", "pu ref", "pickup ref", "pickup number", "bol", "bol number"],
   wo: ["w o", "w o number", "w o no", "wo", "wo number", "w0", "w0 number", "work order", "work order number", "customer ref", "customer ref number", "cust ref", "customer reference"],
   mc: ["carrier mc", "carrier mc number", "mc", "mc number", "carrier mc no"],
   equip: ["equipment type", "equipment", "equip", "trailer type", "trailer"],
   weight: ["weight", "weight lbs", "lbs", "total weight"],
-  revenue: ["revenue", "customer rate", "total revenue", "rate", "customer total", "total charges", "charges", "billed", "bill amount", "invoice amount", "customer pay", "gross"],
+  revenue: ["total billing rate", "total billing", "billing rate", "revenue", "customer rate", "total revenue", "rate", "customer total", "total charges", "charges", "billed", "bill amount", "invoice amount", "customer pay", "gross"],
   carrier: ["carrier name", "carrier"],
-  carrierPay: ["carrier pay", "carrier rate", "carrier cost", "carrier total", "carrier amount", "cost", "pay", "truck pay"],
+  carrierPay: ["carrier fee", "carrier pay", "carrier rate", "carrier cost", "carrier total", "carrier amount", "cost", "pay", "truck pay"],
   customer: ["customer", "customer name", "bill to", "billto", "bill to name", "shipper customer"],
   dispatcher: ["dispatcher", "dispatcher name", "broker", "sales rep", "salesperson", "agent", "booked by"],
 };
@@ -74,7 +76,7 @@ const FUZZY: Record<string, string[]> = {
   ship: ["ship", "pickup"], del: ["deliver"], revenue: ["revenue"], carrierPay: ["carrier pay", "carrier rate"],
   wo: ["w o", "work order"], equip: ["equip"], weight: ["weight"], mc: ["mc"],
 };
-const KEY_LABELS: Record<string, string> = { origin: "Origin", dest: "Destination", ship: "Pickup date", del: "Delivery date", customer: "Customer", revenue: "Revenue", carrierPay: "Carrier pay", carrier: "Carrier", wo: "W/O #" };
+const KEY_LABELS: Record<string, string> = { origin: "Origin", dest: "Destination", ship: "Pickup date", del: "Delivery date", customer: "Customer", revenue: "Revenue", carrierPay: "Carrier pay", carrier: "Carrier name or MC #", wo: "W/O #" };
 const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 const hnorm = (h: unknown) => String(h ?? "").toLowerCase().replace(/#/g, " number ").replace(/[^a-z0-9]+/g, " ").replace(/\bnumber\b\s*$/, "number").trim();
 const aliasSet = (k: string) => new Set(COLS[k]!.map(hnorm));
@@ -85,8 +87,12 @@ export function resolveColumns(headerRow: unknown[]): Record<string, number> {
   const idx: Record<string, number> = {};
   // Exact matches first (more specific keys like originCity before origin).
   for (const k of Object.keys(COLS)) {
-    const set = aliasSet(k);
-    const i = headers.findIndex((h, j) => !used.has(j) && (set.has(h) || set.has(h.replace(/ number$/, ""))));
+    let i = -1;
+    // Aliases are in priority order (e.g. "Equipment Type" beats "Trailer").
+    for (const a of COLS[k]!.map(hnorm)) {
+      i = headers.findIndex((h, j) => !used.has(j) && (h === a || h.replace(/ number$/, "") === a));
+      if (i >= 0) break;
+    }
     idx[k] = i; if (i >= 0) used.add(i);
   }
   for (const [k, subs] of Object.entries(FUZZY)) {
@@ -115,7 +121,7 @@ async function parseFile(f: File): Promise<ParsedFile> {
     if (k === "origin") return !has("origin") && !has("originCity");
     if (k === "dest") return !has("dest") && !has("destCity");
     if (k === "customer") return !has("customer") && type !== "customer";
-    if (k === "carrier") return !has("carrier") && type !== "carrier";
+    if (k === "carrier") return !has("carrier") && !has("mc") && type !== "carrier";
     return !has(k);
   }).map(([, l]) => l);
   const rows: ItsRow[] = [];
@@ -252,7 +258,7 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
           existing.add(r.its);
           const wo = woOf(r);
           if ((wo && hit.customer_ref !== wo) || (!hit.ship_ref && r.po) || (!Number(hit.customer_rate) && r.revenue != null) || (!Number(hit.carrier_rate) && r.carrierPay != null)
-            || (!hit.origin_city && r.origin) || (!hit.dest_city && r.dest) || (!hit.pickup_at && r.ship) || (!hit.delivery_at && r.del) || (!hit.customer_id && r.customer) || (!hit.carrier_id && r.carrier) || (!hit.weight_lbs && r.weight != null)) toUpdate++;
+            || (!hit.origin_city && r.origin) || (!hit.dest_city && r.dest) || (!hit.pickup_at && r.ship) || (!hit.delivery_at && r.del) || (!hit.customer_id && r.customer) || (!hit.carrier_id && (r.carrier || (r.mc && mcMap.has(digits(r.mc))))) || (!hit.weight_lbs && r.weight != null)) toUpdate++;
           continue;
         }
         if (!r.origin && !r.dest && !r.customer) { incomplete.add(r.its); continue; }
@@ -290,8 +296,10 @@ export function ItsSync({ profiles }: { profiles: Profile[] }) {
         carrIds.set(norm(name), data.id);
       }
       const carrierFor = (r: ItsRow) => {
+        const byMc = r.mc ? match.mcs.get(digits(r.mc)) : undefined;
+        if (byMc) return byMc;
         if (!r.carrier || /unassigned/i.test(r.carrier)) return "";
-        return (r.mc && match.mcs.get(digits(r.mc))) || carrIds.get(norm(r.carrier)) || "";
+        return carrIds.get(norm(r.carrier)) || "";
       };
       const brokerByName = new Map(profiles.map((p) => [norm(p.full_name ?? ""), p.id]));
       const today = new Date(); today.setHours(0, 0, 0, 0);
