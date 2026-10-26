@@ -106,9 +106,25 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const refresh = () => { qc.invalidateQueries({ queryKey: ["qb_sync"] }); qc.invalidateQueries({ queryKey: ["loads"] }); qc.invalidateQueries({ queryKey: ["load-work"] }); };
 
+  const ask = useConfirm();
+  const s = (n: number) => (n === 1 ? "" : "s");
   const linkPicked = async () => {
-    if (!plan) return; setBusy(true); let n = 0;
-    for (const r of matches.filter((m) => picked.has(m.invoice.id) && m.match && !done.has(m.invoice.id))) {
+    if (!plan) return;
+    const rows = matches.filter((m) => picked.has(m.invoice.id) && m.match && !done.has(m.invoice.id));
+    if (!rows.length) return;
+    const paid = rows.filter((r) => r.invoice.balance <= 0).length;
+    if (!(await ask({
+      title: `Link ${rows.length} load${s(rows.length)} to their QuickBooks invoices?`,
+      points: [
+        "Each load is tied to the existing QuickBooks invoice and keeps its real QuickBooks number — the TMS won't send a new invoice for it.",
+        `${paid} paid in QuickBooks → load changes to Paid. ${rows.length - paid} with a balance → load changes to Invoiced.`,
+        "Nothing is created, sent or changed in QuickBooks.",
+        "Check the confidence and reasons first — lower-confidence matches can be wrong.",
+      ],
+      confirmLabel: "Link",
+    }))) return;
+    setBusy(true); let n = 0;
+    for (const r of rows) {
       try {
         await link({ data: { loadId: r.match!.load.id, qbId: r.invoice.id, amount: r.invoice.total, paid: r.invoice.balance <= 0, entity: plan.entity, docNumber: r.invoice.docNumber, customer: r.invoice.customer || null } });
         n++; setDone((d) => new Set(d).add(r.invoice.id));
@@ -122,7 +138,17 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
   const syncPicked = async () => {
     if (!plan || !cross) return;
     const rows = cross.qbOnly.filter((r) => picked.has(r.invoice.id) && !done.has(r.invoice.id));
-    if (!rows.length || !window.confirm(`Link ${rows.length} load${rows.length > 1 ? "s" : ""} to their QuickBooks invoices and change the TMS status to match QuickBooks? Nothing is created or sent in QuickBooks.`)) return;
+    if (!rows.length) return;
+    const paid = rows.filter((r) => r.invoice.balance <= 0).length;
+    if (!(await ask({
+      title: `Match ${rows.length} load${s(rows.length)} to QuickBooks?`,
+      points: [
+        "Links each load to its QuickBooks invoice (keeping the real QuickBooks number).",
+        `${paid} change to Paid (no balance in QuickBooks), ${rows.length - paid} change to Invoiced.`,
+        "Nothing is created, sent or changed in QuickBooks.",
+      ],
+      confirmLabel: "Match status",
+    }))) return;
     setBusy(true); let n = 0;
     for (const r of rows) {
       try {
@@ -139,7 +165,17 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
   const invoicePicked = async () => {
     if (!cross) return;
     const rows = cross.tmsOnly.filter((l) => pickLoads.has(l.id) && !done.has(l.id));
-    if (!rows.length || !window.confirm(`Move ${rows.length} load${rows.length > 1 ? "s" : ""} to Invoiced? This only changes the TMS status — they'll show on the invoiced review list to be sent to QuickBooks.`)) return;
+    if (!rows.length) return;
+    if (!(await ask({
+      title: `Move ${rows.length} load${s(rows.length)} to Invoiced?`,
+      body: `Total ${usd(rows.reduce((t, l) => t + l.customer_rate, 0))}.`,
+      points: [
+        "Only changes the TMS status to Invoiced.",
+        "No invoice number is created and nothing is sent to QuickBooks yet.",
+        "They show on the \"invoiced loads to review\" list so an admin or accountant can create and send the invoices.",
+      ],
+      confirmLabel: "Move to Invoiced",
+    }))) return;
     setBusy(true); let n = 0;
     for (const l of rows) {
       const { data, error } = await supabase.from("loads").update({ status: "invoiced" }).eq("id", l.id).in("status", ["booked", "dispatched", "rolling", "delivered", "issue"]).select("id");
@@ -155,6 +191,16 @@ export function ReviewAssistantDialog({ open, onOpenChange, loads, companies, sy
   const closePicked = async () => {
     const ids = closeouts.filter((l) => picked.has(l.id) && !done.has(l.id)).map((l) => l.id);
     if (!ids.length || !note.trim()) return;
+    if (!(await ask({
+      title: `Close out ${ids.length} load${s(ids.length)}?`,
+      body: `Note: "${note.trim()}"`,
+      points: [
+        "Files the loads away as finished: they leave the active Dispatch board and the \"ready for closeout\" notice.",
+        "Status stays the same — Paid loads stay Paid. Invoices, payments, carrier pay and QuickBooks don't change.",
+        "Your note is saved to each load's notes. Reopen any load later with \"Reopen load\".",
+      ],
+      confirmLabel: "Close out",
+    }))) return;
     setBusy(true);
     const { data, error } = await supabase.rpc("batch_load_action", { _ids: ids, _action: "closeout", _note: note });
     setBusy(false);
