@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkActionBar, SelectAllBox, deleteAction, exportAction, useSelection, type BulkAction } from "@/components/BulkActionBar";
 
 export const Route = createFileRoute("/_authenticated/leads")({
   head: () => ({
@@ -43,6 +45,21 @@ function LeadsPage() {
   const lead = leads.find((l) => l.id === sel) ?? null;
   const refresh = () => qc.invalidateQueries({ queryKey: ["leads"] });
   const name = (id: string | null) => team.find((t) => t.id === id)?.full_name ?? "—";
+  const pick = useSelection();
+  const leadActions: BulkAction<Lead>[] = [
+    { value: "stage", label: "Change stage", hint: "Moves the checked leads to the stage you pick.", param: { label: "New stage", options: STAGES.map((x) => ({ value: x, label: cap(x) })) },
+      points: (items, p) => [`${items.length} lead${items.length === 1 ? "" : "s"} move to ${cap(p)}.`, "Won leads are not turned into customers automatically — do that from each lead."],
+      each: async (l, p) => { const { error } = await supabase.from("leads").update({ stage: p }).eq("id", l.id); return error ? `${l.company_name}: ${error.message}` : null; } },
+    { value: "owner", label: "Assign owner", hint: "Makes the person you pick the owner of the checked leads.", param: { label: "Owner", options: team.map((t) => ({ value: t.id, label: t.full_name ?? t.email ?? "—" })) },
+      points: (items, p) => [`${items.length} lead${items.length === 1 ? "" : "s"} will be owned by ${name(p)}.`],
+      each: async (l, p) => { const { error } = await supabase.from("leads").update({ owner_id: p }).eq("id", l.id); return error ? `${l.company_name}: ${error.message}` : null; } },
+    { value: "followup", label: "Set follow-up for today", hint: "Sets the next follow-up date on the checked leads to today.",
+      points: (items) => [`${items.length} lead${items.length === 1 ? "" : "s"} get a follow-up date of today.`],
+      each: async (l) => { const { error } = await supabase.from("leads").update({ next_follow_up: today() }).eq("id", l.id); return error ? `${l.company_name}: ${error.message}` : null; } },
+    exportAction<Lead>("Sales leads", ["Company", "Contact", "Phone", "Email", "City", "State", "Lanes", "Stage", "Owner", "Next follow-up"],
+      (l) => [l.company_name, l.contact_name, l.phone, l.email, l.city, l.state, l.lanes, cap(l.stage), name(l.owner_id), l.next_follow_up]),
+    deleteAction<Lead>("leads", (l) => l.company_name, "leads"),
+  ];
 
   return (
     <div className="grid h-full gap-0 md:grid-cols-[minmax(340px,1fr)_1.3fr] xl:grid-cols-[minmax(380px,1fr)_1.3fr]">
@@ -59,18 +76,27 @@ function LeadsPage() {
         )}
         <div className="flex flex-wrap gap-1 border-b p-2">
           {["all", ...STAGES].map((s) => (
-            <button key={s} onClick={() => setStage(s)} className={`rounded px-2 py-0.5 text-xs ${stage === s ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+            <button key={s} onClick={() => { setStage(s); pick.clear(); }} className={`rounded px-2 py-0.5 text-xs ${stage === s ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
               {cap(s)} ({s === "all" ? leads.length : leads.filter((l) => l.stage === s).length})
             </button>
           ))}
         </div>
+        {shown.length > 0 && (
+          <div className="space-y-2 border-b p-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground"><SelectAllBox ids={shown.map((l) => l.id)} sel={pick} />Select all shown ({shown.length})</label>
+            <BulkActionBar items={shown.filter((l) => pick.has(l.id))} total={shown.length} actions={leadActions} onClear={pick.clear} invalidate={["leads"]} noun="leads" />
+          </div>
+        )}
         <div className="flex-1 overflow-auto">
           {shown.map((l) => (
-            <button key={l.id} onClick={() => { setSel(l.id); setAdding(false); setMobileDetail(true); }} className={`block min-h-11 w-full border-b p-3 text-left text-sm hover:bg-muted/50 ${sel === l.id ? "bg-muted" : ""}`}>
+            <div key={l.id} className={`flex items-start gap-2 border-b pl-3 hover:bg-muted/50 ${sel === l.id ? "bg-muted" : ""}`}>
+            <Checkbox className="mt-3.5" aria-label={`Select ${l.company_name}`} checked={pick.has(l.id)} onCheckedChange={(v) => pick.toggle(l.id, v === true)} />
+            <button onClick={() => { setSel(l.id); setAdding(false); setMobileDetail(true); }} className="block min-h-11 min-w-0 flex-1 p-3 pl-0 text-left text-sm">
               <div className="flex justify-between"><span className="font-semibold">{l.company_name}</span><span className="text-xs uppercase text-gold">{l.stage}</span></div>
               <div className="text-xs text-muted-foreground">{[l.contact_name, l.city && `${l.city}, ${l.state ?? ""}`, l.lanes].filter(Boolean).join(" · ")}</div>
               <div className="text-xs text-muted-foreground">Owner: {name(l.owner_id)}{l.next_follow_up && ` · Follow up ${l.next_follow_up}`}</div>
             </button>
+            </div>
           ))}
           {!shown.length && <div className="p-6 text-center text-sm text-muted-foreground">No leads yet.</div>}
         </div>

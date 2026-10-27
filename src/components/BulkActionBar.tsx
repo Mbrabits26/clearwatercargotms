@@ -68,7 +68,7 @@ export function SelectAllBox({ ids, sel, label = "Select all shown" }: { ids: st
 }
 
 /** Shared delete action: admins only, each delete lands in the deletion log. */
-export function deleteAction<T extends { id: string }>(table: "companies" | "carriers" | "drivers" | "fleet_units" | "quotes", name: (t: T) => string, what: string): BulkAction<T> {
+export function deleteAction<T extends { id: string }>(table: "companies" | "carriers" | "drivers" | "fleet_units" | "quotes" | "leads", name: (t: T) => string, what: string): BulkAction<T> {
   return {
     value: "delete", label: `Delete ${what}`, danger: true, adminOnly: true,
     hint: `Permanently deletes the checked ${what}. Each one is saved in the admin deletion log.`,
