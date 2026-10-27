@@ -100,6 +100,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
               <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.gif,.tif,.tiff,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
             </label>
           </Button></Hint>
+          <span className="text-xs text-muted-foreground">or drag &amp; drop a file here</span>
           {row?.kind !== "bill" && (
             <label className="flex items-center gap-2 text-xs">
               <input type="checkbox" checked={onSend} onChange={(e) => setOnSend(e.target.checked)} />

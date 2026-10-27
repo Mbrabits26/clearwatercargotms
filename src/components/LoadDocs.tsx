@@ -48,11 +48,14 @@ export function LoadDocs({ loadId }: { loadId: string }) {
         ))}
         {!items.length && <li className="py-2 text-xs text-muted-foreground">No documents yet. Driver POD/BOL uploads and signed rate cons appear here.</li>}
       </ul>
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-2">
       <Button size="sm" variant="secondary" disabled={busy} asChild>
         <label className="cursor-pointer"><Upload className="mr-1 h-3.5 w-3.5" />{busy ? "Uploading…" : "Attach file"}
           <input type="file" className="hidden" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       </Button>
+      <span className="text-xs text-muted-foreground">or drag &amp; drop a file here</span>
+      </div>
     </div>
   );
 }
