@@ -41,3 +41,30 @@ export function payTo(c: PayCarrier | null | undefined) {
 }
 
 export const maskAccount = (n: string | null | undefined) => (n ? `••••${n.replace(/\s/g, "").slice(-4)}` : "—");
+
+/** Where one of a carrier's loads stands on our side of the money. */
+export type CarrierPayState = "paid" | "owed" | "waiting_pod" | "not_delivered";
+export const PAY_STATE_LABEL: Record<CarrierPayState, string> = {
+  paid: "Paid", owed: "Owed — ready to pay", waiting_pod: "Delivered — waiting on POD", not_delivered: "Not delivered yet",
+};
+export function carrierPayState(l: Load, hasInvoice = false): CarrierPayState {
+  if (l.carrier_paid_at) return "paid";
+  if (owesCarrier(l, hasInvoice)) return "owed";
+  if (["delivered", "invoiced", "paid"].includes(l.status)) return "waiting_pod";
+  return "not_delivered";
+}
+
+/** Totals per pay state for one carrier's brokered loads (company-truck and cancelled loads left out). */
+export function carrierPaySummary(loads: Load[], carrier: PayCarrier | null | undefined, invoiced: Set<string>, now = Date.now()) {
+  const out = Object.fromEntries((["paid", "owed", "waiting_pod", "not_delivered"] as const).map((k) => [k, { count: 0, net: 0 }])) as Record<CarrierPayState, { count: number; net: number }>;
+  let pastDue = 0;
+  for (const l of loads) {
+    if (l.status === "cancelled" || isFleetLoad(l)) continue;
+    const s = carrierPayState(l, invoiced.has(l.id));
+    const d = carrierPayDue(l, carrier, now);
+    out[s].count += 1;
+    out[s].net = Math.round((out[s].net + d.net) * 100) / 100;
+    if (s === "owed" && d.daysLeft < 0) pastDue += 1;
+  }
+  return { ...out, pastDue };
+}
