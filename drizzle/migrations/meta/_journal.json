@@ -323,6 +323,13 @@
       "when": 1793038205956,
       "tag": "0045_its_import_fill_blank_details",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793102216381,
+      "tag": "0046_customer_default_bill_through",
+      "breakpoints": true
     }
   ]
 }
