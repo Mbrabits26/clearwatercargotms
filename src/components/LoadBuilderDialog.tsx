@@ -386,6 +386,10 @@ export function LoadBuilderDialog({
                 <SelectItem value="fleet_invoice">Foust Farms</SelectItem>
               </SelectContent>
             </Select>
+            {(() => {
+              const cb = companies.find((c) => c.id === parties.customer?.id)?.bill_through;
+              return cb && (f.bill_through ?? "auto") === "auto" ? <p className="mt-1 text-[11px] text-warning">This customer is always billed through {cb === "fleet_invoice" ? "Foust Farms" : "Clearwater Cargo"}; Automatic uses that.</p> : null;
+            })()}
           </L>
           <L label="Customer rate ($)"><Input type="number" value={f.customer_rate ?? ""} onChange={set("customer_rate")} /></L>
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
