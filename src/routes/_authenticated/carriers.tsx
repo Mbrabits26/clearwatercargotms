@@ -1,4 +1,6 @@
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CarrierLanes } from "@/components/CarrierLanes";
 import { CarrierPayments } from "@/components/CarrierPayments";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
@@ -64,6 +66,8 @@ function Carriers() {
     .filter((c) => `${c.legal_name} ${c.dba ?? ""} ${c.mc_number} ${c.dot_number}`.toLowerCase().includes(dq.toLowerCase()));
   const c = data.find((x) => x.id === sel);
   const refresh = () => qc.invalidateQueries({ queryKey: ["carriers"] });
+  const bulk = useSelection();
+  const picked = data.filter((x) => bulk.has(x.id));
 
   return (
     <div className="grid h-full md:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
@@ -84,11 +88,13 @@ function Carriers() {
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground"><SelectAllBox ids={rows.map((r) => r.id)} sel={bulk} />Select all shown ({rows.length})</div>
+        {picked.length > 0 && <div className="border-b p-2"><BulkActionBar items={picked} total={data.length} actions={CARRIER_ACTIONS} onClear={bulk.clear} invalidate={["carriers"]} noun="carriers" /></div>}
         <ul className="min-h-0 flex-1 overflow-auto">
           {rows.map((r) => (
             <li key={r.id} onClick={() => { setSel(r.id); setMobileDetail(true); }} className={cn("cursor-pointer border-b px-3 py-2.5 hover:bg-muted/50", sel === r.id && "bg-muted")}>
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{r.legal_name}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2"><Checkbox aria-label={`Select ${r.legal_name}`} checked={bulk.has(r.id)} onClick={(e) => e.stopPropagation()} onCheckedChange={(v) => bulk.toggle(r.id, v === true)} /><span className="font-medium">{r.legal_name}</span></span>
                 <span className="flex gap-1">{r.status !== "dnu" && <ExpiryBadge s={carrierExpiry(r)} />}<StatusPill c={r} /></span>
               </div>
               <div className="text-xs text-muted-foreground">MC {r.mc_number} · DOT {r.dot_number} · {r.equipment}</div>
@@ -105,6 +111,24 @@ function Carriers() {
     </div>
   );
 }
+
+const carrierUpdate = async (c: Carrier, patch: Partial<Carrier>) => {
+  const { error, data } = await supabase.from("carriers").update(patch).eq("id", c.id).select("id");
+  return error ? `${c.legal_name}: ${error.message}` : !data?.length ? `${c.legal_name}: not allowed to change` : null;
+};
+const CARRIER_ACTIONS: BulkAction<Carrier>[] = [
+  { value: "inactive", label: "Mark inactive", hint: "Hides the checked carriers from the default list and the carrier picker. They stay saved and searchable.",
+    points: (it) => [`${it.length} carriers will be hidden from the default list and pick list.`, "They stay searchable; picking one on a load reactivates it."], each: (c) => carrierUpdate(c, { inactive: true }) },
+  { value: "active", label: "Reactivate", hint: "Puts the checked carriers back in the default list and carrier picker.", each: (c) => carrierUpdate(c, { inactive: false }) },
+  { value: "dnu", label: "Put on Do Not Use list", hint: "Locks the checked carriers so no one can book them.", param: { label: "Reason", options: DNU_REASONS.map((r) => ({ value: r, label: r })) },
+    points: (it, reason) => [`${it.length} carriers go on the Do Not Use list (${reason}).`, "No broker can book them until they're removed from the list."], each: (c, reason) => carrierUpdate(c, { status: "dnu", dnu_reason: reason }) },
+  { value: "undnu", label: "Remove from Do Not Use", hint: "Takes the checked carriers off the Do Not Use list. They go back to Pending and need re-vetting.",
+    points: (it) => [`${it.filter((c) => c.status === "dnu").length} carriers come off the Do Not Use list and go back to Pending.`, "Carriers not on the list are left alone."],
+    each: async (c) => (c.status === "dnu" ? carrierUpdate(c, { status: "pending", dnu_reason: null }) : null) },
+  exportAction<Carrier>("Carriers", ["Carrier", "DBA", "MC #", "DOT #", "Status", "Authority", "Phone", "Email", "City", "State", "Insurance expires", "Inactive"],
+    (c) => [c.legal_name, c.dba, c.mc_number, c.dot_number, c.status === "dnu" ? "Do not use" : c.status, c.authority_status, c.phone, c.email, c.city, c.state, c.insurance_expires, c.inactive ? "Yes" : ""]),
+  deleteAction<Carrier>("carriers", (c) => c.legal_name, "carriers"),
+];
 
 function StatusPill({ c }: { c: Carrier }) {
   if (c.status === "pending" && c.conditional_until && c.conditional_until >= new Date().toISOString().slice(0, 10))
