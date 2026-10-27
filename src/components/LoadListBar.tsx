@@ -35,11 +35,11 @@ const statusAction = (t: LoadStatus, value: string, label: string, hint: string)
 });
 
 /** Check-box action bar for any generated list of loads (alerts, past-due lists, review lists). */
-export function LoadListBar({ loads, total, onClear, actions, companies, title = "Loads" }: {
-  loads: Load[]; total: number; onClear: () => void; actions: LoadListActionKey[]; companies?: Company[]; title?: string;
+export function LoadListBar({ loads, total, onClear, actions, companies, customerName, title = "Loads" }: {
+  loads: Load[]; total: number; onClear: () => void; actions: LoadListActionKey[]; companies?: Company[]; customerName?: (id: string | null) => string; title?: string;
 }) {
   const [invoicing, setInvoicing] = useState<Load[] | null>(null);
-  const name = (id: string | null) => companies?.find((c) => c.id === id)?.name ?? "";
+  const name = (id: string | null) => customerName?.(id) ?? companies?.find((c) => c.id === id)?.name ?? "";
   const all: Record<LoadListActionKey, BulkAction<Load> | null> = {
     paid: statusAction("paid", "paid", "Mark customer paid", "Changes the checked loads to Completed / Paid (the customer paid us). Needs a customer invoice on file. Carrier pay is not touched."),
     delivered: statusAction("delivered", "delivered", "Mark delivered", "Changes the checked loads to Delivered. It does not mark the POD received or create invoices."),
