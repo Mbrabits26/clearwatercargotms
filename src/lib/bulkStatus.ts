@@ -1,4 +1,4 @@
-import type { Load, LoadStatus } from "@/lib/tms";
+import { isFleetLoad, type Load, type LoadStatus } from "@/lib/tms";
 
 /** Statuses offered in the bulk "Change status" menu. Cancelling needs a reason, so it's done one load at a time. */
 export const BULK_TARGETS: LoadStatus[] = ["available", "vetting", "booked", "dispatched", "rolling", "issue", "delivered", "invoiced", "paid"];
@@ -29,10 +29,9 @@ export function statusWarnings(loads: Pick<Load, "status" | "closed_at" | "pod_r
 export type LoadListAct = "checkcall" | "pod" | "carrier_paid" | "closeout";
 type ActLoad = Pick<Load, "status" | "closed_at" | "pod_received" | "carrier_paid_at" | "carrier_id" | "truck_id" | "driver_id">;
 const FINISHED = ["delivered", "invoiced", "paid", "cancelled"];
-const FLEET_CARRIER = "00000000-0000-0000-0000-00000000f1ee";
 
 /** Why a checked load is skipped for a list action (check call, POD, carrier paid, closeout), or null to try it. */
-export function loadActSkip(l: ActLoad, act: LoadListAct, fleet = !!l.truck_id || !!l.driver_id || l.carrier_id === FLEET_CARRIER): string | null {
+export function loadActSkip(l: ActLoad, act: LoadListAct, fleet = isFleetLoad(l)): string | null {
   if (l.status === "cancelled") return "Cancelled";
   if (act === "checkcall") return l.closed_at || FINISHED.includes(l.status) ? "Load is already delivered" : null;
   if (act === "pod") return l.pod_received ? "POD already marked received" : null;

@@ -3,12 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUSES, statusMeta, type Load, type LoadStatus } from "@/lib/tms";
-import { BULK_TARGETS, bulkStatusSkip } from "@/lib/bulkStatus";
+import { BULK_TARGETS, bulkStatusSkip, statusWarnings } from "@/lib/bulkStatus";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ActionGuard";
-
-const EARLY: LoadStatus[] = ["available", "vetting", "booked", "dispatched", "rolling", "issue"];
 
 /** "N selected · Change status to [..]" bar for checked loads. Each load is updated on its own, so the load safety rules apply per load. */
 export function BulkStatusBar({ loads, total, onClear }: { loads: Load[]; total: number; onClear: () => void }) {
@@ -22,16 +20,7 @@ export function BulkStatusBar({ loads, total, onClear }: { loads: Load[]; total:
   const skipped = t ? loads.length - willTry.length : 0;
   const label = t ? statusMeta(t).label : "";
 
-  const points = () => {
-    if (!t) return [];
-    const p: string[] = [`${willTry.length} load${willTry.length === 1 ? "" : "s"} will change to ${label}.${skipped ? ` ${skipped} will be skipped (already ${label}, cancelled, or closed out).` : ""}`];
-    if (t === "delivered") p.push(`${willTry.filter((l) => !l.pod_received).length} have no POD on file — this does not mark the POD received.`);
-    if (t === "invoiced") p.push("This only changes the status. It does not create or send an invoice; the loads go on the finance review list for QuickBooks.");
-    if (t === "paid") p.push("Completed / Paid means the customer paid. Loads without a customer invoice on file will be refused. Carrier pay is not marked paid.");
-    if (EARLY.includes(t) && willTry.some((l) => ["delivered", "invoiced", "paid"].includes(l.status))) p.push("Some loads are moving backward from Delivered/Invoiced/Paid. Their invoices and QuickBooks records stay as they are.");
-    p.push("Each load still has to pass the normal load rules (carrier, truck, dates). Any that don't are listed after.");
-    return p;
-  };
+  const points = () => (t ? [...statusWarnings(loads, t, label), "Any that don't pass are listed after."] : []);
 
   const go = async () => {
     if (!t || !willTry.length) return;
