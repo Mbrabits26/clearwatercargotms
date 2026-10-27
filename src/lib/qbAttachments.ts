@@ -36,7 +36,7 @@ export function withPods(attachments: unknown, pods: QbAttachment[], taken: Set<
   const have = new Set([...taken, ...list.map((a) => a.path)]);
   let added = 0;
   for (const p of pods) {
-    if (have.has(p.path) || !qbContentType(p.name) && !qbContentType(p.path)) continue;
+    if (have.has(p.path) || (!qbContentType(p.name) && !qbContentType(p.path))) continue;
     have.add(p.path); list.push(p); added++;
   }
   return { list, added };
