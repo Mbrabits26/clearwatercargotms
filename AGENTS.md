@@ -35,6 +35,7 @@
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API caps reads at 1000 rows.
 - Combined invoice = qb_sync rows sharing one (non-unique) invoice_number, sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
+- List bulk actions: `BulkActionBar` (per-row under RLS; bulk delete admin-only); loads use `BulkStatusBar`.
 - Load rules/status history use DB triggers; `batch_load_action` and Reports bulk status (`BulkStatusBar`, rules in `bulkStatus.ts`) update per-row under RLS so triggers judge each load. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
 - qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent); qbSyncNow first runs `autoAttachPods` so load PODs (`isPodDoc`) join unsent customer invoices.
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
@@ -42,4 +43,4 @@
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
 - Per-user alert choices live in notification_prefs (own-row RLS; missing row = all on); server emails check them via notifyPrefs.server.ts, the bell filters in-app alerts.
 - Agent integrations (MCP): server tools in `src/lib/mcp/` (read-only, `supabaseForUser` so RLS applies as the OAuth caller; never admin client); consent at `src/routes/[.]lovable.oauth.consent.tsx`; /auth honors a validated `next` (oauthReturnPath) through password + Google. Browser-agent (WebMCP) tools live in the screen that renders the controls (Dispatch) and share its handlers.
-- Accounting buttons: hover hint + warning box before data changes via `ActionGuard` (`ActionButton`/`Hint`/`useConfirm`, provider in __root); read-only/open-window buttons get a hint only.
+- Accounting buttons: hint + warning box before data changes via `ActionGuard` (provider in __root); read-only buttons hint only.

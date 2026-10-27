@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
+import { BulkStatusBar } from "@/components/BulkStatusBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ACTIVE_STATUSES, DRIVER_STATUSES, UNIT_STATUSES, fmtDate, usd, FLEET_CARRIER_ID, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +89,23 @@ function Fleet() {
   const count = (arr: { status: string }[], s: string) => arr.filter((x) => x.status === s).length;
   const trucks = units.filter((u) => u.kind === "truck");
   const trailers = units.filter((u) => u.kind === "trailer");
+  const bulk = useSelection();
+  const pickTab = (t: Tab) => { setTab(t); bulk.clear(); };
+  type Unit = (typeof units)[number];
+  type Drv = (typeof drivers)[number];
+  const rowErr = (name: string, error: { message: string } | null, d: unknown[] | null) => (error ? `${name}: ${error.message}` : !d?.length ? `${name}: not allowed to change` : null);
+  const unitActions: BulkAction<Unit>[] = [
+    { value: "status", label: "Change status", hint: "Sets the status on the checked units.", param: { label: "Status", options: UNIT_STATUSES.map((o) => ({ value: o.value, label: o.label })) },
+      each: async (u, s) => { const { error, data } = await supabase.from("fleet_units").update({ status: s }).eq("id", u.id).select("id"); return rowErr(u.unit_number, error, data); } },
+    exportAction<Unit>(tab === "truck" ? "Trucks" : "Trailers", ["Unit", "Year", "Make / model", "VIN", "Plate", "Type", "Status"], (u) => [u.unit_number, u.year, u.make_model, u.vin, u.plate, u.equipment, u.status]),
+    deleteAction<Unit>("fleet_units", (u) => u.unit_number, tab === "truck" ? "trucks" : "trailers"),
+  ];
+  const driverActions: BulkAction<Drv>[] = [
+    { value: "status", label: "Change status", hint: "Sets the status on the checked drivers.", param: { label: "Status", options: DRIVER_STATUSES.map((o) => ({ value: o.value, label: o.label })) },
+      each: async (d, s) => { const { error, data } = await supabase.from("drivers").update({ status: s }).eq("id", d.id).select("id"); return rowErr(d.full_name, error, data); } },
+    exportAction<Drv>("Drivers", ["Driver", "Phone", "Email", "Home city", "CDL", "CDL expires", "Medical expires", "Status"], (d) => [d.full_name, d.phone, d.email, d.home_city, `${d.cdl_state ?? ""} ${d.cdl_number ?? ""}`.trim(), d.cdl_expires, d.medical_expires, d.status]),
+    deleteAction<Drv>("drivers", (d) => d.full_name, "drivers"),
+  ];
   const soon = (d: string | null) => !!d && new Date(d).getTime() - Date.now() < 30 * 86400_000;
 
   return (
@@ -106,7 +126,7 @@ function Fleet() {
           </div>
         ))}
       </div>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+      <Tabs value={tab} onValueChange={(v) => pickTab(v as Tab)}>
         <TabsList>
           <TabsTrigger value="truck">Trucks</TabsTrigger>
           <TabsTrigger value="trailer">Trailers</TabsTrigger>
@@ -115,6 +135,9 @@ function Fleet() {
           <TabsTrigger value="history">Load history ({history.length})</TabsTrigger>
         </TabsList>
       </Tabs>
+      {tab === "history" && <BulkStatusBar loads={history.filter((l) => bulk.has(l.id))} total={history.length} onClear={bulk.clear} />}
+      {tab === "driver" && <BulkActionBar items={drivers.filter((d) => bulk.has(d.id))} total={drivers.length} actions={driverActions} onClear={bulk.clear} invalidate={["drivers"]} noun="drivers" />}
+      {(tab === "truck" || tab === "trailer") && <BulkActionBar items={(tab === "truck" ? trucks : trailers).filter((u) => bulk.has(u.id))} total={(tab === "truck" ? trucks : trailers).length} actions={unitActions} onClear={bulk.clear} invalidate={["fleet"]} noun="units" />}
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "carrier" ? (
           fc ? (
@@ -135,10 +158,11 @@ function Fleet() {
           ) : <div className="p-6 text-sm text-muted-foreground">The fleet carrier record was not found.</div>
         ) : tab === "history" ? (
           <Table>
-            <TableHeader><TableRow><TableHead>Load</TableHead><TableHead>Pickup</TableHead><TableHead>Lane</TableHead><TableHead>Customer</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Revenue</TableHead><TableHead className="text-right">Carrier pay</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={history.map((l) => l.id)} sel={bulk} /></TableHead><TableHead>Load</TableHead><TableHead>Pickup</TableHead><TableHead>Lane</TableHead><TableHead>Customer</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Revenue</TableHead><TableHead className="text-right">Carrier pay</TableHead></TableRow></TableHeader>
             <TableBody>
               {history.map((l) => (
                 <TableRow key={l.id}>
+                  <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={bulk.has(l.id)} onCheckedChange={(v) => bulk.toggle(l.id, v === true)} /></TableCell>
                   <TableCell><LoadQuickLook load={l} /></TableCell>
                   <TableCell>{fmtDate(l.pickup_at)}</TableCell>
                   <TableCell>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
@@ -148,15 +172,16 @@ function Fleet() {
                   <TableCell className="text-right">{usd(l.carrier_rate)}</TableCell>
                 </TableRow>
               ))}
-              {!history.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No loads yet.</TableCell></TableRow>}
+              {!history.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No loads yet.</TableCell></TableRow>}
             </TableBody>
           </Table>
         ) : tab === "driver" ? (
           <Table>
-            <TableHeader><TableRow><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={drivers.map((d) => d.id)} sel={bulk} /></TableHead><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {drivers.map((d) => (
                 <TableRow key={d.id}>
+                  <TableCell><Checkbox aria-label={`Select ${d.full_name}`} checked={bulk.has(d.id)} onCheckedChange={(v) => bulk.toggle(d.id, v === true)} /></TableCell>
                   <TableCell><div className="font-medium">{d.full_name}</div><div className="text-xs text-muted-foreground">{d.home_city}</div></TableCell>
                   <TableCell>{d.phone}</TableCell>
                   <TableCell className={soon(d.cdl_expires) ? "text-warning" : ""}>{d.cdl_state} {d.cdl_number}<div className="text-xs text-muted-foreground">exp {d.cdl_expires ?? "—"}</div></TableCell>
@@ -170,12 +195,13 @@ function Fleet() {
           </Table>
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={(tab === "truck" ? trucks : trailers).map((u) => u.id)} sel={bulk} /></TableHead><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {(tab === "truck" ? trucks : trailers).map((u) => {
                 const l = loadFor(tab === "truck" ? "truck_id" : "trailer_id", u.id);
                 return (
                   <TableRow key={u.id}>
+                    <TableCell><Checkbox aria-label={`Select ${u.unit_number}`} checked={bulk.has(u.id)} onCheckedChange={(v) => bulk.toggle(u.id, v === true)} /></TableCell>
                     <TableCell className="font-mono text-gold">{u.unit_number}</TableCell>
                     <TableCell>{u.year} {u.make_model}</TableCell>
                     <TableCell>{u.plate}</TableCell>
