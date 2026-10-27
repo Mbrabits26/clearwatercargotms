@@ -1,6 +1,6 @@
 import { deductionLines } from "./invoiceDeductions";
 import { customerRefs, freightLineText } from "./qbInvoiceText";
-import { pendingAttachments, qbContentType, qbUploadBody } from "./qbAttachments";
+import { isPodDoc, parseAttachments, pendingAttachments, qbContentType, qbUploadBody, withPods, type QbAttachment } from "./qbAttachments";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
 export const QB_REDIRECT_URI = "https://tms.clearwatercargo.com/oauth/quickbooks/return";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -234,6 +234,53 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
     }
   }
   return { sent, failed };
+}
+
+type PodRow = { id: string; kind: string; load_id: string; invoice_number: string | null; attachments: unknown; attachments_sent: unknown };
+/**
+ * Before customer invoices go to QuickBooks, add every POD already stored on their loads to the
+ * invoice's attachments. Combined invoices: each row gets its own load's POD, and a file already
+ * picked or sent on any row of the same invoice is skipped so it never uploads twice.
+ */
+export async function autoAttachPods(admin: Admin, ids?: string[]) {
+  let q = admin.from("qb_sync").select("id, kind, load_id, invoice_number, attachments, attachments_sent")
+    .in("kind", ["invoice", "fleet_invoice"]).in("status", ["queued", "error"]).is("qb_ref", null);
+  if (ids?.length) q = q.in("id", ids);
+  const { data } = await q.limit(100);
+  const rows = (data ?? []) as unknown as PodRow[];
+  if (!rows.length) return 0;
+  // Paths already used by any row on the same invoice number.
+  const nums = [...new Set(rows.map((r) => r.invoice_number).filter((n): n is string => !!n))];
+  const { data: sib } = nums.length
+    ? await admin.from("qb_sync").select("id, kind, invoice_number, attachments, attachments_sent").in("kind", ["invoice", "fleet_invoice"]).in("invoice_number", nums)
+    : { data: [] };
+  const taken = new Map<string, Set<string>>();
+  for (const s of (sib ?? []) as unknown as PodRow[]) {
+    const k = `${s.kind}:${s.invoice_number}`;
+    const set = taken.get(k) ?? new Set<string>();
+    for (const a of parseAttachments(s.attachments)) set.add(a.path);
+    for (const p of Array.isArray(s.attachments_sent) ? s.attachments_sent : []) set.add(typeof p === "string" ? p : String((p as QbAttachment)?.path ?? ""));
+    taken.set(k, set);
+  }
+  let added = 0;
+  for (const r of rows) {
+    const { data: files } = await admin.storage.from("load-docs").list(r.load_id, { limit: 200 });
+    const paths = (files ?? []).filter((f) => f.id).map((f) => `${r.load_id}/${f.name}`);
+    if (!paths.length) continue;
+    const { data: names } = await admin.from("load_doc_names").select("path, display_name").in("path", paths);
+    const shown = new Map(((names ?? []) as { path: string; display_name: string }[]).map((n) => [n.path, n.display_name]));
+    const pods = paths.filter((p) => isPodDoc(p, shown.get(p))).map((p) => ({ path: p, name: shown.get(p) ?? p.split("/").pop()! }));
+    if (!pods.length) continue;
+    const k = `${r.kind}:${r.invoice_number}`;
+    const set = taken.get(k) ?? new Set<string>();
+    const { list, added: n } = withPods(r.attachments, pods, r.invoice_number ? set : new Set(Array.isArray(r.attachments_sent) ? (r.attachments_sent as string[]) : []));
+    if (!n) continue;
+    for (const p of pods) set.add(p.path);
+    taken.set(k, set);
+    await admin.from("qb_sync").update({ attachments: list } as never).eq("id", r.id);
+    added += n;
+  }
+  return added;
 }
 
 type AttachRow = { id: string; kind: string; qb_ref: string; attachments: unknown; attachments_sent: unknown; attach_on_send: boolean };

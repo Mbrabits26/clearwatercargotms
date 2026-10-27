@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { pendingAttachments, qbContentType, qbUploadBody } from "@/lib/qbAttachments";
+import { isPodDoc, pendingAttachments, qbContentType, qbUploadBody, withPods } from "@/lib/qbAttachments";
+
+describe("auto-attaching PODs to customer invoices", () => {
+  it("recognizes driver PODs, named PODs and renamed PODs", () => {
+    expect(isPodDoc("L1/pod-1700000000-scan.jpg")).toBe(true);
+    expect(isPodDoc("L1/file-1700000000-Signed_POD_CW15418.pdf")).toBe(true);
+    expect(isPodDoc("L1/file-1700000000-scan.pdf", "Proof of delivery CW-15418.pdf")).toBe(true);
+  });
+
+  it("does not treat BOLs, rate cons or words containing 'pod' as PODs", () => {
+    expect(isPodDoc("L1/bol-CW15418.pdf")).toBe(false);
+    expect(isPodDoc("L1/ratecon-CW15418-sent.pdf")).toBe(false);
+    expect(isPodDoc("L1/file-1-ipod_photo.jpg")).toBe(false);
+  });
+
+  it("adds a POD once and never re-adds one already picked or sent", () => {
+    const pod = { path: "L1/pod-1-a.pdf", name: "pod-1-a.pdf" };
+    expect(withPods([], [pod], new Set()).added).toBe(1);
+    expect(withPods([pod], [pod], new Set()).added).toBe(0);
+    expect(withPods([], [pod], new Set(["L1/pod-1-a.pdf"])).added).toBe(0);
+  });
+
+  it("skips POD files QuickBooks won't accept", () => {
+    expect(withPods([], [{ path: "L1/pod-1-a.heic", name: "pod-1-a.heic" }], new Set()).added).toBe(0);
+  });
+});
 
 describe("QuickBooks invoice attachments", () => {
   it("only uploads files not already sent to QuickBooks", () => {

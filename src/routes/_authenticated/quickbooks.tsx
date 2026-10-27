@@ -337,7 +337,7 @@ function Accounting() {
     points: [
       queuedCount ? `Sends ${queuedCount} waiting item${queuedCount === 1 ? "" : "s"} (queued or failed) to QuickBooks.` : "Nothing is waiting in the queue right now.",
       "Creates new invoices and bills in QuickBooks. If QuickBooks already has one with the same number, it's linked instead of duplicated.",
-      "Uploads any documents you picked to attach.",
+      "Uploads any documents you picked to attach. A POD already on the load is attached to its customer invoice automatically.",
       "Customers and carriers are not emailed.",
     ],
     confirmLabel: "Sync now",
