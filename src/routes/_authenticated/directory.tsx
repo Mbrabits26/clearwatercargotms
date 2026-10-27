@@ -69,6 +69,7 @@ function Directory() {
   const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(dq));
   // Draw the first rows only; "Show more" adds the rest so thousands of customers don't freeze the page.
   const [limit, setLimit] = useState(200);
+  const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
   const bulk = useSelection();
   useEffect(() => { setLimit(200); }, [dq, kind]);
   useEffect(() => { bulk.clear(); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -95,7 +96,6 @@ function Directory() {
       (c) => [c.name, c.contact_name, c.phone, c.email, c.address, c.city, c.state, c.zip, ...(kind === "customer" ? [c.pay_terms ?? "Net 30"] : [])]),
     deleteAction<Co>("companies", (c) => c.name, `${label.toLowerCase()}s`),
   ];
-  const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
   const editing = editId ? data.find((c) => c.id === editId) : null;
   const startEdit = (c: (typeof data)[number]) => {
     setF(Object.fromEntries(FIELDS.map(([k]) => [k, String((c as Record<string, unknown>)[k] ?? "")])));
