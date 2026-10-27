@@ -480,6 +480,7 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          bill_through: string | null
           city: string | null
           contact_name: string | null
           created_at: string
@@ -497,6 +498,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bill_through?: string | null
           city?: string | null
           contact_name?: string | null
           created_at?: string
@@ -514,6 +516,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bill_through?: string | null
           city?: string | null
           contact_name?: string | null
           created_at?: string

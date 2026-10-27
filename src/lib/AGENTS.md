@@ -5,4 +5,6 @@
 - Carrier duplicate matching/merging (DOT, MC, normalized name; fill blanks only) lives in `carrierMerge.ts`; cross-table merges run in `mergeCarriers` (carriers.functions.ts).
 
 - Finance review assistant: AI (`planReview`) only turns a plain-English request into a filter; listing/matching is deterministic (`reviewAssistant.ts` + qbMatch) and every change needs row selection + confirm.
-- Report/list exports share `reportExport.ts` (ReportSpec → branded landscape jsPDF + CSV) via the `ReportExport` buttons; build specs from on-screen filtered rows and never include bank account numbers.
+- Report/list exports share `reportExport.ts` (ReportSpec → plain black-on-white landscape jsPDF + CSV) via the `ReportExport` buttons; build specs from on-screen filtered rows and never include bank account numbers.
+- Carrier pay due: `carrierPay.ts`, clock = loads.pod_received_at (trigger-stamped); carrier_paid_* finance-only (stamp_load_pay_fields); bank info in finance-only carrier_payment_accounts.
+- Reports' billing stage / invoice # come from `src/lib/reportBilling.ts` (paged qb_sync; a sent or linked customer invoice beats load status, except Paid/Cancelled).

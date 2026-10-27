@@ -16,7 +16,7 @@
 - Admission requires `approved_users`; roles (admin/broker/accountant, multiple per user) live in `user_roles`; `is_staff()`/`is_finance()` gate RLS. All staff share loads + qb_sync (insert/send); invoice edit/delete, QB connect and due reminders need is_finance; commissions admin/self-only.
 - Carrier booking compliance is enforced by the `enforce_carrier_compliance` DB trigger so clients can't bypass it.
 - Shared types/helpers: `src/lib/tms.ts`; query options: `src/lib/queries.ts`; PDFs: client-side jsPDF in `src/lib/`.
-- QuickBooks: qb_connection id 1 Clearwater, id 2 Foust Farms; `entityForKind` routes fleet_invoice → fleet; billing company = invoice kind (default `invoiceKind`, overridable at creation; pre-send switch only via finance-only `set_invoice_company`, renumbers the group). OAuth state carries entity; DocNumber dedupe.
+- QuickBooks: qb_connection id 1 Clearwater, id 2 Foust Farms; `entityForKind` routes fleet_invoice → fleet; billing company = invoice kind (default `invoiceKind` from loads.bill_through, which a DB trigger fills from the customer's companies.bill_through when left automatic; overridable at creation; pre-send switch only via finance-only `set_invoice_company`, renumbers the group). OAuth state carries entity; DocNumber dedupe.
 - Public onboarding portal (/onboard/$token) uses only token-validating server fns, then the admin client; docs in private carrier-docs bucket.
 - Rate cons: one jsPDF layout (`buildRateConPdf`) renders preview and signed copy; signing link stores a snapshot. RC # = load number. Signed rate cons are voided (void_reason/note on ratecon_requests), never deleted. Portal-signed carrier agreements are rendered server-side by `buildAgreementPdf`.
 - Named admin emails get admin via the grant_named_admins trigger after email verification (edit its list).
@@ -35,13 +35,11 @@
 - ITS-imported loads carry loads.source='its' + external_ref (unique per source); enforce_carrier_compliance skips them only for server-side imports with no API request claims, so app users can't bypass it.
 - Data API caps reads at 1000 rows.
 - Combined invoice = qb_sync rows sharing one (non-unique) invoice_number, sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
-- Load rules/status history use DB triggers; `batch_load_action` runs per-row under RLS. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
+- Load rules/status history use DB triggers; `batch_load_action` and Reports bulk status (`BulkStatusBar`, rules in `bulkStatus.ts`) update per-row under RLS so triggers judge each load. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
 - qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent).
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
-- Carrier pay due: `carrierPay.ts`, clock = loads.pod_received_at (trigger-stamped); carrier_paid_* finance-only (stamp_load_pay_fields); bank info in finance-only carrier_payment_accounts.
 - Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
 - Per-user alert choices live in notification_prefs (own-row RLS; missing row = all on); server emails check them via notifyPrefs.server.ts, the bell filters in-app alerts.
 - Agent integrations (MCP): server tools in `src/lib/mcp/` (read-only, `supabaseForUser` so RLS applies as the OAuth caller; never admin client); consent at `src/routes/[.]lovable.oauth.consent.tsx`; /auth honors a validated `next` (oauthReturnPath) through password + Google. Browser-agent (WebMCP) tools live in the screen that renders the controls (Dispatch) and share its handlers.
-- Reports' billing stage / invoice # come from `src/lib/reportBilling.ts` (paged qb_sync; a sent or linked customer invoice beats load status, except Paid/Cancelled).
 - Accounting buttons: hover hint + warning box before data changes via `ActionGuard` (`ActionButton`/`Hint`/`useConfirm`, provider in __root); read-only/open-window buttons get a hint only.
