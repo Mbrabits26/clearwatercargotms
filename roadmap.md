@@ -154,3 +154,7 @@
 
 ## Oct 23
 - [x] Print / PDF / CSV on Reports, Accounting tabs, review assistant, QuickBooks matching, carrier pay and invoiced review lists
+
+## Current
+- [x] Reports: check-all + per-load checkboxes with bulk status change
+- [ ] Madison Wood Preservers + Adelphia Metals always bill through Foust Farms (rule + update current loads)
