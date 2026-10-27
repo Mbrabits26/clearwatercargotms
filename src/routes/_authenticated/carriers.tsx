@@ -1,5 +1,6 @@
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { CarrierLanes } from "@/components/CarrierLanes";
+import { CarrierPayments } from "@/components/CarrierPayments";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { findMatch, mergeFill, duplicateGroups } from "@/lib/carrierMerge";
@@ -178,6 +179,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       <DocumentsPanel c={c} update={update} />
       <SignatureRecords carrierId={c.id} />
       <InvitePanel c={c} />
+      <CarrierPayments c={c} />
       <CarrierLanes carrierId={c.id} />
       <div className="rounded border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Factoring / notice of assignment</h3>
