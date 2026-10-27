@@ -9,6 +9,8 @@ import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, profilesQuery } from "@/lib/queries";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "@/components/BulkImportDialog";
 import { Input } from "@/components/ui/input";
@@ -67,7 +69,32 @@ function Directory() {
   const rows = data.filter((c) => c.kind === kind && `${c.name} ${c.city}`.toLowerCase().includes(dq));
   // Draw the first rows only; "Show more" adds the rest so thousands of customers don't freeze the page.
   const [limit, setLimit] = useState(200);
+  const bulk = useSelection();
   useEffect(() => { setLimit(200); }, [dq, kind]);
+  useEffect(() => { bulk.clear(); }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  type Co = (typeof data)[number];
+  const coUpdate = async (c: Co, patch: Record<string, unknown>) => {
+    const { error, data: d } = await supabase.from("companies").update(patch as never).eq("id", c.id).select("id");
+    return error ? `${c.name}: ${error.message}` : !d?.length ? `${c.name}: not allowed to change` : null;
+  };
+  const shownRows = rows.slice(0, limit);
+  const picked = data.filter((c) => c.kind === kind && bulk.has(c.id));
+  const coActions: BulkAction<Co>[] = [
+    ...(kind === "customer" ? [
+      { value: "terms", label: "Set payment terms", hint: "Changes the payment terms on the checked customers.", param: { label: "Terms", options: CUSTOMER_TERMS.map((t) => ({ value: t, label: t })) },
+        points: (it: Co[], t: string) => [`${it.length} customers will be set to ${t}.`, "Invoices already created keep their terms."], each: (c: Co, t: string) => coUpdate(c, { pay_terms: t }) },
+      { value: "bill", label: "Set bill-through company", hint: "Sets which company invoices these customers' loads by default.",
+        param: { label: "Bill through", options: [{ value: "auto", label: "Automatic (by truck)" }, { value: "invoice", label: "Clearwater Cargo" }, { value: "fleet_invoice", label: "Foust Farms" }] },
+        points: (it: Co[], b: string) => [`${it.length} customers will default to ${b === "auto" ? "Automatic (by truck)" : b === "invoice" ? "Clearwater Cargo" : "Foust Farms"} for billing.`, "Applies to their loads left on Automatic. Invoices already sent to QuickBooks don't move."],
+        each: (c: Co, b: string) => coUpdate(c, { bill_through: b === "auto" ? null : b }) },
+      { value: "rep", label: "Set brought in by", hint: "Sets the broker who brought in the checked customers.",
+        param: { label: "Broker", options: [{ value: "none", label: "Not set" }, ...profiles.map((p) => ({ value: p.id, label: p.full_name ?? p.email ?? "" }))] },
+        each: (c: Co, r: string) => coUpdate(c, { sales_broker_id: r === "none" ? null : r }) },
+    ] : []),
+    exportAction<Co>(`${label}s`, ["Name", "Contact", "Phone", "Email", "Address", "City", "State", "ZIP", ...(kind === "customer" ? ["Payment terms"] : [])],
+      (c) => [c.name, c.contact_name, c.phone, c.email, c.address, c.city, c.state, c.zip, ...(kind === "customer" ? [c.pay_terms ?? "Net 30"] : [])]),
+    deleteAction<Co>("companies", (c) => c.name, `${label.toLowerCase()}s`),
+  ];
   const label = KINDS.find((k) => k.v === kind)!.l.slice(0, -1);
   const editing = editId ? data.find((c) => c.id === editId) : null;
   const startEdit = (c: (typeof data)[number]) => {
@@ -118,12 +145,14 @@ function Directory() {
         </Tabs>
         <Input className="sm:max-w-xs" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
+      {picked.length > 0 && <div className="mb-3"><BulkActionBar items={picked} total={rows.length} actions={coActions} onClear={bulk.clear} invalidate={["companies"]} noun={`${label.toLowerCase()}s`} /></div>}
       <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <><TableHead>Payment terms</TableHead><TableHead>Brought in by</TableHead></>}<TableHead /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={shownRows.map((c) => c.id)} sel={bulk} /></TableHead><TableHead>Name</TableHead><TableHead>Contact</TableHead><TableHead>Phone</TableHead><TableHead>Address</TableHead>{kind === "customer" && <><TableHead>Payment terms</TableHead><TableHead>Brought in by</TableHead></>}<TableHead /></TableRow></TableHeader>
           <TableBody>
-            {rows.slice(0, limit).map((c) => (
+            {shownRows.map((c) => (
               <TableRow key={c.id}>
+                <TableCell><Checkbox aria-label={`Select ${c.name}`} checked={bulk.has(c.id)} onCheckedChange={(v) => bulk.toggle(c.id, v === true)} /></TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell>{c.contact_name}</TableCell>
                 <TableCell>{c.phone}</TableCell>
@@ -143,8 +172,8 @@ function Directory() {
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>
             ))}
-            {rows.length > limit && <TableRow><TableCell colSpan={8} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({rows.length - limit} more)</Button></TableCell></TableRow>}
-            {!rows.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
+            {rows.length > limit && <TableRow><TableCell colSpan={9} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({rows.length - limit} more)</Button></TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nothing here yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>

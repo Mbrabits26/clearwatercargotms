@@ -1,4 +1,6 @@
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useBlobViewer } from "@/components/DocPreview";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -81,9 +83,9 @@ function QuoteBuilder() {
     qc.invalidateQueries({ queryKey: ["companies"] });
   };
 
-  const setStatus = async (q: Quote, status: string) => {
+  const setStatus = async (q: Quote, status: string, reason?: string): Promise<string | null> => {
     let lost_reason = q.lost_reason;
-    if (status === "lost") lost_reason = prompt("Why was it lost? (price, service, timing…)") ?? null;
+    if (status === "lost") lost_reason = reason ?? prompt("Why was it lost? (price, service, timing…)") ?? null;
     let load_id = q.load_id;
     if (status === "won" && !load_id) {
       const { data, error } = await supabase.from("loads").insert({
@@ -91,14 +93,30 @@ function QuoteBuilder() {
         equipment: q.equipment, miles: q.miles, customer_rate: q.rate, carrier_rate: q.target_carrier_rate ?? 0, accessorials: q.accessorials,
         pickup_at: q.pickup_date ? `${q.pickup_date}T08:00` : null,
       }).select("id, load_number").single();
-      if (error) return toast.error(error.message);
+      if (error) { toast.error(error.message); return `${q.quote_number}: ${error.message}`; }
       load_id = data.id;
       toast.success(`Load ${data.load_number} created on the Dispatch Board`);
       qc.invalidateQueries({ queryKey: ["loads"] });
     }
-    await supabase.from("quotes").update({ status, lost_reason, load_id }).eq("id", q.id);
+    const { error: uerr } = await supabase.from("quotes").update({ status, lost_reason, load_id }).eq("id", q.id);
     qc.invalidateQueries({ queryKey: ["quotes"] });
+    return uerr ? `${q.quote_number}: ${uerr.message}` : null;
   };
+  const bulk = useSelection();
+  const picked = quotes.filter((q) => bulk.has(q.id));
+  const quoteActions: BulkAction<Quote>[] = [
+    { value: "sent", label: "Mark sent", hint: "Marks the checked quotes as sent. No email goes out.", each: (q) => setStatus(q, "sent") },
+    { value: "won", label: "Mark won (creates loads)", hint: "Marks the checked quotes won and puts a new load on the Dispatch board for each one that doesn't have a load yet.",
+      points: (it) => [`${it.length} quotes will be marked won.`, `${it.filter((q) => !q.load_id).length} new loads will be created on the Dispatch board (quotes that already have a load don't get another).`], each: (q) => setStatus(q, "won") },
+    { value: "lost", label: "Mark lost", hint: "Marks the checked quotes lost with the reason you pick.",
+      param: { label: "Reason", options: ["Price", "Service", "Timing", "Capacity", "No response", "Other"].map((r) => ({ value: r, label: r })) },
+      each: (q, r) => setStatus(q, "lost", r) },
+    { value: "expired", label: "Mark expired", hint: "Marks the checked quotes expired.", each: (q) => setStatus(q, "expired") },
+    { value: "draft", label: "Back to draft", hint: "Puts the checked quotes back to draft. Loads already created stay on the board.", each: (q) => setStatus(q, "draft") },
+    exportAction<Quote>("Quotes", ["Quote #", "Type", "Customer", "Origin", "Destination", "Equipment", "Miles", "Rate", "Status", "Lost reason"],
+      (q) => [q.quote_number, q.kind, q.customer_name, `${q.origin_city}, ${q.origin_state}`, `${q.dest_city}, ${q.dest_state}`, q.equipment, q.miles, Number(q.rate).toFixed(2), q.status, q.lost_reason]),
+    deleteAction<Quote>("quotes", (q) => q.quote_number, "quotes"),
+  ];
 
   const quoteViewer = useBlobViewer();
   const pdf = async (q: Quote) => quoteViewer.show((await buildQuotePdf(q, logo.url)).output("blob"), `Quote-${q.quote_number}.pdf`);
@@ -148,12 +166,15 @@ function QuoteBuilder() {
 
       <div className="rounded-lg border p-4">
         <h2 className="mb-2 font-display text-lg font-bold uppercase tracking-wider text-gold">Quote history</h2>
+        {quotes.length > 0 && <label className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><SelectAllBox ids={quotes.map((q) => q.id)} sel={bulk} />Select all ({quotes.length})</label>}
+        {picked.length > 0 && <div className="mb-2"><BulkActionBar items={picked} total={quotes.length} actions={quoteActions} onClear={bulk.clear} invalidate={["quotes", "loads"]} noun="quotes" /></div>}
         <div className="space-y-2">
           {quotes.length === 0 && <p className="text-sm text-muted-foreground">No quotes yet.</p>}
           {quotes.map((q) => {
             const expired = q.status === "sent" && new Date(q.expires_at) < new Date();
             return (
               <div key={q.id} className="flex flex-wrap items-center gap-2 rounded border p-2 text-sm">
+                <Checkbox aria-label={`Select ${q.quote_number}`} checked={bulk.has(q.id)} onCheckedChange={(v) => bulk.toggle(q.id, v === true)} />
                 <div className="min-w-0 flex-1">
                   <div className="font-mono text-xs text-gold">{q.quote_number} · {q.kind}</div>
                   <div className="truncate">{q.customer_name} — {q.origin_city}, {q.origin_state} → {q.dest_city}, {q.dest_state}</div>
