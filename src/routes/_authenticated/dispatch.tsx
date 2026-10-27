@@ -22,6 +22,8 @@ import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
+import { LoadListBar, type LoadListActionKey } from "@/components/LoadListBar";
+import { SelectAllBox, useSelection } from "@/components/BulkActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { loadWorkQuery } from "@/lib/loadWorkQuery";
@@ -347,7 +349,16 @@ function Dispatch() {
       return `Opened load ${load.load_number}.`;
     }),
   });
-  const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
+  const [alertView, setAlertViewRaw] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
+  const alertSel = useSelection();
+  const setAlertView = (v: typeof alertView) => { alertSel.clear(); setAlertViewRaw(v); };
+  const ALERT_ACTIONS: Record<"calls" | "pay" | "inv" | "pu" | "del", LoadListActionKey[]> = {
+    pu: ["checkcall", "status", "export"],
+    del: ["delivered", "pod", "checkcall", "status", "export"],
+    calls: ["checkcall", "status", "export"],
+    pay: ["carrier_paid", "invoice", "closeout", "status", "export"],
+    inv: ["paid", "closeout", "status", "export"],
+  };
   const { overdueCalls, latePu, lateDel, carrierDue, overdueInv } = useMemo(() => ({
     overdueCalls: loads.filter(checkCallOverdue),
     latePu: loads.filter((l) => !l.closed_at && latePickup(l)),
@@ -367,14 +378,18 @@ function Dispatch() {
         <Dialog open={!!alertView} onOpenChange={(o) => !o && setAlertView(null)}>
           <DialogContent className="flex max-h-[85dvh] w-[96vw] flex-col sm:max-w-4xl">
             <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{alertView?.title} ({alertView?.loads.length})</DialogTitle></DialogHeader>
+            {alertView && <LoadListBar loads={alertView.loads.filter((l) => alertSel.has(l.id))} total={alertView.loads.length} onClear={alertSel.clear}
+              actions={ALERT_ACTIONS[alertView.kind]} companies={companies} title={alertView.title} />}
+            {alertView && !alertSel.picked.size && <p className="text-xs text-muted-foreground">Check loads to change them together — {ALERT_ACTIONS[alertView.kind].length} actions for this list.</p>}
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
-                  <tr><th className="p-2">Load</th><th className="p-2">Lane</th><th className="p-2">{alertView?.kind === "inv" ? "Customer" : "Carrier"}</th><th className="p-2">{alertView?.kind === "calls" ? "Last check call" : alertView?.kind === "pu" ? "Pickup appt" : alertView?.kind === "del" ? "Delivery appt" : "Delivered"}</th><th className="p-2 text-right">{alertView?.kind === "inv" ? "Amount" : alertView?.kind === "pay" ? "Carrier pay" : "Status"}</th><th /></tr>
+                  <tr><th className="w-8 p-2"><SelectAllBox ids={alertView?.loads.map((l) => l.id) ?? []} sel={alertSel} /></th><th className="p-2">Load</th><th className="p-2">Lane</th><th className="p-2">{alertView?.kind === "inv" ? "Customer" : "Carrier"}</th><th className="p-2">{alertView?.kind === "calls" ? "Last check call" : alertView?.kind === "pu" ? "Pickup appt" : alertView?.kind === "del" ? "Delivery appt" : "Delivered"}</th><th className="p-2 text-right">{alertView?.kind === "inv" ? "Amount" : alertView?.kind === "pay" ? "Carrier pay" : "Status"}</th><th /></tr>
                 </thead>
                 <tbody>
                   {alertView?.loads.map((l) => (
                     <tr key={l.id} className="border-t hover:bg-muted/50">
+                      <td className="p-2"><Checkbox aria-label={`Select ${l.load_number}`} checked={alertSel.has(l.id)} onCheckedChange={(v) => alertSel.toggle(l.id, v === true)} /></td>
                       <td className="p-2 font-semibold">{l.load_number}</td>
                       <td className="p-2">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
                       <td className="p-2">{alertView.kind === "inv" ? companies.find((c) => c.id === l.customer_id)?.name ?? "—" : carriers.find((c) => c.id === l.carrier_id)?.legal_name ?? (isFleetLoad(l) ? "Company truck" : "—")}</td>
