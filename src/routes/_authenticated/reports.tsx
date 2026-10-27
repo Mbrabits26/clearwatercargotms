@@ -1,11 +1,13 @@
 import { useRouteContext, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStickyState } from "@/hooks/useStickyState";
 import { carriersQuery, companiesQuery, fetchAllPaged, loadsQuery, profilesQuery } from "@/lib/queries";
 import { STATUSES, isFleetLoad, fmtDate, loadTotals, marginText, usd, type Load, type LoadStatus } from "@/lib/tms";
 import { ReportExport } from "@/components/ReportExport";
+import { BulkStatusBar } from "@/components/BulkStatusBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { dayText, type ReportRow, type ReportSpec } from "@/lib/reportExport";
 import { ALL_STAGES, BILLING_STAGES, billingStage, invoiceNumberOf, stageLabel, syncByLoad, type BillingStage } from "@/lib/reportBilling";
 import { Input } from "@/components/ui/input";
@@ -134,6 +136,10 @@ function Reports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [loads, fleetView, cfg, preset, from, to, broker, customer, carrier, q, salesRep, companies, syncMap],
   );
+  // Checked loads for bulk status changes; only loads still in the report count.
+  const [sel, setSel] = useState<Set<string>>(() => new Set());
+  const picked = useMemo(() => rows.filter((l) => sel.has(l.id)), [rows, sel]);
+
 
   const keyOf = (l: Load): string => {
     switch (cfg.groupBy) {
@@ -294,18 +300,22 @@ function Reports() {
         ))}
       </div>
 
+      <BulkStatusBar loads={picked} total={rows.length} onClear={() => setSel(new Set())} />
       <div className="overflow-x-auto rounded-md border bg-card">
         <Table>
-          <TableHeader><TableRow>{cfg.cols.map((c) => <TableHead key={c}>{COLS.find((x) => x.id === c)!.label}</TableHead>)}</TableRow></TableHeader>
+          <TableHeader><TableRow>
+            <TableHead className="w-8 print:hidden"><Checkbox aria-label="Select all loads in this report" disabled={!rows.length} checked={!!rows.length && picked.length === rows.length} onCheckedChange={(v) => setSel(v === true ? new Set(rows.map((l) => l.id)) : new Set())} /></TableHead>
+            {cfg.cols.map((c) => <TableHead key={c}>{COLS.find((x) => x.id === c)!.label}</TableHead>)}
+          </TableRow></TableHeader>
           <TableBody>
             {groups.map(([g, ls]) => (
-              <GroupRows key={g} title={cfg.groupBy === "none" ? null : g} loads={ls} cols={cfg.cols} cell={cell} money={money} sum={sum} />
+              <GroupRows key={g} title={cfg.groupBy === "none" ? null : g} loads={ls} cols={cfg.cols} cell={cell} money={money} sum={sum} sel={sel} setSel={setSel} />
             ))}
-            {!rows.length && <TableRow><TableCell colSpan={cfg.cols.length} className="text-center text-muted-foreground">No loads match this report.</TableCell></TableRow>}
+            {!rows.length && <TableRow><TableCell colSpan={cfg.cols.length + 1} className="text-center text-muted-foreground">No loads match this report.</TableCell></TableRow>}
           </TableBody>
           {rows.length > 0 && (
             <TableFooter>
-              <TableRow>{cfg.cols.map((c, i) => <TableCell key={c} className="font-bold">{i === 0 ? "Grand total" : money.includes(c) ? usd(sum(rows, c)) : ""}</TableCell>)}</TableRow>
+              <TableRow><TableCell className="print:hidden" />{cfg.cols.map((c, i) => <TableCell key={c} className="font-bold">{i === 0 ? "Grand total" : money.includes(c) ? usd(sum(rows, c)) : ""}</TableCell>)}</TableRow>
             </TableFooter>
           )}
         </Table>
@@ -315,12 +325,21 @@ function Reports() {
   );
 }
 
-function GroupRows({ title, loads, cols, cell, money, sum }: { title: string | null; loads: Load[]; cols: Col[]; cell: (l: Load, c: Col) => string; money: Col[]; sum: (ls: Load[], c: Col) => number }) {
+function GroupRows({ title, loads, cols, cell, money, sum, sel, setSel }: { title: string | null; loads: Load[]; cols: Col[]; cell: (l: Load, c: Col) => string; money: Col[]; sum: (ls: Load[], c: Col) => number; sel: Set<string>; setSel: (f: (s: Set<string>) => Set<string>) => void }) {
+  const allOn = loads.length > 0 && loads.every((l) => sel.has(l.id));
+  const toggleAll = (on: boolean) => setSel((s) => { const n = new Set(s); loads.forEach((l) => (on ? n.add(l.id) : n.delete(l.id))); return n; });
+  const toggle = (id: string, on: boolean) => setSel((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
   return (
     <>
-      {title && <TableRow className="bg-muted/60"><TableCell colSpan={cols.length} className="font-display text-base font-semibold text-gold">{title} · {loads.length} load{loads.length === 1 ? "" : "s"}</TableCell></TableRow>}
-      {loads.map((l) => <TableRow key={l.id}>{cols.map((c) => <TableCell key={c} className={c === "load" ? "font-mono text-gold" : ""}>{c === "load" ? <LoadQuickLook load={l} /> : cell(l, c)}</TableCell>)}</TableRow>)}
-      {title && <TableRow>{cols.map((c, i) => <TableCell key={c} className="text-xs font-semibold text-muted-foreground">{i === 0 ? "Subtotal" : money.includes(c) ? usd(sum(loads, c)) : ""}</TableCell>)}</TableRow>}
+      {title && <TableRow className="bg-muted/60">
+        <TableCell className="w-8 print:hidden"><Checkbox aria-label={`Select all loads in ${title}`} checked={allOn} onCheckedChange={(v) => toggleAll(v === true)} /></TableCell>
+        <TableCell colSpan={cols.length} className="font-display text-base font-semibold text-gold">{title} · {loads.length} load{loads.length === 1 ? "" : "s"}</TableCell>
+      </TableRow>}
+      {loads.map((l) => <TableRow key={l.id} data-state={sel.has(l.id) ? "selected" : undefined}>
+        <TableCell className="w-8 print:hidden"><Checkbox aria-label={`Select ${l.load_number}`} checked={sel.has(l.id)} onCheckedChange={(v) => toggle(l.id, v === true)} /></TableCell>
+        {cols.map((c) => <TableCell key={c} className={c === "load" ? "font-mono text-gold" : ""}>{c === "load" ? <LoadQuickLook load={l} /> : cell(l, c)}</TableCell>)}
+      </TableRow>)}
+      {title && <TableRow><TableCell className="print:hidden" />{cols.map((c, i) => <TableCell key={c} className="text-xs font-semibold text-muted-foreground">{i === 0 ? "Subtotal" : money.includes(c) ? usd(sum(loads, c)) : ""}</TableCell>)}</TableRow>}
     </>
   );
 }
