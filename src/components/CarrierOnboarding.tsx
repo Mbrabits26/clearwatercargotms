@@ -118,6 +118,7 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
             <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => upload(e.target.files?.[0])} />
           </label>
         </Button>
+        <span className="text-xs text-muted-foreground">Drag a file onto a button to upload</span>
         <PacketImport c={c} onDone={() => qc.invalidateQueries({ queryKey: key })} />
       </div>
       <ul className="divide-y text-sm">
