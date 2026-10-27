@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
-import { isSent, parseAttachments, qbContentType, type QbAttachment } from "@/lib/qbAttachments";
+import { isPodDoc, isSent, parseAttachments, qbContentType, type QbAttachment } from "@/lib/qbAttachments";
 import { qbSyncNow } from "@/lib/quickbooks.functions";
 import { ActionButton, Hint } from "@/components/ActionGuard";
 
@@ -38,6 +38,8 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
     return err;
   };
   const has = (p: string) => picked.some((a) => a.path === p);
+  // Unsent customer invoices pick up every POD on the load automatically when they go to QuickBooks.
+  const autoPod = (f: { path: string; name: string }) => row?.kind !== "bill" && !row?.qb_ref && isPodDoc(f.path, f.name);
   const toggle = (f: { path: string; name: string }) => setPicked((x) => (has(f.path) ? x.filter((a) => a.path !== f.path) : [...x, { path: f.path, name: f.name }]));
 
   const upload = async (file?: File) => {
@@ -73,18 +75,20 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
     <Dialog open={!!row} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Attach documents to {label}</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground">Tick the files to send to QuickBooks with this {row?.kind === "bill" ? "bill" : "invoice"}. Files already in QuickBooks stay there and aren't sent twice.</p>
+        <p className="text-xs text-muted-foreground">Tick the files to send to QuickBooks with this {row?.kind === "bill" ? "bill" : "invoice"}. Files already in QuickBooks stay there and aren't sent twice.{row?.kind !== "bill" && !row?.qb_ref ? " PODs on the load are attached automatically when the invoice is sent." : ""}</p>
         <ul className="max-h-72 divide-y overflow-auto rounded border text-sm">
           {files.map((f, i) => {
             const done = isSent(f.path, row?.attachments_sent);
+            const auto = !done && autoPod(f);
             return (
               <li key={f.path} className="flex items-center gap-2 px-2 py-1.5">
-                <input type="checkbox" checked={done || has(f.path)} disabled={done} onChange={() => toggle(f)} aria-label={`Attach ${f.name}`} />
+                <input type="checkbox" checked={done || auto || has(f.path)} disabled={done || auto} onChange={() => toggle(f)} aria-label={`Attach ${f.name}`} />
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <DocLink items={items} index={i} className="min-w-0 flex-1 truncate">{f.name}</DocLink>
                 <RenameDoc name={f.name} original={f.file} onSave={(n) => renameFile(f.path, n)} />
                 {ids.length > 1 && <span className="font-mono text-[10px] text-gold">{f.load}</span>}
                 {done && <span className="text-[10px] text-primary">In QuickBooks</span>}
+                {auto && <Hint text="PODs already on the load are attached to the customer invoice automatically when it's sent to QuickBooks."><span className="text-[10px] text-primary">POD · auto</span></Hint>}
               </li>
             );
           })}
