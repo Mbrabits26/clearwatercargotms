@@ -149,6 +149,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           On the Do Not Use list: <b>{c.dnu_reason}</b>. Assignment is locked for every broker.
         </div>
       )}
+      <CarrierPayments c={c} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded border bg-card p-4">
           <div className="mb-2 flex items-center justify-between">
@@ -179,7 +180,6 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       <DocumentsPanel c={c} update={update} />
       <SignatureRecords carrierId={c.id} />
       <InvitePanel c={c} />
-      <CarrierPayments c={c} />
       <CarrierLanes carrierId={c.id} />
       <div className="rounded border bg-card p-4">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gold">Factoring / notice of assignment</h3>
