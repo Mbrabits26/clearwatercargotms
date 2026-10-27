@@ -17,9 +17,13 @@ export type BulkAction<T> = {
   label: string;
   hint: string;
   adminOnly?: boolean;
+  /** Admin/accountant only. */
+  financeOnly?: boolean;
   /** Deletes: shown in red and needs DELETE typed first. */
   danger?: boolean;
   param?: { label: string; options: { value: string; label: string }[] };
+  /** A typed value instead of a dropdown (e.g. a closeout note). Passed to `each` as `param`. */
+  input?: { label: string; optional?: boolean };
   /** Lines for the warning box. */
   points?: (items: T[], param: string) => ReactNode[];
   /** Return an error message for this row, or null when it worked. */
@@ -64,7 +68,7 @@ export function SelectAllBox({ ids, sel, label = "Select all shown" }: { ids: st
 }
 
 /** Shared delete action: admins only, each delete lands in the deletion log. */
-export function deleteAction<T extends { id: string }>(table: "companies" | "carriers" | "drivers" | "fleet_units" | "quotes", name: (t: T) => string, what: string): BulkAction<T> {
+export function deleteAction<T extends { id: string }>(table: "companies" | "carriers" | "drivers" | "fleet_units" | "quotes" | "leads", name: (t: T) => string, what: string): BulkAction<T> {
   return {
     value: "delete", label: `Delete ${what}`, danger: true, adminOnly: true,
     hint: `Permanently deletes the checked ${what}. Each one is saved in the admin deletion log.`,
@@ -88,7 +92,7 @@ export function exportAction<T>(title: string, head: string[], row: (t: T) => (s
 export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, noun = "rows" }: {
   items: T[]; total: number; actions: BulkAction<T>[]; onClear: () => void; invalidate: string[]; noun?: string;
 }) {
-  const { isAdmin } = useRouteContext({ from: "/_authenticated" });
+  const { isAdmin, isFinance } = useRouteContext({ from: "/_authenticated" });
   const qc = useQueryClient();
   const ask = useConfirm();
   const [value, setValue] = useState("");
@@ -98,9 +102,9 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
   const [typing, setTyping] = useState<null | ((ok: boolean) => void)>(null);
   const [typed, setTyped] = useState("");
   if (!items.length) return null;
-  const list = actions.filter((a) => !a.adminOnly || isAdmin);
+  const list = actions.filter((a) => (!a.adminOnly || isAdmin) && (!a.financeOnly || isFinance));
   const a = list.find((x) => x.value === value);
-  const needParam = !!a?.param && !param;
+  const needParam = (!!a?.param && !param) || (!!a?.input && !a.input.optional && !param.trim());
 
   const go = async () => {
     if (!a || needParam) return;
@@ -138,6 +142,7 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
             <SelectContent>{a.param.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         )}
+        {a?.input && <Input className="h-8 w-64" aria-label={a.input.label} placeholder={a.input.label} value={param} onChange={(e) => setParam(e.target.value)} />}
         <Hint text={a ? a.hint : "Pick an action first."}>
           <Button size="sm" variant={a?.danger ? "destructive" : "default"} disabled={!a || needParam || !!busy} onClick={go}>{busy ? `Working ${busy}…` : "Apply"}</Button>
         </Hint>

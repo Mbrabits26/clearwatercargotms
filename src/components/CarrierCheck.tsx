@@ -11,6 +11,8 @@ import { carrierIssues, type Carrier } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkActionBar, SelectAllBox, exportAction, useSelection, type BulkAction } from "@/components/BulkActionBar";
 
 type Fix = { patch: Record<string, string | number | boolean | null>; notes: string[] };
 const FILTERS = [["all", "All with problems"], ["block", "Blocks booking"], ["docs", "Missing documents"], ["ins", "Insurance"], ["info", "Missing info"], ["inactive", "Inactive / DNU"]] as const;
@@ -45,6 +47,23 @@ export function CarrierCheck({ carriers, onDone }: { carriers: Carrier[]; onDone
     catch (e) { toast.error((e as Error).message); } finally { mark(c.id, false); }
   };
   const checkAll = async () => { for (const r of rows.slice(0, 25)) if (!fixes[r.c.id]) await check(r.c); };
+  const pick = useSelection();
+  type R = (typeof rows)[number];
+  const actions: BulkAction<R>[] = [
+    { value: "ai", label: "Fix with AI (look up)", hint: "Reads each checked carrier's documents and free FMCSA data and shows what could be filled in. Nothing is saved yet. Uses a small amount of AI credit per carrier.",
+      points: (items) => [`${items.length} carrier${items.length === 1 ? "" : "s"} will be looked up with AI (small AI credit each).`, "Nothing is saved — you review the suggested fixes, then use Save AI fixes."],
+      each: async (r) => { try { const x = await fix({ data: { carrierId: r.c.id, apply: false } }); setFixes((f) => ({ ...f, [r.c.id]: x })); return null; } catch (e) { return `${r.c.legal_name}: ${(e as Error).message}`; } } },
+    { value: "save", label: "Save AI fixes found", hint: "Saves the AI-suggested fixes already shown for the checked carriers. Fills blank fields only.",
+      points: (items) => [`${items.filter((r) => fixes[r.c.id] && Object.keys(fixes[r.c.id]!.patch).length).length} carriers have fixes to save; the rest are skipped.`, "Only blank fields are filled. Nothing already entered is overwritten."],
+      each: async (r) => {
+        const f = fixes[r.c.id]; if (!f || !Object.keys(f.patch).length) return `${r.c.legal_name}: skipped — no AI fixes to save (run Fix with AI first)`;
+        try { await fix({ data: { carrierId: r.c.id, apply: true, patch: f.patch } }); setFixes((x) => { const n = { ...x }; delete n[r.c.id]; return n; }); return null; } catch (e) { return `${r.c.legal_name}: ${(e as Error).message}`; }
+      } },
+    { value: "inactive", label: "Mark inactive", hint: "Hides the checked carriers from the default carrier list and picker. They stay searchable and come back if picked.",
+      points: (items) => [`${items.length} carrier${items.length === 1 ? "" : "s"} will be marked inactive.`, "They stay searchable; picking one for a load makes it active again."],
+      each: async (r) => { const { error } = await supabase.from("carriers").update({ inactive: true }).eq("id", r.c.id); return error ? `${r.c.legal_name}: ${error.message}` : null; } },
+    exportAction<R>("Carrier check", ["Carrier", "MC", "DOT", "Status", "Problems"], (r) => [r.c.legal_name, r.c.mc_number, r.c.dot_number, r.c.status, r.issues.map((i) => i.text).join("; ")]),
+  ];
   const FLT_LABEL = FILTERS.find(([k]) => k === flt)?.[1] ?? "All";
   const spec = (): ReportSpec => ({
     title: "Carrier check", filters: [`Showing: ${FLT_LABEL}`], summary: [["Carriers with problems", String(rows.length)]],
@@ -55,20 +74,22 @@ export function CarrierCheck({ carriers, onDone }: { carriers: Carrier[]; onDone
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-1">
-        {FILTERS.map(([k, l]) => <button key={k} onClick={() => setFlt(k)} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground")}>{l}</button>)}
+        {FILTERS.map(([k, l]) => <button key={k} onClick={() => { setFlt(k); pick.clear(); }} className={cn("rounded border px-2 py-1 text-xs", flt === k ? "border-gold bg-gold/10 text-gold" : "text-muted-foreground")}>{l}</button>)}
         <div className="ml-auto flex gap-2 print:hidden">
           <Button size="sm" variant="outline" onClick={checkAll} disabled={busy.size > 0}><Sparkles className="mr-1 h-4 w-4" />Fix with AI (first 25)</Button>
           <ReportExport build={spec} />
         </div>
       </div>
       <p className="text-xs text-muted-foreground">{rows.length} carriers with problems. Fix with AI reads the carrier's uploaded documents and free FMCSA data and fills only blank fields — you approve each change. Each AI read uses a small amount of AI credit.</p>
+      {rows.length > 0 && <label className="flex items-center gap-2 text-xs text-muted-foreground print:hidden"><SelectAllBox ids={rows.map((r) => r.c.id)} sel={pick} />Select all shown ({rows.length})</label>}
+      <BulkActionBar items={rows.filter((r) => pick.has(r.c.id))} total={rows.length} actions={actions} onClear={pick.clear} invalidate={["carriers"]} noun="carriers" />
       <div className="divide-y rounded border">
         {rows.map(({ c, issues }) => {
           const f = fixes[c.id]; const n = f ? Object.keys(f.patch).length : 0;
           return (
             <div key={c.id} className="p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div><div className="font-medium">{c.legal_name}</div><div className="text-xs text-muted-foreground">MC {c.mc_number ?? "—"} · DOT {c.dot_number ?? "—"} · {c.status}</div></div>
+                <div className="flex items-start gap-2"><Checkbox className="mt-0.5 print:hidden" aria-label={`Select ${c.legal_name}`} checked={pick.has(c.id)} onCheckedChange={(v) => pick.toggle(c.id, v === true)} /><div><div className="font-medium">{c.legal_name}</div><div className="text-xs text-muted-foreground">MC {c.mc_number ?? "—"} · DOT {c.dot_number ?? "—"} · {c.status}</div></div></div>
                 <div className="flex gap-2 print:hidden">
                   {f && n > 0 && <Button size="sm" disabled={busy.has(c.id)} onClick={() => apply(c)}>Save {n} fixes</Button>}
                   <Button size="sm" variant="outline" disabled={busy.has(c.id)} onClick={() => check(c)}>{busy.has(c.id) ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}Fix with AI</Button>

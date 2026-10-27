@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
 import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkActionBar, SelectAllBox, useSelection, type BulkAction } from "@/components/BulkActionBar";
 
 /** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
 const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
@@ -331,6 +333,19 @@ function Accounting() {
     points: ["Clears the error and puts it back in the queue.", `It goes to ${kindCompany(s.kind)} QuickBooks on the next sync (press Sync now to send it right away).`, "Fix the cause first (customer name, missing vendor, etc.) or it will fail again."],
     confirmLabel: "Queue again",
   });
+  const logSel = useSelection();
+  const logActions: BulkAction<SyncRow>[] = [
+    { value: "retry", label: "Try again (failed only)", hint: "Puts the checked failed items back in the queue. Fix the cause first or they'll fail again.",
+      points: (items) => [`${items.filter((x) => x.status === "error").length} failed item(s) go back in the queue; the rest are skipped.`, "They're sent on the next sync (or press Sync now)."],
+      each: async (x) => {
+        if (x.status !== "error") return `${x.invoice_number ?? x.payee ?? "Item"}: skipped — not failed`;
+        const { error } = await supabase.from("qb_sync").update({ status: "queued", error: null }).eq("id", x.id);
+        return error ? `${x.invoice_number ?? x.payee}: ${error.message}` : null;
+      } },
+    { value: "remove", label: "Remove from TMS queue", financeOnly: true, hint: "Removes the checked items from the TMS sync log (admin/accountant). Anything already in QuickBooks stays there.",
+      points: (items) => [`${items.length} item(s) will be removed from the TMS.`, `${items.filter((x) => x.qb_ref).length} are already in QuickBooks — removing them here does NOT delete them in QuickBooks.`, "The loads and their statuses are not changed."],
+      each: async (x) => { const { error } = await supabase.from("qb_sync").delete().eq("id", x.id); return error ? `${x.invoice_number ?? x.payee}: ${error.message}` : null; } },
+  ];
   const queuedCount = sync.filter((s) => (s.status === "queued" || s.status === "error") && !s.qb_ref).length;
   const syncSpec = (): ConfirmSpec => ({
     title: "Sync with QuickBooks now?",
@@ -475,11 +490,14 @@ function Accounting() {
       </div>
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
+          <>
+          <div className="p-2"><BulkActionBar items={shownSync.filter((x) => logSel.has(x.id))} total={shownSync.length} actions={logActions} onClear={logSel.clear} invalidate={["qb_sync"]} noun="items" /></div>
           <Table>
-            <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="w-24">Actions</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={shownSync.map((x) => x.id)} sel={logSel} /></TableHead><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="w-24">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
               {shownSync.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell><Checkbox aria-label="Select" checked={logSel.has(s.id)} onCheckedChange={(v) => logSel.toggle(s.id, v === true)} /></TableCell>
                   <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
                   <TableCell>{loadById.get(s.load_id) ? <LoadQuickLook load={loadById.get(s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
@@ -500,9 +518,10 @@ function Accounting() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!shownSync.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{needle || from || to ? "No matches." : "Nothing sent yet."}</TableCell></TableRow>}
+              {!shownSync.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">{needle || from || to ? "No matches." : "Nothing sent yet."}</TableCell></TableRow>}
             </TableBody>
           </Table>
+          </>
         ) : (
           <Table>
             <TableHeader>

@@ -22,6 +22,8 @@ import { LoadBuilderDialog } from "@/components/LoadBuilderDialog";
 import { BulkLoadsDialog } from "@/components/BulkLoadsDialog";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
+import { LoadListBar, type LoadListActionKey } from "@/components/LoadListBar";
+import { SelectAllBox, useSelection } from "@/components/BulkActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { loadWorkQuery } from "@/lib/loadWorkQuery";
@@ -347,7 +349,16 @@ function Dispatch() {
       return `Opened load ${load.load_number}.`;
     }),
   });
-  const [alertView, setAlertView] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del"; loads: Load[] } | null>(null);
+  const [alertView, setAlertViewRaw] = useState<{ title: string; kind: "calls" | "pay" | "inv" | "pu" | "del" } | null>(null);
+  const alertSel = useSelection();
+  const setAlertView = (v: typeof alertView) => { alertSel.clear(); setAlertViewRaw(v); };
+  const ALERT_ACTIONS: Record<"calls" | "pay" | "inv" | "pu" | "del", LoadListActionKey[]> = {
+    pu: ["checkcall", "status", "export"],
+    del: ["delivered", "pod", "checkcall", "status", "export"],
+    calls: ["checkcall", "status", "export"],
+    pay: ["carrier_paid", "invoice", "closeout", "status", "export"],
+    inv: ["paid", "closeout", "status", "export"],
+  };
   const { overdueCalls, latePu, lateDel, carrierDue, overdueInv } = useMemo(() => ({
     overdueCalls: loads.filter(checkCallOverdue),
     latePu: loads.filter((l) => !l.closed_at && latePickup(l)),
@@ -355,26 +366,31 @@ function Dispatch() {
     carrierDue: loads.filter((l) => l.status === "delivered" && l.pod_received),
     overdueInv: loads.filter((l) => l.status === "invoiced" && l.delivery_at && Date.now() - new Date(l.delivery_at).getTime() > 30 * 86400_000),
   }), [loads]);
+  const alertLoads = !alertView ? [] : { calls: overdueCalls, pu: latePu, del: lateDel, pay: carrierDue, inv: overdueInv }[alertView.kind];
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-4 py-2 text-xs">
-        {latePu.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={latePu.length} label="late for pickup" onClick={() => setAlertView({ title: "Late for scheduled pickup", kind: "pu", loads: latePu })} />}
-        {lateDel.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={lateDel.length} label="late for delivery" onClick={() => setAlertView({ title: "Late for scheduled delivery", kind: "del", loads: lateDel })} />}
-        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} onClick={() => setAlertView({ title: "Check calls overdue", kind: "calls", loads: overdueCalls })} />}
-        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" onClick={() => setAlertView({ title: "Carrier payments due", kind: "pay", loads: carrierDue })} />}
-        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" onClick={() => setAlertView({ title: "Customer invoices past 30 days", kind: "inv", loads: overdueInv })} />}
+        {latePu.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={latePu.length} label="late for pickup" onClick={() => setAlertView({ title: "Late for scheduled pickup", kind: "pu" })} />}
+        {lateDel.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={lateDel.length} label="late for delivery" onClick={() => setAlertView({ title: "Late for scheduled delivery", kind: "del" })} />}
+        {overdueCalls.length > 0 && <Alert icon={AlarmClock} tone="text-warning" n={overdueCalls.length} label={`check calls overdue (>${4}h)`} onClick={() => setAlertView({ title: "Check calls overdue", kind: "calls" })} />}
+        {carrierDue.length > 0 && <Alert icon={DollarSign} tone="text-teal" n={carrierDue.length} label="carrier payments due (POD received)" onClick={() => setAlertView({ title: "Carrier payments due", kind: "pay" })} />}
+        {overdueInv.length > 0 && <Alert icon={AlertTriangle} tone="text-destructive" n={overdueInv.length} label="customer invoices past 30 days" onClick={() => setAlertView({ title: "Customer invoices past 30 days", kind: "inv" })} />}
         <Dialog open={!!alertView} onOpenChange={(o) => !o && setAlertView(null)}>
           <DialogContent className="flex max-h-[85dvh] w-[96vw] flex-col sm:max-w-4xl">
-            <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{alertView?.title} ({alertView?.loads.length})</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{alertView?.title} ({alertLoads.length})</DialogTitle></DialogHeader>
+            {alertView && <LoadListBar loads={alertLoads.filter((l) => alertSel.has(l.id))} total={alertLoads.length} onClear={alertSel.clear}
+              actions={ALERT_ACTIONS[alertView.kind]} companies={companies} title={alertView.title} />}
+            {alertView && !alertSel.picked.size && <p className="text-xs text-muted-foreground">Check loads (or the top box for all) to act on them together.</p>}
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
-                  <tr><th className="p-2">Load</th><th className="p-2">Lane</th><th className="p-2">{alertView?.kind === "inv" ? "Customer" : "Carrier"}</th><th className="p-2">{alertView?.kind === "calls" ? "Last check call" : alertView?.kind === "pu" ? "Pickup appt" : alertView?.kind === "del" ? "Delivery appt" : "Delivered"}</th><th className="p-2 text-right">{alertView?.kind === "inv" ? "Amount" : alertView?.kind === "pay" ? "Carrier pay" : "Status"}</th><th /></tr>
+                  <tr><th className="w-8 p-2"><SelectAllBox ids={alertLoads.map((l) => l.id)} sel={alertSel} /></th><th className="p-2">Load</th><th className="p-2">Lane</th><th className="p-2">{alertView?.kind === "inv" ? "Customer" : "Carrier"}</th><th className="p-2">{alertView?.kind === "calls" ? "Last check call" : alertView?.kind === "pu" ? "Pickup appt" : alertView?.kind === "del" ? "Delivery appt" : "Delivered"}</th><th className="p-2 text-right">{alertView?.kind === "inv" ? "Amount" : alertView?.kind === "pay" ? "Carrier pay" : "Status"}</th><th /></tr>
                 </thead>
                 <tbody>
-                  {alertView?.loads.map((l) => (
+                  {alertView && alertLoads.map((l) => (
                     <tr key={l.id} className="border-t hover:bg-muted/50">
+                      <td className="p-2"><Checkbox aria-label={`Select ${l.load_number}`} checked={alertSel.has(l.id)} onCheckedChange={(v) => alertSel.toggle(l.id, v === true)} /></td>
                       <td className="p-2 font-semibold">{l.load_number}</td>
                       <td className="p-2">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
                       <td className="p-2">{alertView.kind === "inv" ? companies.find((c) => c.id === l.customer_id)?.name ?? "—" : carriers.find((c) => c.id === l.carrier_id)?.legal_name ?? (isFleetLoad(l) ? "Company truck" : "—")}</td>

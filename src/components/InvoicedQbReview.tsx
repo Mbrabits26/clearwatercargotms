@@ -12,6 +12,10 @@ import { cn } from "@/lib/utils";
 import { ReportExport } from "@/components/ReportExport";
 import { Hint } from "@/components/ActionGuard";
 import { dayText, type ReportSpec } from "@/lib/reportExport";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LoadListBar } from "@/components/LoadListBar";
+import { SelectAllBox, useSelection } from "@/components/BulkActionBar";
+import { companiesQuery } from "@/lib/queries";
 
 type SyncLite = { load_id: string; kind: string; status: string; qb_ref: string | null; invoice_number: string | null };
 type Item = { l: Load; state: QbReviewState; customer: string; invoice: string | null };
@@ -24,7 +28,10 @@ export const INVOICED_REVIEW_KEY = ["qb_sync", "invoiced_review"] as const;
 /** Admin/accountant notice: loads moved to Invoiced whose customer invoice hasn't reached QuickBooks yet. */
 export function InvoicedQbReview() {
   const [dismissed, setDismissed] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpenRaw] = useState(false);
+  const sel = useSelection();
+  const setOpen = (o: boolean) => { sel.clear(); setOpenRaw(o); };
+  const { data: companies } = useQuery({ ...companiesQuery, enabled: open });
   const { data } = useQuery({
     queryKey: INVOICED_REVIEW_KEY,
     staleTime: 20_000,
@@ -75,14 +82,18 @@ export function InvoicedQbReview() {
               Loads marked Invoiced whose customer invoice isn't in QuickBooks yet: {count("not_queued")} not queued, {count("queued")} queued, {errors} failed. A load drops off this list once its invoice is sent.
             </DialogDescription>
           </DialogHeader>
+          <LoadListBar loads={data.filter((x) => sel.has(x.l.id)).map((x) => x.l)} total={data.length} onClear={sel.clear} title="Invoiced loads — QuickBooks review"
+            actions={["invoice", "status", "closeout", "export"]} companies={companies} customerName={(id) => data.find((x) => x.l.customer_id === id)?.customer ?? ""} />
+          {!sel.picked.size && <p className="text-xs text-muted-foreground">Check loads (or the top box for all) to create their invoices, change status or close them out together.</p>}
           <div className="min-h-0 flex-1 overflow-auto rounded border">
             <Table>
               <TableHeader className="sticky top-0 bg-card">
-                <TableRow><TableHead>Load</TableHead><TableHead>Customer</TableHead><TableHead>Lane</TableHead><TableHead>Delivered</TableHead><TableHead>Amount</TableHead><TableHead>Invoice #</TableHead><TableHead>QuickBooks</TableHead><TableHead /></TableRow>
+                <TableRow><TableHead className="w-8"><SelectAllBox ids={data.map((x) => x.l.id)} sel={sel} /></TableHead><TableHead>Load</TableHead><TableHead>Customer</TableHead><TableHead>Lane</TableHead><TableHead>Delivered</TableHead><TableHead>Amount</TableHead><TableHead>Invoice #</TableHead><TableHead>QuickBooks</TableHead><TableHead /></TableRow>
               </TableHeader>
               <TableBody>
                 {data.map(({ l, state, customer, invoice }) => (
                   <TableRow key={l.id}>
+                    <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={sel.has(l.id)} onCheckedChange={(v) => sel.toggle(l.id, v === true)} /></TableCell>
                     <TableCell className="font-mono text-gold">{l.load_number}</TableCell>
                     <TableCell>{customer}</TableCell>
                     <TableCell className="whitespace-nowrap">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
