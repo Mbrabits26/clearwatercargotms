@@ -17,6 +17,31 @@ export function pendingAttachments(attachments: unknown, sent: unknown): QbAttac
 
 export const isSent = (path: string, sent: unknown) => sentPaths(sent).has(path);
 
+/**
+ * Is this load document a POD? Driver uploads are stored as "pod-…"; staff uploads and
+ * renamed files count when the file or display name has "POD" as its own word (POD, POD123,
+ * signed_pod.pdf) or says "proof of delivery". "ipod"/"podium" don't count.
+ */
+export function isPodDoc(fileName: string, displayName?: string | null): boolean {
+  return [fileName.split("/").pop() ?? "", displayName ?? ""].some((n) =>
+    /(^|[^a-z])pods?(?![a-z])/i.test(n) || /proof[\s_-]*of[\s_-]*delivery/i.test(n));
+}
+
+/**
+ * Adds POD files to an invoice's attachment list. Skips files QuickBooks wouldn't accept and
+ * any path already picked or sent on this invoice (`taken`), so nothing goes twice.
+ */
+export function withPods(attachments: unknown, pods: QbAttachment[], taken: Set<string>): { list: QbAttachment[]; added: number } {
+  const list = parseAttachments(attachments);
+  const have = new Set([...taken, ...list.map((a) => a.path)]);
+  let added = 0;
+  for (const p of pods) {
+    if (have.has(p.path) || (!qbContentType(p.name) && !qbContentType(p.path))) continue;
+    have.add(p.path); list.push(p); added++;
+  }
+  return { list, added };
+}
+
 /** File types QuickBooks Online accepts as attachments. */
 const TYPES: Record<string, string> = {
   pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", jpe: "image/jpeg", png: "image/png", gif: "image/gif",

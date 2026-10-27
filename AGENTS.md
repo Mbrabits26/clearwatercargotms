@@ -36,7 +36,7 @@
 - Data API caps reads at 1000 rows.
 - Combined invoice = qb_sync rows sharing one (non-unique) invoice_number, sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Load rules/status history use DB triggers; `batch_load_action` and Reports bulk status (`BulkStatusBar`, rules in `bulkStatus.ts`) update per-row under RLS so triggers judge each load. `closed_at` archives operationally, never means paid; lightweight paged `loadWorkQuery` drives all-date notices without expanding Dispatch's default.
-- qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent).
+- qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent); qbSyncNow first runs `autoAttachPods` so load PODs (`isPodDoc`) join unsent customer invoices.
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
 - Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
