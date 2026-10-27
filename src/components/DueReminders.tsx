@@ -32,7 +32,7 @@ export function DueReminders() {
     queryKey: ["due_reminders"],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data } = await supabase.from("loads").select("*").eq("status", "invoiced").is("closed_at", null).order("created_at").limit(1000);
+      const { data } = await supabase.from("loads").select("*").eq("status", "invoiced").order("created_at").limit(1000);
       const rows = (data ?? []) as Row[];
       const ids = [...new Set(rows.map((r) => r.customer_id).filter((x): x is string => !!x))];
       const parts = await Promise.all(chunks(ids).map((c) => supabase.from("companies").select("id, name").in("id", c)));
