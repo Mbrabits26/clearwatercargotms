@@ -1,5 +1,6 @@
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { CarrierLanes } from "@/components/CarrierLanes";
+import { CarrierPayments } from "@/components/CarrierPayments";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { findMatch, mergeFill, duplicateGroups } from "@/lib/carrierMerge";
@@ -148,6 +149,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
           On the Do Not Use list: <b>{c.dnu_reason}</b>. Assignment is locked for every broker.
         </div>
       )}
+      <CarrierPayments c={c} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded border bg-card p-4">
           <div className="mb-2 flex items-center justify-between">

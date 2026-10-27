@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carrierPayDue, owesCarrier, payTo, shouldNotify, type PayCarrier } from "@/lib/carrierPay";
+import { carrierPayDue, carrierPayState, carrierPaySummary, owesCarrier, payTo, shouldNotify, type PayCarrier } from "@/lib/carrierPay";
 import { FLEET_CARRIER_ID, type Load } from "@/lib/tms";
 
 const DAY = 86_400_000;
@@ -59,5 +59,25 @@ describe("carrier pay due", () => {
     expect(p.address).toBe("PO Box 1, Dallas TX");
     expect(p.noaMissing).toBe(true);
     expect(payTo(carrier()).name).toBe("Acme Trucking");
+  });
+});
+
+describe("carrier payments window", () => {
+  it("sorts a carrier's loads into paid, owed, waiting on POD and not delivered", () => {
+    expect(carrierPayState(load({ carrier_paid_at: pod }))).toBe("paid");
+    expect(carrierPayState(load())).toBe("owed");
+    expect(carrierPayState(load({ pod_received: false, pod_received_at: null }))).toBe("waiting_pod");
+    expect(carrierPayState(load({ status: "rolling", pod_received: false }))).toBe("not_delivered");
+  });
+  it("totals net pay per state and leaves out cancelled and company-truck loads", () => {
+    const s = carrierPaySummary([
+      load({ id: "a", carrier_paid_at: pod }),
+      load({ id: "b" }),
+      load({ id: "c", status: "cancelled" }),
+      load({ id: "d", truck_id: "t1" }),
+    ], carrier({ pay_terms: "quickpay" }), new Set(), t0 + 10 * DAY);
+    expect(s.paid).toEqual({ count: 1, net: 1900 });
+    expect(s.owed).toEqual({ count: 1, net: 1900 });
+    expect(s.pastDue).toBe(1);
   });
 });
