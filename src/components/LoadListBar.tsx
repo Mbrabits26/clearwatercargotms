@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUSES, statusMeta, loadTotals, type Company, type Load, type LoadStatus } from "@/lib/tms";
 import { BULK_TARGETS, bulkStatusSkip, loadActSkip, statusWarnings, type LoadListAct } from "@/lib/bulkStatus";
@@ -66,7 +67,7 @@ export function LoadListBar({ loads, total, onClear, actions, companies, title =
     },
     invoice: companies ? {
       value: "invoice", label: "Create invoices", hint: "Opens the invoice window for the checked delivered/invoiced loads so you can create them (one each or combined). Nothing is sent until you confirm there.",
-      all: (items) => setInvoicing(items.filter((l) => invoiceable(l) && !l.closed_at)),
+      all: (items) => { const ok = items.filter((l) => invoiceable(l) && !l.closed_at); if (!ok.length) toast.error("None of the checked loads can be invoiced (they must be Delivered or Invoiced and not closed out)."); else setInvoicing(ok); },
     } : null,
     checkcall: {
       value: "checkcall", label: "Log check call now", hint: "Records a check call at the current time on each checked load that is still moving.",
