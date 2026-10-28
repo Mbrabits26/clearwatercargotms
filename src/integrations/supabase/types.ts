@@ -879,6 +879,36 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_postings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entries: Json
+          id: string
+          kind: string
+          raw: string | null
+          week_of: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entries?: Json
+          id?: string
+          kind?: string
+          raw?: string | null
+          week_of?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entries?: Json
+          id?: string
+          kind?: string
+          raw?: string | null
+          week_of?: string | null
+        }
+        Relationships: []
+      }
       its_sync_runs: {
         Row: {
           carriers_added: number
