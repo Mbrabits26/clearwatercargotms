@@ -1450,12 +1450,15 @@ export type Database = {
       }
       quotes: {
         Row: {
+          accept_token: string
+          accepted_by: string | null
           accessorials: Json
           broker_id: string | null
           created_at: string
           customer_email: string | null
           customer_id: string | null
           customer_name: string | null
+          customer_note: string | null
           dest_city: string
           dest_state: string
           equipment: string
@@ -1471,16 +1474,20 @@ export type Database = {
           pickup_date: string | null
           quote_number: string
           rate: number
+          responded_at: string | null
           status: string
           target_carrier_rate: number | null
         }
         Insert: {
+          accept_token?: string
+          accepted_by?: string | null
           accessorials?: Json
           broker_id?: string | null
           created_at?: string
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          customer_note?: string | null
           dest_city: string
           dest_state: string
           equipment?: string
@@ -1496,16 +1503,20 @@ export type Database = {
           pickup_date?: string | null
           quote_number?: string
           rate?: number
+          responded_at?: string | null
           status?: string
           target_carrier_rate?: number | null
         }
         Update: {
+          accept_token?: string
+          accepted_by?: string | null
           accessorials?: Json
           broker_id?: string | null
           created_at?: string
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          customer_note?: string | null
           dest_city?: string
           dest_state?: string
           equipment?: string
@@ -1521,6 +1532,7 @@ export type Database = {
           pickup_date?: string | null
           quote_number?: string
           rate?: number
+          responded_at?: string | null
           status?: string
           target_carrier_rate?: number | null
         }
