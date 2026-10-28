@@ -24,7 +24,7 @@ export function FactoringRemittanceDialog({ open, onOpenChange, loads, carriers,
   const total = batches.reduce((t, b) => t + b.net, 0);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader><DialogTitle>Factoring remittance</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">
           Unpaid loads for carriers who factor, grouped by factoring company — one payment and one remittance schedule per factor, sent to the remit-to address from their Notice of Assignment.

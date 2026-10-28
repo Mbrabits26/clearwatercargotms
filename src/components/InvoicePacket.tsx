@@ -80,7 +80,7 @@ export function InvoicePacketDialog({ invoiceNumber, loads, buildInvoice, onEmai
   };
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader><DialogTitle>Invoice packet — {invoiceNumber}</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">One PDF: the invoice first, then the documents you tick. PODs and BOLs are ticked for you. Building a packet doesn't change the invoice, the load or QuickBooks.</p>
         {noPod.length > 0 && docs && <div className="flex items-start gap-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />No POD on {noPod.map((l) => l.load_number).join(", ")}. Most customers won't pay without one.</div>}

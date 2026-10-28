@@ -39,7 +39,7 @@ export function BillAuditDialog({ open, onOpenChange, loads, billOf, payeeOf, on
   });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
         <DialogHeader><DialogTitle>Carrier bill audit</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">Compares each carrier's invoice with the signed rate con before it's posted. Read-only — fix the load or the carrier invoice, then send the bill.</p>
         <div className="flex flex-wrap items-center gap-2">
