@@ -62,6 +62,8 @@ function TrackPage() {
     if (status) setDone((d) => [...new Set([...d, status])]);
     if (pos) setGeoBlocked(false);
     toast.success(status ? `Update sent: ${status}${pos ? "" : " (without location)"}` : "Location sent");
+    if (r.delivered) toast.success("Load marked Delivered — signed POD is on file.");
+    if (r.needsPod) toast.warning("Please upload the signed POD below to complete delivery.");
     if (!pos) toast.warning("Your location wasn't shared. Allow location access, then tap “Send my location”.");
     setNote("");
   };
@@ -75,7 +77,7 @@ function TrackPage() {
     const r = await uploadTrackingDoc({ data: { token, kind, fileName: f.name, base64: btoa(bin) } });
     setBusy(false);
     if (!r.ok) return toast.error(r.problem);
-    toast.success(`${kind === "pod" ? "POD" : "BOL"} uploaded — thank you!`);
+    toast.success(`${kind === "pod" ? "POD" : "BOL"} uploaded — thank you!${r.delivered ? " Load marked Delivered." : ""}`);
   };
 
   if (isLoading) return <Shell><p className="text-center text-muted-foreground">Loading…</p></Shell>;

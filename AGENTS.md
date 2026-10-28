@@ -27,7 +27,7 @@
 - User create/delete/password reset run in users.functions.ts (admin-verified via has_role, then admin client); area permissions in user_permissions gate the nav (admins bypass).
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
-- Driver pings geocode server-side.
+- Driver pings geocode server-side. Driver-link auto-Delivered (`podAutoDeliver.ts`) requires a signed POD on file (pod_received), fires on link POD upload or "Delivered" tap, only from booked/dispatched/rolling; staff status changes stay manual.
 - `DocPreview` previews docs in-page. RC tracking: `applyTrackingFee` splits $200 out of carrier pay; editor shows split lines, load stores unsplit.
 - `assign_invoice_number` trigger sets qb_sync number + QB class: invoice → INV-, fleet_invoice → FF- (Foust letterhead). Carrier bills store gross, quickpay_fee, net.
 - Role changes via server-side `setUserAdmin` (no self-demotion, ≥1 admin).

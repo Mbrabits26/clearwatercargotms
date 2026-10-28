@@ -4,6 +4,26 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const tokenSchema = z.object({ token: z.string().uuid() });
 
+type Admin = Awaited<ReturnType<typeof loadToken>>["supabaseAdmin"];
+
+/** Move the load to Delivered if a signed POD is on file (see podAutoDeliver.ts). Returns true when it changed. */
+async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by: string | null }, why: string) {
+  const { shouldAutoDeliver } = await import("./podAutoDeliver");
+  const { data: load } = await admin.from("loads")
+    .select("status, pod_received, customer_id, carrier_id, truck_id, closed_at").eq("id", tk.load_id).single();
+  if (!load || !shouldAutoDeliver(load)) return false;
+  const { data: upd, error } = await admin.from("loads").update({ status: "delivered" })
+    .eq("id", tk.load_id).eq("status", load.status).select("id");
+  if (error || !upd?.length) { if (error) console.error(error); return false; }
+  await admin.from("load_notes").insert({
+    load_id: tk.load_id,
+    author_id: tk.created_by ?? undefined,
+    body: `Status changed: ${load.status} → delivered (automatic — signed POD on file, ${why} via driver link)`,
+  });
+  return true;
+}
+
+
 async function loadToken(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: tk } = await supabaseAdmin.from("load_tracking_tokens").select("*").eq("token", token).maybeSingle();
@@ -55,6 +75,8 @@ export const postPing = createServerFn({ method: "POST" })
     }).select("id").single();
     if (error) return { ok: false as const, problem: "Could not save the update. Please try again." };
     await supabaseAdmin.from("loads").update({ last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
+    let delivered = false;
+    let needsPod = false;
     if (data.kind === "status") {
       const label = data.status ?? "Update";
       const who = tk.driver_name ? `${tk.driver_name}: ` : "";
@@ -63,10 +85,20 @@ export const postPing = createServerFn({ method: "POST" })
         author_id: tk.created_by ?? undefined,
         body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${place ? ` — ${place}` : ""}`,
       });
+      if (label === "Delivered") {
+        delivered = await autoDeliverIfPod(supabaseAdmin, tk, "driver marked Delivered");
+        if (!delivered) {
+          const { data: l } = await supabaseAdmin.from("loads").select("pod_received").eq("id", tk.load_id).single();
+          needsPod = !l?.pod_received;
+        }
+      }
       const { emailDriverUpdate } = await import("./notifyPrefs.server");
-      await emailDriverUpdate(supabaseAdmin, tk, "email_driver_status", { what: `Status: ${label}`, note: data.note, place, key: ping?.id ?? crypto.randomUUID() });
+      await emailDriverUpdate(supabaseAdmin, tk, "email_driver_status", {
+        what: `Status: ${label}${delivered ? " — load marked Delivered" : ""}`,
+        note: data.note, place, key: ping?.id ?? crypto.randomUUID(),
+      });
     }
-    return { ok: true as const };
+    return { ok: true as const, delivered, needsPod };
   });
 
 export const uploadTrackingDoc = createServerFn({ method: "POST" })
@@ -94,9 +126,13 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       author_id: tk.created_by ?? undefined,
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
+    const delivered = data.kind === "pod" ? await autoDeliverIfPod(supabaseAdmin, tk, "POD uploaded") : false;
     const { emailDriverUpdate } = await import("./notifyPrefs.server");
-    await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", { what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}`, key: path });
-    return { ok: true as const };
+    await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", {
+      what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}${delivered ? " — load marked Delivered" : ""}`,
+      key: path,
+    });
+    return { ok: true as const, delivered };
   });
 
 /** Staff-only: fill in place names for older pings that only have coordinates (max 50 per call). */
