@@ -26,6 +26,7 @@ import { Route as AuthenticatedQuotesRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
+import { Route as QuoteTokenRouteImport } from './routes/quote.$token'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -119,6 +120,11 @@ const OnboardTokenRoute = OnboardTokenRouteImport.update({
   path: '/onboard/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuoteTokenRoute = QuoteTokenRouteImport.update({
+  id: '/quote/$token',
+  path: '/quote/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignTokenRoute = SignTokenRouteImport.update({
   id: '/sign/$token',
   path: '/sign/$token',
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
+  '/quote/$token': typeof QuoteTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
+  '/quote/$token': typeof QuoteTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
+  '/quote/$token': typeof QuoteTokenRoute
   '/sign/$token': typeof SignTokenRoute
   '/track/$token': typeof TrackTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/offer/$token'
     | '/onboard/$token'
+    | '/quote/$token'
     | '/sign/$token'
     | '/track/$token'
     | '/.lovable/oauth/consent'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/offer/$token'
     | '/onboard/$token'
+    | '/quote/$token'
     | '/sign/$token'
     | '/track/$token'
     | '/.lovable/oauth/consent'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/offer/$token'
     | '/onboard/$token'
+    | '/quote/$token'
     | '/sign/$token'
     | '/track/$token'
     | '/.lovable/oauth/consent'
@@ -322,6 +334,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   OfferTokenRoute: typeof OfferTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
+  QuoteTokenRoute: typeof QuoteTokenRoute
   SignTokenRoute: typeof SignTokenRoute
   TrackTokenRoute: typeof TrackTokenRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -452,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/quote/$token': {
+      id: '/quote/$token'
+      path: '/quote/$token'
+      fullPath: '/quote/$token'
+      preLoaderRoute: typeof QuoteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign/$token': {
       id: '/sign/$token'
       path: '/sign/$token'
@@ -541,6 +561,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   OfferTokenRoute: OfferTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
+  QuoteTokenRoute: QuoteTokenRoute,
   SignTokenRoute: SignTokenRoute,
   TrackTokenRoute: TrackTokenRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
