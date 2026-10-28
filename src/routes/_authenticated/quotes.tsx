@@ -16,6 +16,8 @@ import { buildQuotePdf, type Quote } from "@/lib/quote";
 import { composeEmail } from "@/lib/email";
 import { getMarketRates } from "@/lib/market.functions";
 import { RateView, laneStats } from "@/components/RateView";
+import { BuyBox } from "@/components/BuyBox";
+import { postLowMarginNotice } from "@/lib/buyBox";
 import { EntityCombobox } from "@/components/EntityCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +79,10 @@ function QuoteBuilder() {
       rate: Number(f.rate || 0), target_carrier_rate: f.target_carrier_rate ? Number(f.target_carrier_rate) : null, notes: f.notes || null,
     });
     if (error) return toast.error(error.message);
+    if (f.target_carrier_rate) {
+      const { data: me } = await supabase.auth.getUser();
+      void postLowMarginNotice({ kind: "Quote", label: f.customer_name, lane: `${f.origin_city}, ${f.origin_state.toUpperCase()} → ${f.dest_city}, ${f.dest_state.toUpperCase()}`, customer: Number(f.rate || 0), carrier: Number(f.target_carrier_rate), who: (me.user?.user_metadata?.full_name as string) || me.user?.email || "a user" }).catch(() => {});
+    }
     toast.success("Quote saved");
     setF(blank);
     qc.invalidateQueries({ queryKey: ["quotes"] });
@@ -161,6 +167,8 @@ function QuoteBuilder() {
         {lane.origin_state.length === 2 && lane.dest_state.length === 2 && (
           <RateView loads={loads} lane={lane} onApply={(c, k) => setF((s) => ({ ...s, rate: String(c), target_carrier_rate: String(k) }))} />
         )}
+        <BuyBox customer={Number(f.rate || 0)} carrier={Number(f.target_carrier_rate || 0)} miles={Number(f.miles || 0)}
+          onCarrier={(v) => setF((s) => ({ ...s, target_carrier_rate: String(v) }))} onCustomer={(v) => setF((s) => ({ ...s, rate: String(v) }))} />
         <Button onClick={save}><Plus className="mr-1 h-4 w-4" />Save quote</Button>
       </div>
 

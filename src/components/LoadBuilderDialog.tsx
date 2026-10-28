@@ -22,6 +22,9 @@ import { copyRows } from "@/components/CopyLoadDialog";
 import { FmcsaButton, FmcsaSummary } from "@/components/FmcsaLookup";
 import type { FmcsaCarrier } from "@/lib/fmcsa.functions";
 import { drivingMiles } from "@/lib/places.functions";
+import { BuyBox } from "@/components/BuyBox";
+import { postLowMarginNotice } from "@/lib/buyBox";
+import { FLEET_CARRIER_ID, isFleetLoad } from "@/lib/tms";
 
 type F = Record<string, string>;
 type Kind = "customer" | "shipper" | "consignee";
@@ -241,17 +244,22 @@ export function LoadBuilderDialog({
         else { carrierNote = `${carrier.name.trim()} added as a pending carrier — vet them, then assign on the load`; qc.invalidateQueries({ queryKey: ["carriers"] }); }
       }
       if (carrier_id) Object.assign(row, { carrier_id });
+      const who = (user as { user_metadata?: { full_name?: string }; email?: string }).user_metadata?.full_name || user.email || "a user";
+      const fleetLoad = carrier.id === FLEET_CARRIER_ID || (!!editLoad && isFleetLoad(editLoad));
+      const notify = (label: string) => postLowMarginNotice({ label, lane: `${row.origin_city}, ${row.origin_state} → ${row.dest_city}, ${row.dest_state}`, customer: cr, carrier: pr, who, fleet: fleetLoad }).catch(() => {});
       if (editLoad) {
         const { error } = await supabase.from("loads").update(row).eq("id", editLoad.id);
         if (error) throw new Error(error.message);
+        void notify(editLoad.load_number);
         toast.success([added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated", carrierNote].filter(Boolean).join(" · "));
         qc.invalidateQueries({ queryKey: ["loads"] });
         qc.invalidateQueries({ queryKey: ["companies"] });
         onOpenChange(false);
         return;
       }
-      const { data, error } = await supabase.from("loads").insert({ ...row, broker_id: user.id }).select("id").single();
+      const { data, error } = await supabase.from("loads").insert({ ...row, broker_id: user.id }).select("id, load_number").single();
       if (error) throw new Error(error.message);
+      void notify(data.load_number);
       const extra = Math.max(1, Math.min(50, Number(f.copies) || 1)) - 1;
       if (extra > 0) {
         const stepMs = (Number(f.copy_step ?? "1") || 0) * 86_400_000;
@@ -393,6 +401,11 @@ export function LoadBuilderDialog({
           </L>
           <L label="Customer rate ($)"><Input type="number" value={f.customer_rate ?? ""} onChange={set("customer_rate")} /></L>
           <L label="Target carrier pay ($)"><Input type="number" value={f.carrier_rate ?? ""} onChange={set("carrier_rate")} /></L>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <BuyBox customer={Number(f.customer_rate || 0)} carrier={Number(f.carrier_rate || 0)} miles={Number(f.miles || 0)}
+              fleet={carrier.id === FLEET_CARRIER_ID || (!!editLoad && isFleetLoad(editLoad))}
+              onCarrier={(v) => setF((p) => ({ ...p, carrier_rate: String(v) }))} onCustomer={(v) => setF((p) => ({ ...p, customer_rate: String(v) }))} />
+          </div>
           <L label="Customer ref #"><Input value={f.customer_ref ?? ""} onChange={set("customer_ref")} /></L>
           <L label="Shipper PO / PU Ref #"><Input value={f.ship_ref ?? ""} onChange={set("ship_ref")} /></L>
           <L label="Delivery ref / appt #"><Input value={f.dest_ref ?? ""} onChange={set("dest_ref")} /></L>
