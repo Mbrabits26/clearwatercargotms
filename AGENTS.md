@@ -44,3 +44,4 @@
 - Per-user alert choices live in notification_prefs (own-row RLS; missing row = all on); server emails check them via notifyPrefs.server.ts, the bell filters in-app alerts.
 - Agent integrations (MCP): see `src/lib/AGENTS.md`.
 - Accounting buttons: hint + warning box before data changes via `ActionGuard` (provider in __root); read-only buttons hint only.
+- Shipper quote acceptance: public /quote/$token (quotes.accept_token) via token-validated quoteAccept.functions.ts; accept marks won, creates the load and posts a Team chat notice.
