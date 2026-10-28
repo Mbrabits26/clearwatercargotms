@@ -69,73 +69,87 @@ export function BidDetail({ bidId }: { bidId: string }) {
     if ("status" in patch) { await refreshBidStatus(bidId); qc.invalidateQueries({ queryKey: ["bids"] }); }
   };
 
-  const fillMiles = async (only?: BidLane[]) => {
+  // Each step returns its problem lanes; `quiet` lets Auto-price show one summary instead of a toast per step.
+  const fillMiles = async (only?: BidLane[], quiet = false): Promise<string[]> => {
     const todo = (only ?? lanes).filter((l) => !(Number(l.miles) > 0));
-    if (!todo.length) return toast.info("Every lane already has miles.");
+    if (!todo.length) { if (!quiet) toast.info("Every lane already has miles."); return []; }
     setBusy(`Miles 0/${todo.length}`);
-    let done = 0, miss = 0, i = 0;
+    const errs: string[] = [];
+    let done = 0, i = 0;
     const worker = async () => {
       while (i < todo.length) {
         const l = todo[i++]!;
         try {
-          if (!l.dest_state && !l.dest_city) { miss++; setBusy(`Miles ${++done}/${todo.length}`); continue; }
-          const r = await miles$({ data: { origin: placeText(l.origin_city, l.origin_state, l.origin_zip) || l.origin_state, dest: placeText(l.dest_city, l.dest_state, l.dest_zip) || l.dest_state } });
-          if (r.miles) await supabase.from("bid_lanes").update({ miles: r.miles }).eq("id", l.id); else miss++;
-        } catch { miss++; }
+          const origin = placeText(l.origin_city, l.origin_state, l.origin_zip);
+          const dest = placeText(l.dest_city, l.dest_state, l.dest_zip);
+          if (!dest || dest.length < 3 || !origin || origin.length < 3) errs.push(`${laneLabel(l)}: type the miles in (no destination to look up)`);
+          else {
+            const r = await miles$({ data: { origin, dest } });
+            if (r.miles) await supabase.from("bid_lanes").update({ miles: r.miles }).eq("id", l.id);
+            else errs.push(`${laneLabel(l)}: no driving route found — type the miles in`);
+          }
+        } catch (e) { errs.push(`${laneLabel(l)}: ${(e as Error).message}`); }
         setBusy(`Miles ${++done}/${todo.length}`);
       }
     };
     await Promise.all(Array.from({ length: Math.min(4, todo.length) }, worker));
     setBusy("");
     refresh();
-    if (miss) toast.error(`${miss} lanes need miles typed in`); else toast.success("Miles added");
+    if (!quiet) { if (errs.length) toast.error(`${errs.length} lanes need miles typed in`, { description: errs.slice(0, 4).join("\n") }); else toast.success("Miles added"); }
+    return errs;
   };
 
-  const fillMarket = async (only?: BidLane[], force = false) => {
+  // One national market lookup per trailer type (the sources only publish national rates), applied to every lane of that type.
+  const fillMarket = async (only?: BidLane[], force = false, quiet = false): Promise<string[]> => {
     const todo = (only ?? lanes).filter((l) => force || (l.market_spot_rpm == null && l.market_contract_rpm == null));
-    const dst = (l: BidLane) => l.dest_state || l.origin_state;
-    const keys = [...new Set(todo.map((l) => `${l.equipment}|${l.origin_state}|${dst(l)}`))];
-    if (!keys.length) return toast.info("Market rates are already filled in. Tick lanes and use “Refresh market rates” to check again.");
+    const types = [...new Set(todo.map((l) => l.equipment || "Dry Van"))];
+    if (!types.length) { if (!quiet) toast.info("Market rates are already filled in. Tick lanes and use “Refresh market rates” to check again."); return []; }
+    const errs: string[] = [];
     let done = 0;
-    setBusy(`Market 0/${keys.length}`);
-    for (const k of keys) {
-      const [equipment, os, ds] = k.split("|") as [string, string, string];
+    setBusy(`Market 0/${types.length}`);
+    for (const equipment of types) {
+      const ids = todo.filter((l) => (l.equipment || "Dry Van") === equipment).map((l) => l.id);
+      const os = todo.find((l) => (l.equipment || "Dry Van") === equipment)?.origin_state || "NC";
       try {
-        const r = await market$({ data: { origin_state: os, dest_state: ds, equipment, refresh: force } });
-        if (r.error) { toast.error(r.error); break; }
-        if (r.result) {
-          const ids = todo.filter((l) => l.equipment === equipment && l.origin_state === os && dst(l) === ds).map((l) => l.id);
-          await supabase.from("bid_lanes").update({ market_spot_rpm: r.result.spot_rpm, market_contract_rpm: r.result.contract_rpm, market_note: `${r.result.scope}${r.fetched_at ? ` · ${new Date(r.fetched_at).toLocaleDateString()}` : ""}` }).in("id", ids);
+        const r = await market$({ data: { origin_state: os.slice(0, 2).toUpperCase().padEnd(2, "C"), dest_state: os.slice(0, 2).toUpperCase().padEnd(2, "C"), equipment, refresh: force, national: true } });
+        const m = r.result;
+        if (r.error || !m || !(Number(m.spot_rpm) > 0 || Number(m.contract_rpm) > 0)) errs.push(`${equipment} (${ids.length} lanes): ${r.error ?? "no published market rate found — type a carrier cost"}`);
+        else {
+          for (let k = 0; k < ids.length; k += 200) {
+            await supabase.from("bid_lanes").update({ market_spot_rpm: m.spot_rpm, market_contract_rpm: m.contract_rpm, market_note: `${m.scope}${r.fetched_at ? ` · ${new Date(r.fetched_at).toLocaleDateString()}` : ""}` }).in("id", ids.slice(k, k + 200));
+          }
         }
-      } catch (e) { toast.error((e as Error).message); break; }
-      setBusy(`Market ${++done}/${keys.length}`);
+      } catch (e) { errs.push(`${equipment}: ${(e as Error).message}`); }
+      setBusy(`Market ${++done}/${types.length}`);
       qc.invalidateQueries({ queryKey: ["bid-lanes", bidId] });
     }
     setBusy("");
+    if (!quiet) { if (errs.length) toast.error("Some market rates couldn't be found", { description: errs.slice(0, 4).join("\n") }); else toast.success("Market rates added"); }
+    return errs;
   };
 
-  const priceAll = async (overwrite: boolean, only?: BidLane[], margin = Number(bid.target_margin)) => {
+  const priceAll = async (overwrite: boolean, only?: BidLane[], margin = Number(bid.target_margin), quiet = false): Promise<string[]> => {
     const todo = only ?? lanes;
-    if (overwrite && !(await ask({ title: `Re-price ${todo.length} lanes at ${margin}%?`, points: ["Carrier cost and linehaul are recalculated from our lane history, else the market rate.", "Rates you typed by hand on these lanes are replaced."], confirmLabel: "Re-price" }))) return;
+    if (overwrite && !(await ask({ title: `Re-price ${todo.length} lanes at ${margin}%?`, points: ["Carrier cost and linehaul are recalculated from our lane history, else the market rate.", "Rates you typed by hand on these lanes are replaced."], confirmLabel: "Re-price" }))) return [];
     setBusy("Pricing…");
     const errs: string[] = [];
     for (const l of todo) { const e = await priceOne(l, bid, loads, margin, overwrite); if (e) errs.push(e); }
     setBusy("");
     refresh();
-    if (errs.length) toast.error(`${errs.length} lanes couldn't be priced`, { description: errs.slice(0, 4).join("\n") });
-    else toast.success("Lanes priced");
+    if (!quiet) { if (errs.length) toast.error(`${errs.length} lanes couldn't be priced`, { description: errs.slice(0, 4).join("\n") }); else toast.success("Lanes priced"); }
+    return errs;
   };
 
-  const buildCounters = async (overwrite: boolean, only?: BidLane[]) => {
+  const buildCounters = async (overwrite: boolean, only?: BidLane[], quiet = false): Promise<string[]> => {
     const todo = only ?? lanes;
-    if (overwrite && !(await ask({ title: `Rebuild counteroffers on ${todo.length} lanes?`, points: [`Counters run from your ${bid.target_margin}% target down to the 8% floor, using the shipper's offer${bid.offer_below_pct ? ` and their likely budget (offer ÷ ${(1 - Number(bid.offer_below_pct) / 100).toFixed(2)})` : ""}.`, "Counters and linehaul you typed on these lanes are replaced."], confirmLabel: "Rebuild" }))) return;
+    if (overwrite && !(await ask({ title: `Rebuild counteroffers on ${todo.length} lanes?`, points: [`Counters run from your ${bid.target_margin}% target down to the 8% floor, using the shipper's offer${bid.offer_below_pct ? ` and their likely budget (offer ÷ ${(1 - Number(bid.offer_below_pct) / 100).toFixed(2)})` : ""}.`, "Counters and linehaul you typed on these lanes are replaced."], confirmLabel: "Rebuild" }))) return [];
     setBusy("Building counters…");
     const errs: string[] = [];
     for (const l of todo) { const e = await saveCounters(l, bid, loads, overwrite); if (e) errs.push(e); }
     setBusy("");
     refresh();
-    if (errs.length) toast.error(`${errs.length} lanes need a carrier cost first`, { description: errs.slice(0, 4).join("\n") });
-    else toast.success("Counteroffers ready");
+    if (!quiet) { if (errs.length) toast.error(`${errs.length} lanes need a carrier cost first`, { description: errs.slice(0, 4).join("\n") }); else toast.success("Counteroffers ready"); }
+    return errs;
   };
 
   // One click: miles → market rates → counters → pricing, re-reading lanes between steps so nothing is skipped.
@@ -143,12 +157,21 @@ export function BidDetail({ bidId }: { bidId: string }) {
     const ids = new Set((only ?? lanes).map((l) => l.id));
     const fresh = async () => (await qc.fetchQuery({ ...bidLanesQuery(bidId), staleTime: 0 })).filter((l) => ids.has(l.id));
     let cur = await fresh();
-    if (cur.some((l) => !(Number(l.miles) > 0))) { await fillMiles(cur); cur = await fresh(); }
+    const problems: string[] = [];
+    if (cur.some((l) => !(Number(l.miles) > 0))) { problems.push(...await fillMiles(cur, true)); cur = await fresh(); }
     const needMarket = cur.filter((l) => l.market_spot_rpm == null && l.market_contract_rpm == null && !(Number(l.carrier_cost) > 0));
-    if (needMarket.length) { await fillMarket(needMarket); cur = await fresh(); }
-    await buildCounters(false, cur);
+    if (needMarket.length) { problems.push(...await fillMarket(needMarket, false, true)); cur = await fresh(); }
+    await buildCounters(false, cur, true);
     cur = await fresh();
-    await priceAll(false, cur);
+    await priceAll(false, cur, Number(bid.target_margin), true);
+    cur = await fresh();
+    const open = cur.filter((l) => !(Number(l.linehaul) > 0) || !counterList(l.counters).some(Boolean));
+    if (!open.length) return toast.success(`All ${cur.length} lanes priced with counteroffers`);
+    const why = [...new Set(problems)].slice(0, 3);
+    toast.warning(`${cur.length - open.length} of ${cur.length} lanes priced — ${open.length} still need something`, {
+      description: (why.length ? why : open.slice(0, 3).map((l) => `${laneLabel(l)}: ${!(Number(l.miles) > 0) ? "needs miles" : "needs a carrier cost"}`)).join("\n"),
+      duration: 12000,
+    });
   };
 
   const setEquipment = async (items: BidLane[], equipment: string) => {
