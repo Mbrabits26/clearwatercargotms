@@ -80,14 +80,12 @@ export function volumeToWeekly(v: unknown, heading = ""): number | null {
   const m = s.replace(/,/g, "").match(/\d+(\.\d+)?/);
   if (!m) return null;
   const n = Number(m[0]);
-  const unit = `${s} ${heading.toLowerCase()}`;
-  const per = (re: RegExp) => re.test(s) || (!/[a-z]/.test(s.replace(/\d|\.|\s/g, "")) && re.test(heading.toLowerCase()));
-  void unit;
+  const unit = /[a-z]/.test(s) ? s : heading.toLowerCase();
   let w: number;
-  if (per(/day|daily/)) w = n * 5;
-  else if (per(/week|wk|weekly/)) w = n;
-  else if (per(/month|mo\b|monthly/)) w = (n * 12) / 52;
-  else if (per(/quarter|qtr/)) w = (n * 4) / 52;
+  if (/day|daily/.test(unit)) w = n * 5;
+  else if (/week|wk/.test(unit)) w = n;
+  else if (/month|\bmo\b/.test(unit)) w = (n * 12) / 52;
+  else if (/quarter|qtr/.test(unit)) w = (n * 4) / 52;
   else w = n / 52;
   return Math.round(w * 100) / 100;
 }
@@ -125,11 +123,11 @@ const ALIASES: Record<BidField | OutField, string[]> = {
   equipment: ["equipment", "equip", "equipmenttype", "mode", "trailer", "trailertype", "service"],
   miles: ["miles", "distance", "mileage", "loadedmiles", "totalmiles"],
   volume: ["volume", "annualvolume", "loads", "loadsperyear", "annualloads", "frequency", "loadsperweek", "weeklyvolume", "monthlyvolume", "estvolume"],
-  pickup_date: ["pickupdate", "shipdate", "puDate".toLowerCase(), "date", "readydate"],
+  pickup_date: ["pickupdate", "shipdate", "pudate", "date", "readydate"],
   linehaul: ["linehaul", "linehaulrate", "flatrate", "baserate", "rate", "bidrate", "yourrate"],
   fsc_rpm: ["fsc", "fscpermile", "fuelpermile", "fuelsurcharge", "fuelsurchargepermile", "fscrpm"],
   fsc: ["fscamount", "fueltotal", "fscflat", "totalfuel"],
-  acc: ["accessorials", "accessorial", "otherCharges".toLowerCase(), "extras"],
+  acc: ["accessorials", "accessorial", "othercharges", "extras"],
   all_in: ["allin", "allinrate", "total", "totalrate", "totalcost", "allinrateusd"],
   rpm: ["rpm", "ratepermile", "permile", "allinrpm", "costpermile"],
 };
