@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MapPin, Camera, CheckCircle2, Truck } from "lucide-react";
+import { MapPin, Camera, CheckCircle2, Truck, ShieldCheck } from "lucide-react";
 import { getTracking, postPing, uploadTrackingDoc } from "@/lib/tracking.functions";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
