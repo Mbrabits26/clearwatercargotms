@@ -13,12 +13,14 @@ export const getMarketRates = createServerFn({ method: "POST" })
       dest_state: z.string().length(2),
       equipment: z.string().max(40),
       refresh: z.boolean().optional(),
+      /** One national lookup per trailer type (Bid Desk auto-price): avoids a search per state pair. */
+      national: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }): Promise<{ result: MarketRate | null; fetched_at: string | null; error: string | null }> => {
     const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
     if (!staff) throw new Error("Forbidden");
-    const key = `${data.equipment}|${data.origin_state.toUpperCase()}|${data.dest_state.toUpperCase()}`.toLowerCase();
+    const key = (data.national ? `${data.equipment}|national` : `${data.equipment}|${data.origin_state.toUpperCase()}|${data.dest_state.toUpperCase()}`).toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (!data.refresh) {
       const { data: hit } = await supabaseAdmin.from("market_rate_cache").select("*").eq("key", key).maybeSingle();

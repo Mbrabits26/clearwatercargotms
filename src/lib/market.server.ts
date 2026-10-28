@@ -26,26 +26,38 @@ const SCHEMA = {
   },
 };
 
-async function firecrawlSearch(query: string, key: string, aiKey: string) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function firecrawlSearch(query: string, key: string, aiKey: string, attempt = 0): Promise<{ url: string; title: string; text: string }[]> {
   const r = await fetch("https://connector-gateway.lovable.dev/firecrawl/v2/search", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiKey}`, "X-Connection-Api-Key": key },
     body: JSON.stringify({ query, limit: 4, tbs: "qdr:m", scrapeOptions: { formats: ["markdown"], onlyMainContent: true } }),
   });
+  if (r.status === 429 && attempt < 3) {
+    // Search plan allows only a few requests a minute: wait the time it asks for, then retry.
+    const body = await r.text();
+    const wait = Math.min(20, Number(/retry after (\d+)s/i.exec(body)?.[1] ?? 8) + 1);
+    await sleep(wait * 1000);
+    return firecrawlSearch(query, key, aiKey, attempt + 1);
+  }
+  if (r.status === 429) throw new Error("The market rate search is busy (too many lookups a minute). Wait a minute and run it again — lanes already filled are kept.");
   if (!r.ok) throw new Error(`Market search failed (${r.status}): ${(await r.text()).slice(0, 200)}`);
   const j = (await r.json()) as { data?: { web?: { url: string; title?: string; markdown?: string }[] } | { url: string; title?: string; markdown?: string }[] };
   const arr = Array.isArray(j.data) ? j.data : j.data?.web ?? [];
   return arr.map((x) => ({ url: x.url, title: x.title ?? x.url, text: (x.markdown ?? "").slice(0, 6000) }));
 }
 
-export async function fetchMarketRates(lane: { origin_state: string; dest_state: string; origin_city?: string; dest_city?: string; equipment: string }, fcKey: string, aiKey: string): Promise<MarketRate> {
+export async function fetchMarketRates(lane: { origin_state: string; dest_state: string; origin_city?: string; dest_city?: string; equipment: string; national?: boolean }, fcKey: string, aiKey: string): Promise<MarketRate> {
   const eq = lane.equipment;
   const queries = [
     `FreightWaves ${eq} spot rate per mile national average this week`,
     `DAT trendlines ${eq} spot and contract rate per mile`,
-    `Freightview ${eq} truckload rate report ${lane.origin_state} ${lane.dest_state}`,
+    lane.national ? `${eq} truckload contract rate per mile national average` : `Freightview ${eq} truckload rate report ${lane.origin_state} ${lane.dest_state}`,
   ];
-  const results = await Promise.allSettled(queries.map((q) => firecrawlSearch(q, fcKey, aiKey)));
+  // One at a time so a lookup doesn't burst past the search rate limit.
+  const results: PromiseSettledResult<{ url: string; title: string; text: string }[]>[] = [];
+  for (const q of queries) results.push(await firecrawlSearch(q, fcKey, aiKey).then((value) => ({ status: "fulfilled" as const, value }), (reason) => ({ status: "rejected" as const, reason })));
   const pages = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   const failed = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
   if (!pages.length && failed) throw failed.reason;
@@ -60,7 +72,7 @@ export async function fetchMarketRates(lane: { origin_state: string; dest_state:
     body: JSON.stringify({
       model: "openai/gpt-6-astra",
       instructions: `You are a freight pricing analyst. From the provided public web pages only, report the most recent truckload ${eq} rates per mile (USD, linehaul incl. fuel if that is how the source reports it).
-- spot_rpm / contract_rpm: numbers stated in the sources (national or the closest region to ${lane.origin_state}→${lane.dest_state}); null if not stated. Never invent numbers.
+- spot_rpm / contract_rpm: numbers stated in the sources (${lane.national ? "national average" : `national or the closest region to ${lane.origin_state}→${lane.dest_state}`}); null if not stated. Never invent numbers.
 - scope: e.g. "National dry van" or "Southeast outbound reefer".
 - as_of: the date the figures refer to (YYYY-MM-DD) if stated.
 - summary: 1-3 sentences on direction (rising/falling) and what drives it.
