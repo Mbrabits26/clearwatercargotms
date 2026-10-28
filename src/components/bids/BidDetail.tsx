@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowLeft, FileDown, FileUp, Globe, Handshake, MapPin, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, FileDown, FileUp, Fuel, Globe, Handshake, MapPin, Send, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMarketRates } from "@/lib/market.functions";
 import { drivingMiles } from "@/lib/places.functions";
@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { BidImport } from "./BidImport";
+import { FscPasteDialog } from "./FscPaste";
 import { AccButton } from "./AccEditor";
 import { HEALTH_TONE } from "./QuickLaneCheck";
 
@@ -47,6 +48,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
   const miles$ = useServerFn(drivingMiles);
   const [importOpen, setImportOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [fscOpen, setFscOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const sel = useSelection();
   const hist = useMemo(() => new Map(lanes.map((l) => [l.id, historyFor(loads, l)])), [lanes, loads]);
@@ -196,6 +198,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
     { value: "equipment", label: "Change equipment", hint: "Sets the trailer type on the checked lanes. Their market rates are cleared so they can be looked up for the new type.",
       param: { label: "Equipment", options: EQUIPMENT.map((e) => ({ value: e, label: e })) }, all: (items, e) => void setEquipment(items, e || "Dry Van") },
     { value: "auto", label: "Auto-price + counter", hint: "Fills miles, market rates, counteroffers and pricing on the checked lanes that are missing them.", all: (items) => void autoAll(items) },
+    { value: "fscpaste", label: "Paste FSC rates…", hint: "Opens the fuel surcharge window for the checked lanes: paste one rate, one per lane, or the shipper's fuel table with today's diesel price.", all: () => setFscOpen(true) },
     { value: "fsc", label: "Set fuel surcharge $/mi", hint: "Sets a per-mile fuel surcharge on the checked lanes (blank uses the bid default). Linehaul stays as is.", input: { label: "FSC $/mi, e.g. 0.55 (blank = bid default)", optional: true },
       each: async (l, v) => { const { error } = await supabase.from("bid_lanes").update({ fsc_per_mile: v.trim() === "" ? null : Number(v) }).eq("id", l.id); return error ? error.message : null; } },
     { value: "acc", label: "Add accessorial", hint: "Adds the same extra charge to each checked lane, e.g. “Tarp 75”.", input: { label: "Name and amount, e.g. Stop-off 100" },
@@ -281,7 +284,13 @@ export function BidDetail({ bidId }: { bidId: string }) {
           </label>
           <div className="text-xs text-muted-foreground">Due date<DatePicker value={bid.due_date ?? ""} onChange={(v) => saveBid({ due_date: v || null })} placeholder="Due" /></div>
         </div>
-        <label className="text-xs text-muted-foreground">Default fuel surcharge $/mi<Input type="number" step="0.01" defaultValue={String(bid.fsc_per_mile)} onBlur={(e) => Number(e.target.value || 0) !== fsc && saveBid({ fsc_per_mile: Number(e.target.value || 0) })} /></label>
+        <div className="text-xs text-muted-foreground">
+          <div className="flex items-center justify-between">Default fuel surcharge $/mi
+            <Hint text="Paste the current fuel surcharge — one rate, one rate per lane, or the shipper's fuel table plus today's diesel price — and put it on every lane or just the checked ones."><button type="button" className="inline-flex items-center gap-0.5 text-gold hover:underline" onClick={() => setFscOpen(true)}><Fuel className="h-3 w-3" />Paste FSC rates</button></Hint>
+          </div>
+          <Input key={String(bid.fsc_per_mile)} type="number" step="0.01" defaultValue={String(bid.fsc_per_mile)} onBlur={(e) => Number(e.target.value || 0) !== fsc && saveBid({ fsc_per_mile: Number(e.target.value || 0) })} />
+          {bid.fsc_note && <div className="mt-0.5 truncate text-[11px]" title={bid.fsc_note}>{bid.fsc_note}</div>}
+        </div>
         <label className="text-xs text-muted-foreground">Target margin %<Input type="number" defaultValue={String(bid.target_margin)} onBlur={(e) => Number(e.target.value || 0) !== Number(bid.target_margin) && saveBid({ target_margin: Number(e.target.value || 0) })} /></label>
         <label className="text-xs text-muted-foreground">Shipper's opening offer is % below budget
           <Input type="number" placeholder="Blank if unknown" key={String(bid.offer_below_pct ?? "")} defaultValue={bid.offer_below_pct == null ? "" : String(bid.offer_below_pct)}
@@ -407,6 +416,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
 
       {importOpen && <BidImport bid={bid} startPos={lanes.length} open={importOpen} onOpenChange={setImportOpen} />}
       {submitOpen && <SubmitBid bid={bid} lanes={ready} onClose={() => setSubmitOpen(false)} onQuotes={runQuotes} />}
+      {fscOpen && <FscPasteDialog bid={bid} lanes={lanes} checked={picked} onClose={() => setFscOpen(false)} />}
     </div>
   );
 }
