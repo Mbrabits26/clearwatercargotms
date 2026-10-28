@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const tokenSchema = z.object({ token: z.string().uuid() });
 
-type Admin = Awaited<ReturnType<typeof loadToken>>["supabaseAdmin"];
+type Admin = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
 
 /** Move the load to Delivered if a signed POD is on file (see podAutoDeliver.ts). Returns true when it changed. */
 async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by: string | null }, why: string) {
@@ -24,27 +24,47 @@ async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by:
 }
 
 
+/** A link stops working for good once the load is delivered (or later) with a signed POD on file. */
+export function trackingFinished(load: { status: string; pod_received: boolean | null } | null): boolean {
+  if (!load) return false;
+  return !!load.pod_received && ["delivered", "invoiced", "paid"].includes(load.status);
+}
+
+const COMPLETED = "Tracking for this load has ended — it was delivered and the signed POD is on file. This link is no longer valid.";
+
 async function loadToken(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: tk } = await supabaseAdmin.from("load_tracking_tokens").select("*").eq("token", token).maybeSingle();
   let problem: string | null = null;
+  let completed = false;
   if (!tk) problem = "This tracking link is not valid.";
-  else if (tk.status === "void") problem = "This tracking link was cancelled. Contact Clearwater Cargo for a new one.";
-  else if (new Date(tk.expires_at) < new Date()) problem = "This tracking link has expired. Contact Clearwater Cargo for a new one.";
-  return { supabaseAdmin, tk, problem };
+  else {
+    const { data: load } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).maybeSingle();
+    if (trackingFinished(load)) {
+      if (tk.status === "active") await closeLinks(supabaseAdmin, tk.load_id);
+      problem = COMPLETED; completed = true;
+    } else if (tk.status === "void") problem = "This tracking link was cancelled. Contact Clearwater Cargo for a new one.";
+    else if (new Date(tk.expires_at) < new Date()) problem = "This tracking link has expired. Contact Clearwater Cargo for a new one.";
+  }
+  return { supabaseAdmin, tk, problem, completed };
+}
+
+/** Permanently end every open tracking link on a load. */
+async function closeLinks(admin: Admin, loadId: string) {
+  await admin.from("load_tracking_tokens").update({ status: "void" }).eq("load_id", loadId).eq("status", "active");
 }
 
 export const getTracking = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => tokenSchema.parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin, tk, problem } = await loadToken(data.token);
-    if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
+    const { supabaseAdmin, tk, problem, completed } = await loadToken(data.token);
+    if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link", completed };
     const { data: load } = await supabaseAdmin
       .from("loads")
       .select("id, load_number, status, origin_city, origin_state, dest_city, dest_state, pickup_at, delivery_at, commodity, equipment")
       .eq("id", tk.load_id)
       .single();
-    if (!load) return { ok: false as const, problem: "Load not found." };
+    if (!load) return { ok: false as const, problem: "Load not found.", completed: false };
     return { ok: true as const, load, driverName: tk.driver_name };
   });
 
@@ -61,6 +81,7 @@ export const postPing = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, tk, problem } = await loadToken(data.token);
     if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
+    if (data.lat == null || data.lng == null) return { ok: false as const, problem: "Location is required. Turn on Location for this page, then try again." };
     const { reverseGeocode } = await import("./geocode.server");
     const place = data.lat != null && data.lng != null ? await reverseGeocode(data.lat, data.lng) : null;
     const { data: ping, error } = await supabaseAdmin.from("load_tracking_pings").insert({
@@ -98,6 +119,7 @@ export const postPing = createServerFn({ method: "POST" })
         note: data.note, place, key: ping?.id ?? crypto.randomUUID(),
       });
     }
+    if (delivered) await closeLinks(supabaseAdmin, tk.load_id);
     return { ok: true as const, delivered, needsPod };
   });
 
@@ -132,6 +154,11 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}${delivered ? " — load marked Delivered" : ""}`,
       key: path,
     });
+    if (delivered) await closeLinks(supabaseAdmin, tk.load_id);
+    else if (data.kind === "pod") {
+      const { data: l } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).single();
+      if (trackingFinished(l)) await closeLinks(supabaseAdmin, tk.load_id);
+    }
     return { ok: true as const, delivered };
   });
 

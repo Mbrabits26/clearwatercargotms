@@ -42,6 +42,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
   const [postText, setPostText] = useState("");
   const [tableText, setTableText] = useState("");
   const [by, setBy] = useState<"region" | "equipment" | "one">("region");
+  const [side, setSide] = useState<"pickup" | "delivery">("pickup");
   const [oneIdx, setOneIdx] = useState(0);
   const [convert, setConvert] = useState<"table" | "formula">(saved.length ? "table" : "formula");
   const [price, setPrice] = useState("");
@@ -79,7 +80,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
       const groups = new Map<string, { label: string; rpm: number; n: number }>();
       const skipped: BidLane[] = [];
       for (const l of todo) {
-        const e = how === "one" ? post.entries[Math.min(oneIdx, post.entries.length - 1)]! : entryForLane(post.entries, l, how);
+        const e = how === "one" ? post.entries[Math.min(oneIdx, post.entries.length - 1)]! : entryForLane(post.entries, l, how, side);
         if (!e) { rates.push(null); skipped.push(l); continue; }
         const r = toRpm(e.value);
         rates.push(r);
@@ -107,7 +108,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
     if (!(p > 0)) return { info: `Fuel table read: ${rows.length} rows. Type the current diesel price.`, error: "" };
     const f = fscForPrice(rows, p);
     return { rpm: f.rpm, info: `${f.note} → $${f.rpm.toFixed(3)}/mi` };
-  }, [mode, pastedPost, post, by, hasEquip, hasRegion, convert, tableRows, base, mpg, todo, oneIdx, p, text, saved]);
+  }, [mode, pastedPost, post, by, side, hasEquip, hasRegion, convert, tableRows, base, mpg, todo, oneIdx, p, text, saved]);
 
   const pasteRows = mode === "paste" ? (() => { const x = parseFscPaste(text); return x.kind === "schedule" ? x.rows : x.kind === "empty" ? saved : []; })() : [];
   const canApply = !busy && todo.length > 0 && !result.error && (result.rpm != null || !!result.rates);
@@ -176,7 +177,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
 
   const weekLabel = post?.weekOf ? `week of ${fmtWeek(post.weekOf)}` : lastPost && post === savedPost ? `posted ${new Date(lastPost.created_at).toLocaleDateString()}` : "";
   const defaultNote = mode === "weekly" && post
-    ? `Fuel post ${weekLabel}${by === "region" && hasRegion ? " · by pickup region" : by === "equipment" && hasEquip ? " · by trailer type" : ""}${post.kind === "diesel" ? (convert === "table" && tableRows.length ? " · shipper fuel table" : ` · (diesel − $${base}) ÷ ${mpg} MPG`) : ""}`
+    ? `Fuel post ${weekLabel}${by === "region" && hasRegion ? ` · by ${side} region` : by === "equipment" && hasEquip ? " · by trailer type" : ""}${post.kind === "diesel" ? (convert === "table" && tableRows.length ? " · shipper fuel table" : ` · (diesel − $${base}) ÷ ${mpg} MPG`) : ""}`
     : `e.g. DOE $${price || "3.729"} week of ${new Date().toLocaleDateString()}`;
 
   return (
@@ -222,13 +223,23 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
                   {weekLabel && <div className="text-[11px] text-muted-foreground">Read as {post.kind === "diesel" ? "diesel prices" : "fuel surcharge $/mi"}, {weekLabel}.</div>}
                   <div className="text-xs text-muted-foreground">Match each lane
                     <div className="mt-1 flex flex-wrap gap-3">
-                      <label className={cn("flex items-center gap-1.5 text-foreground", !hasRegion && "opacity-50")}><input type="radio" disabled={!hasRegion} checked={by === "region" && hasRegion} onChange={() => setBy("region")} />By pickup region</label>
+                      <label className={cn("flex items-center gap-1.5 text-foreground", !hasRegion && "opacity-50")}><input type="radio" disabled={!hasRegion} checked={by === "region" && hasRegion} onChange={() => setBy("region")} />By region</label>
                       <label className={cn("flex items-center gap-1.5 text-foreground", !hasEquip && "opacity-50")}><input type="radio" disabled={!hasEquip} checked={by === "equipment" && hasEquip} onChange={() => setBy("equipment")} />By trailer type</label>
                       <label className="flex items-center gap-1.5 text-foreground"><input type="radio" checked={by === "one" || (by === "region" && !hasRegion) || (by === "equipment" && !hasEquip)} onChange={() => setBy("one")} />One line for all:
                         <select value={oneIdx} onChange={(e) => { setOneIdx(Number(e.target.value)); setBy("one"); }} className="h-7 rounded border bg-background px-1 text-xs">{post.entries.map((e, i) => <option key={i} value={i}>{e.label}</option>)}</select>
                       </label>
                     </div>
-                    {by === "region" && hasRegion && <p className="mt-1 text-[11px]">Uses the lane's pickup state (delivery state if there's no pickup state). If its region isn't posted, the broader region is used (e.g. East Coast), then the U.S. average.</p>}
+                    {by === "region" && hasRegion && (
+                      <div className="mt-2 inline-flex rounded-md border p-0.5" role="group" aria-label="Region side">
+                        {(["pickup", "delivery"] as const).map((s) => (
+                          <button key={s} type="button" onClick={() => setSide(s)}
+                            className={cn("rounded px-3 py-1 text-xs font-medium", side === s ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")}>
+                            {s === "pickup" ? "Pickup region" : "Delivery region"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {by === "region" && hasRegion && <p className="mt-1 text-[11px]">Uses the lane's {side} state ({side === "pickup" ? "delivery" : "pickup"} state if it's missing). If its region isn't posted, the broader region is used (e.g. East Coast), then the U.S. average.</p>}
                   </div>
                   {post.kind === "diesel" && (
                     <div className="rounded border p-2 text-xs text-muted-foreground">Turn diesel $/gal into $/mi with
