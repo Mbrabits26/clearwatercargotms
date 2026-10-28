@@ -95,21 +95,7 @@ export async function uploadBidFile(bidId: string, file: File): Promise<string |
   return error ? null : path;
 }
 
-const STATE_NAMES: Record<string, string> = {
-  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "Washington DC", FL: "Florida", GA: "Georgia",
-  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts",
-  MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico",
-  NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
-  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
-};
-
-/** Address text for a miles lookup. A state-only stop ("AL") becomes "Alabama, USA" so it routes to the state's middle. */
-export const placeText = (city: string | null, state: string | null, zip: string | null) => {
-  if (zip) return `${zip}`;
-  const st = (state ?? "").trim().toUpperCase();
-  if (!city?.trim() && STATE_NAMES[st]) return `${STATE_NAMES[st]}, USA`;
-  return [city, state].filter(Boolean).join(", ");
-};
+export { placeText } from "@/lib/bidDesk";
 
 /** Lane history (our own loads, company-wide) used for pricing. */
 export function historyFor(loads: Load[], l: Pick<BidLane, "origin_city" | "origin_state" | "dest_city" | "dest_state" | "equipment" | "miles">) {

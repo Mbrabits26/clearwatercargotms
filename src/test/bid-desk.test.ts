@@ -135,3 +135,16 @@ describe("counteroffer ladder", () => {
     expect(sheetWrites([table], [{ source_table: "k", source_row: 3, miles: 50, offer_flat: 405, counters: [9.5] }], 0)).toEqual([{ path: null, sheet: "S", r: 3, c: 8, v: 475 }]);
   });
 });
+
+describe("placeText (miles lookup address)", () => {
+  it("turns a state-only stop into the full state name so it can be routed", async () => {
+    const { placeText } = await import("@/lib/bidDesk");
+    expect(placeText("", "AL", null)).toBe("Alabama, USA");
+    expect(placeText(null, "nc", null)).toBe("North Carolina, USA");
+  });
+  it("keeps city + state and prefers the zip", async () => {
+    const { placeText } = await import("@/lib/bidDesk");
+    expect(placeText("Lexington", "NC", null)).toBe("Lexington, NC");
+    expect(placeText("Lexington", "NC", "27292")).toBe("27292");
+  });
+});
