@@ -301,7 +301,7 @@ function Cell({ value, onSave, placeholder, w = "w-20", step }: { value: number 
   );
 }
 
-function SubmitBid({ bid, lanes, onClose, onQuotes }: { bid: Bid; lanes: BidLane[]; onClose: () => void; onQuotes: () => Promise<void> }) {
+function SubmitBid({ bid, lanes, onClose, onQuotes }: { bid: Bid; lanes: BidLane[]; onClose: () => void; onQuotes: () => Promise<unknown> }) {
   const qc = useQueryClient();
   const headers = Array.isArray(bid.source_headers) ? (bid.source_headers as string[]) : [];
   const [outMap, setOutMap] = useState<Partial<Record<OutField, string>>>(() => {
