@@ -39,23 +39,20 @@ async function loadToken(token: string) {
   let problem: string | null = null;
   let completed = false;
   if (!tk) problem = "This tracking link is not valid.";
-  else if (tk.status === "completed") { problem = COMPLETED; completed = true; }
-  else if (tk.status === "void") problem = "This tracking link was cancelled. Contact Clearwater Cargo for a new one.";
-  else if (new Date(tk.expires_at) < new Date()) problem = "This tracking link has expired. Contact Clearwater Cargo for a new one.";
   else {
     const { data: load } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).maybeSingle();
     if (trackingFinished(load)) {
-      await closeLinks(supabaseAdmin, tk.load_id);
+      if (tk.status === "active") await closeLinks(supabaseAdmin, tk.load_id);
       problem = COMPLETED; completed = true;
-    }
+    } else if (tk.status === "void") problem = "This tracking link was cancelled. Contact Clearwater Cargo for a new one.";
+    else if (new Date(tk.expires_at) < new Date()) problem = "This tracking link has expired. Contact Clearwater Cargo for a new one.";
   }
   return { supabaseAdmin, tk, problem, completed };
 }
 
 /** Permanently end every open tracking link on a load. */
 async function closeLinks(admin: Admin, loadId: string) {
-  const { error } = await admin.from("load_tracking_tokens").update({ status: "completed" }).eq("load_id", loadId).eq("status", "active");
-  if (error) await admin.from("load_tracking_tokens").update({ status: "void" }).eq("load_id", loadId).eq("status", "active");
+  await admin.from("load_tracking_tokens").update({ status: "void" }).eq("load_id", loadId).eq("status", "active");
 }
 
 export const getTracking = createServerFn({ method: "GET" })
