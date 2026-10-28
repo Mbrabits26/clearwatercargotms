@@ -4,6 +4,26 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const tokenSchema = z.object({ token: z.string().uuid() });
 
+type Admin = Awaited<ReturnType<typeof loadToken>>["supabaseAdmin"];
+
+/** Move the load to Delivered if a signed POD is on file (see podAutoDeliver.ts). Returns true when it changed. */
+async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by: string | null }, why: string) {
+  const { shouldAutoDeliver } = await import("./podAutoDeliver");
+  const { data: load } = await admin.from("loads")
+    .select("status, pod_received, customer_id, carrier_id, truck_id, closed_at").eq("id", tk.load_id).single();
+  if (!load || !shouldAutoDeliver(load)) return false;
+  const { data: upd, error } = await admin.from("loads").update({ status: "delivered" })
+    .eq("id", tk.load_id).eq("status", load.status).select("id");
+  if (error || !upd?.length) { if (error) console.error(error); return false; }
+  await admin.from("load_notes").insert({
+    load_id: tk.load_id,
+    author_id: tk.created_by ?? undefined,
+    body: `Status changed: ${load.status} → delivered (automatic — signed POD on file, ${why} via driver link)`,
+  });
+  return true;
+}
+
+
 async function loadToken(token: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: tk } = await supabaseAdmin.from("load_tracking_tokens").select("*").eq("token", token).maybeSingle();
