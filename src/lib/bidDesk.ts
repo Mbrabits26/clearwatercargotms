@@ -224,7 +224,7 @@ const CONTAINS: Partial<Record<BidField | OutField, string[]>> = {
   band: ["band"],
   final: ["final", "agreed", "awarded"],
 };
-const NO_CONTAINS = new Set(["state", "rate", "date", "total", "loads", "dest", "from"]);
+const NO_CONTAINS = new Set(["state", "from", "rate"]);
 const OUT_ONLY = /counter|final|agreed|awarded|clearwater|yourrate|round\d/;
 const IN_ONLY = /negotiat|start|opening|budget|target|shipper|offercpm/;
 
@@ -240,7 +240,6 @@ export function guessMapping(headers: string[]): Partial<Record<BidField | OutFi
     if (isIn && OUT_ONLY.test(n)) return false;
     if (!isIn && IN_ONLY.test(n) && !/counter/.test(n)) return false;
     if (k === "miles" && /band|range/.test(n)) return false;
-    if ((COUNTER_FIELDS as string[]).includes(k) || k === "final") return true;
     return true;
   };
   for (const pass of ["exact", "contains"] as const) {
@@ -256,7 +255,6 @@ export function guessMapping(headers: string[]): Partial<Record<BidField | OutFi
       if (hit) { out[k] = hit; used.add(hit); }
     }
   }
-  // "Rate" exactly is our linehaul unless it's the shipper's opening number.
   // Separate city/state columns beat a combined one.
   if (out.origin && out.origin_city && out.origin_state) delete out.origin;
   if (out.dest && out.dest_city && out.dest_state) delete out.dest;
