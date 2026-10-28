@@ -129,7 +129,7 @@ function QuoteBuilder() {
   const email = async (q: Quote) => {
     (await buildQuotePdf(q, logo.url)).save(`Quote-${q.quote_number}.pdf`);
     composeEmail(q.customer_email ?? "", `Clearwater Cargo quote ${q.quote_number}: ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state}`,
-      `Hello,\n\nThank you for the opportunity. Our ${q.kind} rate for ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state} (${q.equipment}) is ${usd(Number(q.rate))} all-in.\n\nThe quote PDF is attached (downloaded to your computer — please attach it). Valid for 24 hours.\n\nClearwater Cargo LLC · 252-497-7916`);
+      `Hello,\n\nThank you for the opportunity. Our ${q.kind} rate for ${q.origin_city}, ${q.origin_state} → ${q.dest_city}, ${q.dest_state} (${q.equipment}) is ${usd(Number(q.rate))} all-in.\n\nAccept or decline online in one click:\n${window.location.origin}/quote/${q.accept_token}\n\nThe quote PDF is attached (downloaded to your computer — please attach it). Valid for 24 hours.\n\nClearwater Cargo LLC · 252-497-7916`);
     if (q.status === "draft") setStatus(q, "sent");
   };
 
