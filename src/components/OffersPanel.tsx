@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Mail, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usd, type Carrier, type Load } from "@/lib/tms";
+import { buyBox } from "@/lib/buyBox";
 import { composeEmail } from "@/lib/email";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,19 @@ export function OffersPanel({ load, carriers }: { load: Load; carriers: Carrier[
     qc.invalidateQueries({ queryKey: ["loads"] });
   };
 
+  const offeredIds = new Set(offers.map((o) => o.carrier_id));
+  const nextTier = suggestions.filter((x) => !offeredIds.has(x.c.id) && x.c.email).slice(0, 5);
+  const waterfall = () => {
+    if (!nextTier.length) return toast.error("No more matched carriers with email to offer.");
+    setPicked(new Set(nextTier.map((x) => x.c.id)));
+    toast.info(`Checked the next ${nextTier.length} best-matched carriers. Review, then click Offer.`);
+  };
+  const bidOf = (o: (typeof offers)[number]) => Number(o.counter_rate ?? o.offered_rate);
+  const bids = [...offers].sort((a, b) => {
+    const live = (o: typeof a) => (o.status === "accepted" || o.status === "countered" ? 0 : o.status === "sent" ? 1 : 2);
+    return live(a) - live(b) || bidOf(a) - bidOf(b);
+  });
+  const bestId = bids.find((o) => o.status === "accepted" || o.status === "countered")?.id;
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   return (
@@ -99,6 +113,7 @@ export function OffersPanel({ load, carriers }: { load: Load; carriers: Carrier[
           <option value="dispatch">Send from: dispatch@ (needs setup)</option>
         </select>
         <Button size="sm" onClick={send} disabled={!picked.size}><Send className="mr-1 h-3.5 w-3.5" />Offer to {picked.size || ""} carrier{picked.size === 1 ? "" : "s"}</Button>
+        <Button size="sm" variant="outline" onClick={waterfall} title="Waterfall: checks the next 5 best-matched carriers that haven't been offered this load yet.">Next tier ({nextTier.length})</Button>
       </div>
       <div className="max-h-48 overflow-auto rounded border">
         {suggestions.length === 0 && <div className="p-2 text-muted-foreground">No vetted carriers yet.</div>}
@@ -115,15 +130,18 @@ export function OffersPanel({ load, carriers }: { load: Load; carriers: Carrier[
       </div>
       {offers.length > 0 && (
         <div className="space-y-1">
-          <div className="text-xs uppercase text-muted-foreground">Responses</div>
-          {offers.map((o) => {
+          <div className="text-xs uppercase text-muted-foreground">Bid board · lowest live bid first</div>
+          {bids.map((o) => {
+            const bb = buyBox(Number(load.customer_rate), bidOf(o), Number(load.miles ?? 0));
+            const mcls = bb.health === "healthy" ? "text-success" : bb.health === "moderate" ? "text-warning" : bb.health === "low" ? "text-destructive" : "text-muted-foreground";
             const c = carriers.find((x) => x.id === o.carrier_id);
             const cls = o.status === "accepted" ? "text-success" : o.status === "rejected" ? "text-destructive" : o.status === "countered" ? "text-gold" : "text-muted-foreground";
             return (
-              <div key={o.id} className="flex items-center gap-2 rounded border px-2 py-1">
+              <div key={o.id} className={`flex items-center gap-2 rounded border px-2 py-1 ${o.id === bestId ? "border-gold" : ""}`}>
                 <div className="flex-1">
                   <div className="truncate">{c?.legal_name} · {usd(Number(o.offered_rate))}</div>
                   <div className={`text-xs capitalize ${cls}`}>{o.status}{o.counter_rate ? ` @ ${usd(Number(o.counter_rate))}` : ""}{o.note ? ` — "${o.note}"` : ""}</div>
+                  {Number(load.customer_rate) > 0 && <div className={`text-[11px] ${mcls}`}>{o.id === bestId ? "★ Best bid · " : ""}Margin {usd(bb.margin)} ({bb.pct.toFixed(1)}%){bb.carrRpm ? ` · $${bb.carrRpm.toFixed(2)}/mi` : ""}</div>}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => emailOne(o)} aria-label="Email"><Mail className="h-3.5 w-3.5" /></Button>
                 {(o.status === "accepted" || o.status === "countered") && load.carrier_id !== o.carrier_id && (

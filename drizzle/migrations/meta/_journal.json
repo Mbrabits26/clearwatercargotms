@@ -330,6 +330,13 @@
       "when": 1793102216381,
       "tag": "0046_customer_default_bill_through",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793190861646,
+      "tag": "0047_quote_accept_token",
+      "breakpoints": true
     }
   ]
 }
