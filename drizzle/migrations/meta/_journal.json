@@ -351,6 +351,13 @@
       "when": 1793195688055,
       "tag": "0049_bid_desk",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793198520891,
+      "tag": "0050_bid_counteroffers_and_files",
+      "breakpoints": true
     }
   ]
 }

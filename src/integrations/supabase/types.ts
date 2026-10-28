@@ -77,8 +77,10 @@ export type Database = {
       bid_lanes: {
         Row: {
           accessorials: Json
+          agreed_rpm: number | null
           bid_id: string
           carrier_cost: number | null
+          counters: Json
           created_at: string
           dest_city: string
           dest_state: string
@@ -96,8 +98,11 @@ export type Database = {
           market_contract_rpm: number | null
           market_note: string | null
           market_spot_rpm: number | null
+          mileage_band: string | null
           miles: number | null
           notes: string | null
+          offer_flat: number | null
+          offer_rpm: number | null
           origin_city: string
           origin_state: string
           origin_zip: string | null
@@ -105,13 +110,17 @@ export type Database = {
           pickup_date: string | null
           position: number
           quote_id: string | null
+          source_row: number | null
+          source_table: string | null
           status: string
           volume: string | null
         }
         Insert: {
           accessorials?: Json
+          agreed_rpm?: number | null
           bid_id: string
           carrier_cost?: number | null
+          counters?: Json
           created_at?: string
           dest_city?: string
           dest_state?: string
@@ -129,8 +138,11 @@ export type Database = {
           market_contract_rpm?: number | null
           market_note?: string | null
           market_spot_rpm?: number | null
+          mileage_band?: string | null
           miles?: number | null
           notes?: string | null
+          offer_flat?: number | null
+          offer_rpm?: number | null
           origin_city?: string
           origin_state?: string
           origin_zip?: string | null
@@ -138,13 +150,17 @@ export type Database = {
           pickup_date?: string | null
           position?: number
           quote_id?: string | null
+          source_row?: number | null
+          source_table?: string | null
           status?: string
           volume?: string | null
         }
         Update: {
           accessorials?: Json
+          agreed_rpm?: number | null
           bid_id?: string
           carrier_cost?: number | null
+          counters?: Json
           created_at?: string
           dest_city?: string
           dest_state?: string
@@ -162,8 +178,11 @@ export type Database = {
           market_contract_rpm?: number | null
           market_note?: string | null
           market_spot_rpm?: number | null
+          mileage_band?: string | null
           miles?: number | null
           notes?: string | null
+          offer_flat?: number | null
+          offer_rpm?: number | null
           origin_city?: string
           origin_state?: string
           origin_zip?: string | null
@@ -171,6 +190,8 @@ export type Database = {
           pickup_date?: string | null
           position?: number
           quote_id?: string | null
+          source_row?: number | null
+          source_table?: string | null
           status?: string
           volume?: string | null
         }
@@ -212,8 +233,12 @@ export type Database = {
           kind: string
           name: string
           notes: string | null
+          offer_below_pct: number | null
+          sheet_notes: string | null
           source_file: string | null
           source_headers: Json
+          source_path: string | null
+          source_tables: Json
           status: string
           submitted_at: string | null
           target_margin: number
@@ -231,8 +256,12 @@ export type Database = {
           kind?: string
           name: string
           notes?: string | null
+          offer_below_pct?: number | null
+          sheet_notes?: string | null
           source_file?: string | null
           source_headers?: Json
+          source_path?: string | null
+          source_tables?: Json
           status?: string
           submitted_at?: string | null
           target_margin?: number
@@ -250,8 +279,12 @@ export type Database = {
           kind?: string
           name?: string
           notes?: string | null
+          offer_below_pct?: number | null
+          sheet_notes?: string | null
           source_file?: string | null
           source_headers?: Json
+          source_path?: string | null
+          source_tables?: Json
           status?: string
           submitted_at?: string | null
           target_margin?: number
