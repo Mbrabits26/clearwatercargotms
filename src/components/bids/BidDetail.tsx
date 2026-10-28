@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMarketRates } from "@/lib/market.functions";
 import { drivingMiles } from "@/lib/places.functions";
 import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
-import { usd } from "@/lib/tms";
+import { EQUIPMENT, usd } from "@/lib/tms";
 import { accList, counterList, estimateCarrierCost, guessMapping, laneTotals, offerRpm, OUT_FIELDS, rpmMargin, type BidKind, type Ladder, type OutField, type SheetTable } from "@/lib/bidDesk";
 import { bidFiles, bidLanesQuery, bidQuery, bidTables, downloadBlob, historyFor, ladderFor, laneLabel, laneToLoad, laneToQuote, myName, noticeLowLanes, placeText, priceOne, refreshBidStatus, saveCounters, type Bid, type BidLane } from "@/lib/bids";
 import { composeEmailWithFiles } from "@/lib/email";
@@ -169,7 +169,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
       each: async (l, r) => { const e = await setStatus(l, "lost", r); await after(); return e; } },
     { value: "pending", label: "Back to pending", hint: "Clears the won/lost result on the checked lanes.", each: async (l) => { const e = await setStatus(l, "pending"); await after(); return e; } },
     { value: "equipment", label: "Change equipment", hint: "Sets the trailer type on the checked lanes. Their market rates are cleared so they can be looked up for the new type.",
-      param: { label: "Equipment", options: EQUIPMENT.map((e) => ({ value: e, label: e })) }, all: (items, e) => void setEquipment(items, e ?? "Dry Van") },
+      param: { label: "Equipment", options: EQUIPMENT.map((e) => ({ value: e, label: e })) }, all: (items, e) => void setEquipment(items, e || "Dry Van") },
     { value: "auto", label: "Auto-price + counter", hint: "Fills miles, market rates, counteroffers and pricing on the checked lanes that are missing them.", all: (items) => void autoAll(items) },
     { value: "fsc", label: "Set fuel surcharge $/mi", hint: "Sets a per-mile fuel surcharge on the checked lanes (blank uses the bid default). Linehaul stays as is.", input: { label: "FSC $/mi, e.g. 0.55 (blank = bid default)", optional: true },
       each: async (l, v) => { const { error } = await supabase.from("bid_lanes").update({ fsc_per_mile: v.trim() === "" ? null : Number(v) }).eq("id", l.id); return error ? error.message : null; } },
@@ -277,6 +277,12 @@ export function BidDetail({ bidId }: { bidId: string }) {
         <Hint text="Checks public freight-market rate pages (AI web search) once per equipment + state pair. Results are saved for 24 hours."><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => fillMarket()}><Globe className="mr-1 h-4 w-4" />Get market rates</Button></Hint>
         <Hint text={`Fills carrier cost and linehaul at ${bid.target_margin}% on lanes that aren't priced yet. Uses our own lane history first, then the ${bid.kind} market rate.`}><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => priceAll(false)}><Sparkles className="mr-1 h-4 w-4" />Price open lanes</Button></Hint>
         <Hint text={`Builds counter 1, counter 2 and a walk-away $/mi on lanes that don't have counters yet: from your ${bid.target_margin}% target down to the 8% floor, against the shipper's offer. Lanes with miles also get priced at counter 1.`}><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => buildCounters(false)}><Handshake className="mr-1 h-4 w-4" />Build counteroffers</Button></Hint>
+        <Hint text="Does it all for every lane: looks up missing miles, market rates for each lane's trailer type, then builds counteroffers and prices open lanes. Lanes you already typed are kept."><Button size="sm" disabled={!!busy || !lanes.length} onClick={() => autoAll()}><Sparkles className="mr-1 h-4 w-4" />Auto-price all lanes</Button></Hint>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">Equipment (all lanes)
+          <select value="" onChange={(e) => e.target.value && setEquipment(lanes, e.target.value)} disabled={!lanes.length || !!busy} className="h-8 rounded border bg-background px-1 text-sm text-foreground">
+            <option value="">Change…</option>{EQUIPMENT.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </label>
         <Hint text="Downloads the customer's own workbook with our counteroffers and rates filled into their cells (all sheets kept). Nothing changes here."><Button size="sm" variant="outline" disabled={!lanes.length || !!busy} onClick={download}><FileDown className="mr-1 h-4 w-4" />Download bid sheet</Button></Hint>
         <Hint text="Saves each priced lane as a quote on the Quotes page."><Button size="sm" variant="outline" disabled={!!busy || !priced.length} onClick={runQuotes}>Save as quotes</Button></Hint>
         <Button size="sm" disabled={!ready.length} onClick={() => setSubmitOpen(true)}><Send className="mr-1 h-4 w-4" />Submit bid</Button>
@@ -325,7 +331,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
                     <td className="p-2"><Checkbox checked={sel.has(l.id)} onCheckedChange={(v) => sel.toggle(l.id, v === true)} aria-label="Select lane" /></td>
                     <td className="p-2">
                       <div className="font-medium">{laneLabel(l)}</div>
-                      <div className="text-xs text-muted-foreground">{l.equipment}{l.mileage_band ? ` · band ${l.mileage_band}` : ""}{l.volume ? ` · vol ${l.volume}` : ""}{l.pickup_date ? ` · PU ${l.pickup_date}` : ""}{l.quote_id ? " · quoted" : ""}{l.load_id ? " · load made" : ""}</div>
+                      <div className="text-xs text-muted-foreground"><select value={EQUIPMENT.includes(l.equipment) ? l.equipment : ""} onChange={(e) => setEquipment([l], e.target.value)} className="mr-1 h-6 rounded border bg-background px-1 text-xs text-foreground">{!EQUIPMENT.includes(l.equipment) && <option value="">{l.equipment}</option>}{EQUIPMENT.map((x) => <option key={x} value={x}>{x}</option>)}</select>{l.mileage_band ? ` · band ${l.mileage_band}` : ""}{l.volume ? ` · vol ${l.volume}` : ""}{l.pickup_date ? ` · PU ${l.pickup_date}` : ""}{l.quote_id ? " · quoted" : ""}{l.load_id ? " · load made" : ""}</div>
                     </td>
                     <td className="p-2"><Cell value={l.miles} onSave={(v) => patchLane(l.id, { miles: v })} w="w-16" /></td>
                     {kind === "contract" && <td className="p-2"><Cell value={l.loads_per_week} onSave={(v) => patchLane(l.id, { loads_per_week: v })} w="w-14" step="0.1" /></td>}
