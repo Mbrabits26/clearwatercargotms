@@ -162,10 +162,11 @@ export function parseFuelPosting(text: string): FuelPosting | { error: string } 
   return { kind: diesel ? "diesel" : "fsc", entries, weekOf: newest ? iso(newest) : null };
 }
 
-/** The posted entry for one lane: by its pickup region (falling back to the broader region, then U.S.), or by trailer type. */
-export function entryForLane(entries: FuelEntry[], lane: { origin_state?: string | null; dest_state?: string | null; equipment?: string | null }, by: "region" | "equipment"): FuelEntry | null {
+/** The posted entry for one lane: by its pickup (or delivery) region (falling back to the broader region, then U.S.), or by trailer type. */
+export function entryForLane(entries: FuelEntry[], lane: { origin_state?: string | null; dest_state?: string | null; equipment?: string | null }, by: "region" | "equipment", side: "pickup" | "delivery" = "pickup"): FuelEntry | null {
   if (by === "equipment") return entries.find((e) => e.equipment && e.equipment === (lane.equipment || "Dry Van")) ?? null;
-  const state = STATE_REGION[(lane.origin_state ?? "").trim().toUpperCase()] ? lane.origin_state : lane.dest_state;
+  const [first, second] = side === "delivery" ? [lane.dest_state, lane.origin_state] : [lane.origin_state, lane.dest_state];
+  const state = STATE_REGION[(first ?? "").trim().toUpperCase()] ? first : second;
   for (const k of regionChain(state)) { const e = entries.find((x) => x.region === k); if (e) return e; }
   return null;
 }
