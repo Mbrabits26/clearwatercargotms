@@ -359,6 +359,8 @@ export function defaultFieldMap(headers: string[], origin: string | null): Field
   const g = guessMapping(headers);
   const m: FieldMap = Object.fromEntries((Object.keys(BID_FIELDS) as BidField[]).filter((k) => g[k]).map((k) => [k, g[k]!]));
   if (origin && !m.origin && !m.origin_city && !m.origin_state) m.origin = { fixed: origin };
+  // No equipment column: show a typed value the user can change before importing.
+  if (!m.equipment) m.equipment = { fixed: "Dry Van" };
   return m;
 }
 
