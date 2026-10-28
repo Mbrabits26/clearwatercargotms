@@ -73,6 +73,7 @@ const put = (k: RegionKey, s: string) => s.split(" ").forEach((st) => (STATE_REG
 put("ne", "CT ME MA NH RI VT"); put("catl", "DE DC MD NJ NY PA"); put("latl", "FL GA NC SC VA WV");
 put("mw", "IL IN IA KS KY MI MN MO NE ND SD OH OK TN WI"); put("gulf", "AL AR LA MS NM TX");
 put("rocky", "CO ID MT UT WY"); put("wxca", "AK AZ HI NV OR WA"); put("ca", "CA");
+const PADD: Record<string, RegionKey> = { "1": "east", "1A": "ne", "1B": "catl", "1C": "latl", "2": "mw", "3": "gulf", "4": "rocky", "5": "west" };
 const PARENT: Partial<Record<RegionKey, RegionKey>> = { ne: "east", catl: "east", latl: "east", wxca: "west", ca: "west" };
 
 /** Most specific region first, then its parent, then the U.S. average. */
@@ -132,17 +133,19 @@ const isDiesel = (n: number) => n >= 1.5 && n <= 9;
 export function parseFuelPosting(text: string): FuelPosting | { error: string } {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   let headerDates: Date[] = [];
-  const rows: { label: string; nums: number[] }[] = [];
+  const rows: { label: string; region: RegionKey | null; nums: number[] }[] = [];
   for (const line of lines) {
     const ds = datesIn(line);
-    const clean = line.replace(DATE_RE, " ").replace(/\(?\bPADD\s*\d[A-C]?\)?/gi, " ").replace(/[$,]/g, "");
+    let padd: RegionKey | null = null;
+    const clean = line.replace(DATE_RE, " ")
+      .replace(/\(?\bPADD\s*(\d)\s*([A-C]?)\)?/gi, (_m, d: string, l: string) => { padd = PADD[`${d}${l.toUpperCase()}`] ?? padd; return " "; })
+      .replace(/[$,]/g, "");
     const firstNum = clean.search(/\d|\.\d/);
-    const label = (firstNum < 0 ? clean : clean.slice(0, firstNum)).replace(/[\s:.\-–=()]+$/g, "").trim();
+    const label = (firstNum < 0 ? clean : clean.slice(0, firstNum)).replace(/[\s:\-–=()]+$/g, "").replace(/\s+/g, " ").trim();
     const nums = firstNum < 0 ? [] : (clean.slice(firstNum).match(/\d+(?:\.\d+)?|\.\d+/g) ?? []).map(Number);
-    if (ds.length >= 2 && !nums.length) { headerDates = ds; continue; }
-    if (ds.length && !headerDates.length && !nums.length) headerDates = ds;
-    if (!/[a-z]/i.test(label) || !nums.length) continue;
-    rows.push({ label: firstNum < 0 ? line : line.slice(0, line.replace(/[$,]/g, "").search(/\d|\.\d/) >= 0 ? undefined : undefined) && label, nums });
+    if (ds.length && !nums.length) { if (ds.length >= headerDates.length) headerDates = ds; continue; }
+    if (!nums.length || (!/[a-z]/i.test(label) && !padd)) continue;
+    rows.push({ label: label || REGION_NAMES[padd!], region: regionOfLabel(label) ?? padd, nums });
   }
   if (!rows.length) return { error: "Couldn't find any regions or options with a number next to them." };
   const diesel = rows.filter((r) => r.nums.some(isDiesel)).length >= Math.ceil(rows.length / 2);
@@ -152,7 +155,7 @@ export function parseFuelPosting(text: string): FuelPosting | { error: string } 
     const pool = diesel ? r.nums.filter(isDiesel) : r.nums.filter((n) => n < 1.5);
     if (!pool.length) continue;
     const value = diesel ? (newestFirst ? pool[0]! : pool[pool.length - 1]!) : pool[0]!;
-    entries.push({ label: r.label, value, region: regionOfLabel(r.label), equipment: equipmentOfLabel(r.label) });
+    entries.push({ label: r.label, value, region: r.region, equipment: equipmentOfLabel(r.label) });
   }
   if (!entries.length) return { error: "Couldn't read a price on any line." };
   const newest = headerDates.length ? headerDates.reduce((a, b) => (b > a ? b : a)) : null;
