@@ -163,3 +163,7 @@
 - [x] Phase 1: live margin / ROI buy box (Load Builder + Quotes), low-margin Team Chat notice
 - [x] Phase 2: shipper quote accept links, carrier bid board + next-tier offers
 - [x] Phase 3: invoice packets (invoice + POD/BOL), carrier invoice audit vs signed rate con, factoring remittance batches
+
+## Current
+- [ ] Bid Desk: upload RFP/tender/typed lanes, market + history pricing, FSC per mile, accessorials, submit (sheet/email/quotes), won/lost tracking
+- [ ] Merge duplicate customers: keep most complete record, fill blanks from duplicate, move loads/quotes/etc. to the kept one
