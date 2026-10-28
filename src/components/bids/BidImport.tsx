@@ -74,7 +74,7 @@ function SheetImport({ busy, onImport }: { busy: boolean; onImport: (l: NewLane[
     const seen: Record<string, number> = {};
     const headers = (grid[hr] ?? []).map((h, i) => {
       let s = String(h ?? "").trim() || `Column ${i + 1}`;
-      if (seen[s]) { seen[s] += 1; s = `${s} (${seen[s]})`; } else seen[s] = 1;
+      const n = (seen[s] ?? 0) + 1; seen[s] = n; if (n > 1) s = `${s} (${n})`;
       return s;
     });
     const rows = grid.slice(hr + 1).filter((r) => r.some((c) => String(c ?? "").trim())).map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""])));
