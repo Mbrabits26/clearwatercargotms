@@ -10,7 +10,7 @@ import { drivingMiles } from "@/lib/places.functions";
 import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
 import { EQUIPMENT, usd } from "@/lib/tms";
 import { accList, counterList, estimateCarrierCost, guessMapping, laneTotals, offerRpm, OUT_FIELDS, rpmMargin, type BidKind, type Ladder, type OutField, type SheetTable } from "@/lib/bidDesk";
-import { bidFiles, bidLanesQuery, bidQuery, bidTables, downloadBlob, historyFor, ladderFor, laneLabel, laneToLoad, laneToQuote, myName, noticeLowLanes, placeText, priceOne, refreshBidStatus, saveCounters, type Bid, type BidLane } from "@/lib/bids";
+import { bidFiles, bidLanesQuery, fetchBidLanes, bidQuery, bidTables, downloadBlob, historyFor, ladderFor, laneLabel, laneToLoad, laneToQuote, myName, noticeLowLanes, placeText, priceOne, refreshBidStatus, saveCounters, type Bid, type BidLane } from "@/lib/bids";
 import { composeEmailWithFiles } from "@/lib/email";
 import { EntityCombobox } from "@/components/EntityCombobox";
 import { DatePicker } from "@/components/DatePicker";
@@ -157,7 +157,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
   const autoAll = async (only?: BidLane[]) => {
     const ids = new Set((only ?? lanes).map((l) => l.id));
     // Read straight from the database each step (not the screen's cached copy) so later steps see the miles/rates just saved.
-    const fresh = async () => (await bidLanesQuery(bidId).queryFn!({} as never) as BidLane[]).filter((l) => ids.has(l.id));
+    const fresh = async () => (await fetchBidLanes(bidId)).filter((l) => ids.has(l.id));
     let cur = await fresh();
     const problems: string[] = [];
     if (cur.some((l) => !(Number(l.miles) > 0))) { problems.push(...await fillMiles(cur, true)); cur = await fresh(); }

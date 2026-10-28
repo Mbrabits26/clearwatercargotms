@@ -46,18 +46,21 @@ export const bidQuery = (id: string) => queryOptions({
   },
 });
 
+/** All lanes of a bid straight from the database (paged past the 1000-row cap). */
+export async function fetchBidLanes(id: string): Promise<BidLane[]> {
+  const out: BidLane[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("bid_lanes").select("*").eq("bid_id", id).order("position").range(from, from + 999);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
+
 export const bidLanesQuery = (id: string) => queryOptions({
   queryKey: ["bid-lanes", id],
-  queryFn: async () => {
-    const out: BidLane[] = [];
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await supabase.from("bid_lanes").select("*").eq("bid_id", id).order("position").range(from, from + 999);
-      if (error) throw error;
-      out.push(...(data ?? []));
-      if (!data || data.length < 1000) break;
-    }
-    return out;
-  },
+  queryFn: () => fetchBidLanes(id),
 });
 
 export const laneLabel = (l: Pick<BidLane, "origin_city" | "origin_state" | "dest_city" | "dest_state"> & { mileage_band?: string | null }) =>
