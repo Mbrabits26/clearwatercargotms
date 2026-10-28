@@ -67,6 +67,14 @@ West Coast less California\t4.200\t4.180\t4.190\t0.010\t0.030`;
     expect(entryForLane(p.entries, { origin_state: "TX" }, "region")?.value).toBe(3.705); // Gulf not posted → U.S.
     expect(entryForLane(p.entries, { origin_state: "WA" }, "region")?.value).toBe(4.19);
   });
+  it("can match by the delivery region instead of pickup", () => {
+    const p = parseFuelPosting(eia);
+    if ("error" in p) throw new Error(p.error);
+    const lane = { origin_state: "NC", dest_state: "WA" };
+    expect(entryForLane(p.entries, lane, "region", "pickup")?.value).toBe(3.701);
+    expect(entryForLane(p.entries, lane, "region", "delivery")?.value).toBe(4.19);
+    expect(entryForLane(p.entries, { origin_state: "NC" }, "region", "delivery")?.value).toBe(3.701); // no delivery state → pickup
+  });
   it("reads $/mi posted by trailer type", () => {
     const p = parseFuelPosting("Fuel surcharge this week\nDry Van $0.52\nReefer $0.58\nFlatbed $0.61");
     if ("error" in p) throw new Error(p.error);
