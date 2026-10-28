@@ -12,7 +12,7 @@ import { QbAttachDialog } from "@/components/QbAttachDialog";
 import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
-import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
+import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
 import { useAppWindows } from "@/lib/appWindows";
@@ -36,6 +36,14 @@ import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbo
 import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkActionBar, SelectAllBox, useSelection, type BulkAction } from "@/components/BulkActionBar";
+import { Files, ClipboardCheck, Landmark } from "lucide-react";
+import { InvoicePacketDialog, buildPacketBlob, listPacketDocs, saveBlob } from "@/components/InvoicePacket";
+import { packetDefault } from "@/lib/invoicePacket";
+import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoiceDialog";
+import { BillAuditDialog } from "@/components/BillAuditDialog";
+import { FactoringRemittanceDialog } from "@/components/FactoringRemittanceDialog";
+import { auditBill, parseChargeLines } from "@/lib/billAudit";
+import type { PayCarrier } from "@/lib/carrierPay";
 
 /** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
 const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
@@ -58,6 +66,8 @@ type SyncRow = {
   deductions?: unknown;
   carrier_invoice_amount: number | null;
   carrier_invoice_path: string | null;
+  carrier_invoice_number?: string | null;
+  carrier_invoice_lines?: unknown;
   terms?: string | null;
   due_date?: string | null;
   attachments?: unknown;
