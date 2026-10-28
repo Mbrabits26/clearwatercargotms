@@ -140,8 +140,8 @@ export async function laneToLoad(l: BidLane, bid: Bid): Promise<string | null> {
   const t = laneTotals(l, Number(bid.fsc_per_mile));
   if (!l.origin_city || !l.dest_city) return `${laneLabel(l)}: needs origin and destination cities`;
   const { data, error } = await supabase.from("loads").insert({
-    customer_id: bid.customer_id, origin_city: l.origin_city, origin_state: l.origin_state, origin_zip: l.origin_zip,
-    dest_city: l.dest_city, dest_state: l.dest_state, dest_zip: l.dest_zip, equipment: l.equipment, miles: l.miles,
+    customer_id: bid.customer_id, origin_city: l.origin_city, origin_state: l.origin_state,
+    dest_city: l.dest_city, dest_state: l.dest_state, equipment: l.equipment, miles: l.miles,
     customer_rate: t.allIn, carrier_rate: t.carrier, pickup_at: l.pickup_date ? `${l.pickup_date}T08:00` : null,
   }).select("id").single();
   if (error) return `${laneLabel(l)}: ${error.message}`;

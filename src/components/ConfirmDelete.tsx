@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Table = "companies" | "carriers" | "carrier_documents" | "drivers" | "fleet_units" | "leads" | "quotes" | "load_offers" | "load_tracking_tokens";
+type Table = "companies" | "carriers" | "carrier_documents" | "drivers" | "fleet_units" | "leads" | "quotes" | "load_offers" | "load_tracking_tokens" | "bids" | "bid_lanes";
 
 /** Shared delete with a type-to-confirm check. Every delete is recorded in the deletion log by the database. */
 export function ConfirmDelete({ table, id, label, what, linked, invalidate, onDone, size = "icon" }: {
