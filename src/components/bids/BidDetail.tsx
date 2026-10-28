@@ -138,6 +138,25 @@ export function BidDetail({ bidId }: { bidId: string }) {
     else toast.success("Counteroffers ready");
   };
 
+  // One click: miles → market rates → counters → pricing, re-reading lanes between steps so nothing is skipped.
+  const autoAll = async (only?: BidLane[]) => {
+    const ids = new Set((only ?? lanes).map((l) => l.id));
+    const fresh = async () => (await qc.fetchQuery({ ...bidLanesQuery(bidId), staleTime: 0 })).filter((l) => ids.has(l.id));
+    let cur = await fresh();
+    if (cur.some((l) => !(Number(l.miles) > 0))) { await fillMiles(cur); cur = await fresh(); }
+    const needMarket = cur.filter((l) => l.market_spot_rpm == null && l.market_contract_rpm == null && !(Number(l.carrier_cost) > 0));
+    if (needMarket.length) { await fillMarket(needMarket); cur = await fresh(); }
+    await buildCounters(false, cur);
+    cur = await fresh();
+    await priceAll(false, cur);
+  };
+
+  const setEquipment = async (items: BidLane[], equipment: string) => {
+    const { error } = await supabase.from("bid_lanes").update({ equipment, market_spot_rpm: null, market_contract_rpm: null, market_note: null }).in("id", items.map((l) => l.id));
+    if (error) toast.error(error.message); else toast.success(`${items.length} lane${items.length === 1 ? "" : "s"} set to ${equipment} — get market rates again for the new trailer type.`);
+    refresh();
+  };
+
   const picked = lanes.filter((l) => sel.has(l.id));
   const setStatus = async (l: BidLane, status: string, reason?: string) => {
     const { error } = await supabase.from("bid_lanes").update({ status, lost_reason: status === "lost" ? reason ?? null : null }).eq("id", l.id);
@@ -149,6 +168,9 @@ export function BidDetail({ bidId }: { bidId: string }) {
     { value: "lost", label: "Mark lost", hint: "Marks the checked lanes lost with the reason you pick.", param: { label: "Reason", options: ["Price", "Service", "Capacity", "Incumbent kept", "No response", "Other"].map((r) => ({ value: r, label: r })) },
       each: async (l, r) => { const e = await setStatus(l, "lost", r); await after(); return e; } },
     { value: "pending", label: "Back to pending", hint: "Clears the won/lost result on the checked lanes.", each: async (l) => { const e = await setStatus(l, "pending"); await after(); return e; } },
+    { value: "equipment", label: "Change equipment", hint: "Sets the trailer type on the checked lanes. Their market rates are cleared so they can be looked up for the new type.",
+      param: { label: "Equipment", options: EQUIPMENT.map((e) => ({ value: e, label: e })) }, all: (items, e) => void setEquipment(items, e ?? "Dry Van") },
+    { value: "auto", label: "Auto-price + counter", hint: "Fills miles, market rates, counteroffers and pricing on the checked lanes that are missing them.", all: (items) => void autoAll(items) },
     { value: "fsc", label: "Set fuel surcharge $/mi", hint: "Sets a per-mile fuel surcharge on the checked lanes (blank uses the bid default). Linehaul stays as is.", input: { label: "FSC $/mi, e.g. 0.55 (blank = bid default)", optional: true },
       each: async (l, v) => { const { error } = await supabase.from("bid_lanes").update({ fsc_per_mile: v.trim() === "" ? null : Number(v) }).eq("id", l.id); return error ? error.message : null; } },
     { value: "acc", label: "Add accessorial", hint: "Adds the same extra charge to each checked lane, e.g. “Tarp 75”.", input: { label: "Name and amount, e.g. Stop-off 100" },
