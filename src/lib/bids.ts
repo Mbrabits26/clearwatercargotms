@@ -211,7 +211,7 @@ export async function bidFiles(bid: Bid, lanes: BidLane[], outMap: Partial<Recor
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(src);
-      for (const w of writes) wb.getWorksheet(w.sheet)?.getCell(w.r + 1, w.c + 1).value = w.v;
+      for (const w of writes) { const ws = wb.getWorksheet(w.sheet); if (ws) ws.getCell(w.r + 1, w.c + 1).value = w.v; }
       if (extra) { const ws = wb.addWorksheet("Clearwater lanes"); ws.addRow(extra.headers); extra.rows.forEach((r) => ws.addRow(extra.headers.map((h) => r[h] ?? ""))); }
       buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
     } else {
