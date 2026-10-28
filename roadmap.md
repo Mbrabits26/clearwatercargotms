@@ -158,3 +158,8 @@
 ## Current
 - [x] Reports: check-all + per-load checkboxes with bulk status change
 - [x] Madison Wood Preservers + Adelphia Metals always bill through Foust Farms (rule + update current loads)
+
+## Growth phases (Tai/Alvys parity)
+- [x] Phase 1: live margin / ROI buy box (Load Builder + Quotes), low-margin Team Chat notice
+- [x] Phase 2: shipper quote accept links, carrier bid board + next-tier offers
+- [x] Phase 3: invoice packets (invoice + POD/BOL), carrier invoice audit vs signed rate con, factoring remittance batches
