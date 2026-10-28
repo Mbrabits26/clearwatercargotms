@@ -82,6 +82,18 @@ export const gmailStatus = createServerFn({ method: "GET" })
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
 const mimeHeader = (v: string) => (/^[\x00-\x7F]*$/.test(v) ? v : `=?UTF-8?B?${b64(v)}?=`);
 
+/** multipart/mixed body: plain text part plus base64 file parts. */
+function multipart(body: string, files: { filename: string; mime: string; base64: string }[]) {
+  const b = `cw_${crypto.randomUUID().replace(/-/g, "")}`;
+  const wrap = (s: string) => s.replace(/(.{76})/g, "$1\r\n");
+  return [
+    `Content-Type: multipart/mixed; boundary="${b}"`, "",
+    `--${b}`, 'Content-Type: text/plain; charset="UTF-8"', "", body,
+    ...files.flatMap((f) => [`--${b}`, `Content-Type: ${f.mime}; name="${f.filename}"`, "Content-Transfer-Encoding: base64", `Content-Disposition: attachment; filename="${f.filename}"`, "", wrap(f.base64)]),
+    `--${b}--`,
+  ];
+}
+
 export const sendGmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -90,6 +102,11 @@ export const sendGmail = createServerFn({ method: "POST" })
       cc: z.string().trim().max(1000).refine((v) => !/[\r\n]/.test(v)).optional(),
       subject: z.string().trim().min(1).max(500),
       body: z.string().min(1).max(50000),
+      attachments: z.array(z.object({
+        filename: z.string().trim().min(1).max(200).refine((v) => !/[\r\n"]/.test(v)),
+        mime: z.string().trim().min(3).max(120).refine((v) => !/[\r\n]/.test(v)),
+        base64: z.string().max(10_000_000),
+      })).max(5).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -100,9 +117,7 @@ export const sendGmail = createServerFn({ method: "POST" })
       ...(data.cc ? [`Cc: ${data.cc}`] : []),
       `Subject: ${mimeHeader(data.subject)}`,
       "MIME-Version: 1.0",
-      'Content-Type: text/plain; charset="UTF-8"',
-      "",
-      data.body,
+      ...(data.attachments?.length ? multipart(data.body, data.attachments) : ['Content-Type: text/plain; charset="UTF-8"', "", data.body]),
     ].join("\r\n");
     const encoded = b64(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const res = await callAsAppUser({

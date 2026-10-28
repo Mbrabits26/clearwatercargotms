@@ -16,6 +16,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedBidsRouteImport } from './routes/_authenticated/bids'
 import { Route as AuthenticatedCarriersRouteImport } from './routes/_authenticated/carriers'
 import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
@@ -68,6 +69,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBidsRoute = AuthenticatedBidsRouteImport.update({
+  id: '/bids',
+  path: '/bids',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCarriersRoute = AuthenticatedCarriersRouteImport.update({
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/bids': typeof AuthenticatedBidsRoute
   '/carriers': typeof AuthenticatedCarriersRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/bids': typeof AuthenticatedBidsRoute
   '/carriers': typeof AuthenticatedCarriersRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/bids': typeof AuthenticatedBidsRoute
   '/_authenticated/carriers': typeof AuthenticatedCarriersRoute
   '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
@@ -252,6 +261,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/admin'
+    | '/bids'
     | '/carriers'
     | '/directory'
     | '/dispatch'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/admin'
+    | '/bids'
     | '/carriers'
     | '/directory'
     | '/dispatch'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/admin'
+    | '/_authenticated/bids'
     | '/_authenticated/carriers'
     | '/_authenticated/directory'
     | '/_authenticated/dispatch'
@@ -393,6 +405,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/bids': {
+      id: '/_authenticated/bids'
+      path: '/bids'
+      fullPath: '/bids'
+      preLoaderRoute: typeof AuthenticatedBidsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/carriers': {
@@ -526,6 +545,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedBidsRoute: typeof AuthenticatedBidsRoute
   AuthenticatedCarriersRoute: typeof AuthenticatedCarriersRoute
   AuthenticatedDirectoryRoute: typeof AuthenticatedDirectoryRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
@@ -538,6 +558,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedBidsRoute: AuthenticatedBidsRoute,
   AuthenticatedCarriersRoute: AuthenticatedCarriersRoute,
   AuthenticatedDirectoryRoute: AuthenticatedDirectoryRoute,
   AuthenticatedDispatchRoute: AuthenticatedDispatchRoute,

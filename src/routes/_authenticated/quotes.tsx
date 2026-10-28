@@ -2,20 +2,17 @@ import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useBlobViewer } from "@/components/DocPreview";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
-import { FileDown, FileUp, Mail, Plus } from "lucide-react";
+import { FileDown, Mail, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
 import { EQUIPMENT, usd } from "@/lib/tms";
 import { buildQuotePdf, type Quote } from "@/lib/quote";
 import { composeEmail } from "@/lib/email";
-import { getMarketRates } from "@/lib/market.functions";
-import { RateView, laneStats } from "@/components/RateView";
+import { RateView } from "@/components/RateView";
 import { BuyBox } from "@/components/BuyBox";
 import { postLowMarginNotice } from "@/lib/buyBox";
 import { EntityCombobox } from "@/components/EntityCombobox";
@@ -49,7 +46,7 @@ function QuotesPage() {
       <Tabs defaultValue="quotes">
         <TabsList className="grid w-full grid-cols-2 sm:w-auto"><TabsTrigger value="quotes">Spot / contract quotes</TabsTrigger><TabsTrigger value="rfp">RFP lanes</TabsTrigger></TabsList>
         <TabsContent value="quotes"><QuoteBuilder /></TabsContent>
-        <TabsContent value="rfp"><RfpTool /></TabsContent>
+        <TabsContent value="rfp"><RfpMoved /></TabsContent>
       </Tabs>
     </div>
   );
@@ -203,106 +200,11 @@ function QuoteBuilder() {
   );
 }
 
-type RfpLane = { origin_city: string; origin_state: string; dest_city: string; dest_state: string; equipment: string; miles: number | null; volume: string; hist: number | null; market: number | null; rate: string };
-
-const pick = (row: Record<string, unknown>, names: string[]) => {
-  const k = Object.keys(row).find((h) => names.some((n) => h.toLowerCase().replace(/[^a-z]/g, "").includes(n)));
-  return k ? String(row[k] ?? "").trim() : "";
-};
-
-function RfpTool() {
-  const { data: loads = [] } = useQuery(laneHistoryQuery());
-  const market = useServerFn(getMarketRates);
-  const [lanes, setLanes] = useState<RfpLane[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [margin, setMargin] = useState("12");
-
-  const onFile = async (file: File) => {
-    const wb = XLSX.read(await file.arrayBuffer());
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]!]!);
-    const parsed = rows.map((r) => {
-      const l = {
-        origin_city: pick(r, ["origincity", "origin", "fromcity", "shipcity"]),
-        origin_state: pick(r, ["originstate", "originst", "fromstate", "ost"]).toUpperCase().slice(0, 2),
-        dest_city: pick(r, ["destcity", "destinationcity", "destination", "tocity", "consigneecity"]),
-        dest_state: pick(r, ["deststate", "destinationstate", "destst", "tostate", "dst"]).toUpperCase().slice(0, 2),
-        equipment: pick(r, ["equipment", "equip", "mode", "trailer"]) || "Dry Van",
-        miles: Number(pick(r, ["miles", "distance"])) || null,
-        volume: pick(r, ["volume", "loads", "frequency", "annual"]),
-      };
-      const s = laneStats(loads, { ...l }, false);
-      const w = s.d365 ?? s.d90;
-      const hist = w?.revCpm && l.miles ? w.revCpm * l.miles : w?.rev ?? null;
-      return { ...l, hist, market: null, rate: hist ? String(Math.round(hist)) : "" };
-    }).filter((l) => l.origin_state && l.dest_state);
-    setLanes(parsed);
-    toast.success(`${parsed.length} lanes loaded`);
-  };
-
-  const fillMarket = async () => {
-    setBusy(true);
-    const m = 1 / (1 - (Number(margin) || 0) / 100);
-    const out = [...lanes];
-    for (let i = 0; i < out.length; i++) {
-      const l = out[i]!;
-      try {
-        const r = await market({ data: { origin_state: l.origin_state, dest_state: l.dest_state, equipment: l.equipment } });
-        if (r.error) { toast.error(r.error); break; }
-        const cpm = r.result?.contract_rpm ?? r.result?.spot_rpm;
-        if (cpm && l.miles) {
-          out[i] = { ...l, market: cpm * l.miles, rate: l.rate || String(Math.round(cpm * l.miles * m)) };
-          setLanes([...out]);
-        }
-      } catch (e) { toast.error((e as Error).message); break; }
-    }
-    setBusy(false);
-  };
-
-  const exportX = () => {
-    const ws = XLSX.utils.json_to_sheet(lanes.map((l) => ({
-      "Origin City": l.origin_city, "Origin State": l.origin_state, "Dest City": l.dest_city, "Dest State": l.dest_state,
-      Equipment: l.equipment, Miles: l.miles ?? "", Volume: l.volume, "Rate (USD all-in)": Number(l.rate) || "",
-      "Rate per Mile": l.miles && Number(l.rate) ? Number((Number(l.rate) / l.miles).toFixed(2)) : "",
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Clearwater Bid");
-    XLSX.writeFile(wb, "Clearwater-Cargo-RFP-Bid.xlsx");
-  };
-
+function RfpMoved() {
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex cursor-pointer items-center rounded border px-3 py-1.5 text-sm hover:bg-muted">
-          <FileUp className="mr-1 h-4 w-4" />Upload RFP spreadsheet
-          <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-        </label>
-        <span className="text-sm text-muted-foreground">Target margin</span>
-        <Input className="h-8 w-16" type="number" value={margin} onChange={(e) => setMargin(e.target.value)} />%
-        <Button size="sm" variant="outline" disabled={!lanes.length || busy} onClick={fillMarket}>{busy ? "Checking market…" : "Add public market rates"}</Button>
-        <Button size="sm" disabled={!lanes.length} onClick={exportX}><FileDown className="mr-1 h-4 w-4" />Export bid (.xlsx)</Button>
-      </div>
-      <p className="text-xs text-muted-foreground">Columns are matched by heading (origin city/state, destination city/state, equipment, miles, volume). Market numbers are public estimates, not live paid data.</p>
-      {lanes.length > 0 && (
-        <table className="min-w-[760px] text-sm">
-          <thead className="text-left text-xs uppercase text-muted-foreground">
-            <tr><th>Lane</th><th>Equip</th><th>Miles</th><th>Vol</th><th className="text-right">Our history</th><th className="text-right">Market</th><th className="text-right">Bid rate</th><th className="text-right">$/mi</th></tr>
-          </thead>
-          <tbody>
-            {lanes.map((l, i) => (
-              <tr key={i} className="border-t">
-                <td>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</td>
-                <td>{l.equipment}</td>
-                <td>{l.miles ?? "—"}</td>
-                <td>{l.volume}</td>
-                <td className="text-right">{l.hist ? usd(l.hist) : "—"}</td>
-                <td className="text-right">{l.market ? usd(l.market) : "—"}</td>
-                <td className="text-right"><Input className="ml-auto h-7 w-24 text-right" value={l.rate} onChange={(e) => setLanes((s) => s.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))} /></td>
-                <td className="text-right">{l.miles && Number(l.rate) ? `$${(Number(l.rate) / l.miles).toFixed(2)}` : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <div className="rounded-lg border border-dashed p-6 text-sm">
+      RFP spreadsheets, load tenders, fuel surcharge and won/lost tracking now live on the{" "}
+      <Link to="/bids" search={{}} className="font-semibold text-gold underline">Bid Desk</Link>.
     </div>
   );
 }
