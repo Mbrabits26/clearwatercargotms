@@ -45,3 +45,4 @@
 - Agent integrations (MCP): see `src/lib/AGENTS.md`.
 - Accounting buttons: hint + warning box before data changes via `ActionGuard` (provider in __root); read-only buttons hint only.
 - Shipper quote acceptance: public /quote/$token (quotes.accept_token) via token-validated quoteAccept.functions.ts; accept marks won, creates the load and posts a Team chat notice.
+- Bid Desk (/bids): bids + bid_lanes (staff RLS); math/sheet mapping in `bidDesk.ts` (all-in = linehaul + FSC $/mi × miles + accessorials), actions in `bids.ts`; lanes become quotes/loads only by explicit action, original RFP row kept in bid_lanes.original so the sheet goes back in the shipper's layout.

@@ -165,5 +165,5 @@
 - [x] Phase 3: invoice packets (invoice + POD/BOL), carrier invoice audit vs signed rate con, factoring remittance batches
 
 ## Current
-- [ ] Bid Desk: upload RFP/tender/typed lanes, market + history pricing, FSC per mile, accessorials, submit (sheet/email/quotes), won/lost tracking
-- [ ] Merge duplicate customers: keep most complete record, fill blanks from duplicate, move loads/quotes/etc. to the kept one
+- [x] Bid Desk: upload RFP/tender/typed lanes, market + history pricing, FSC per mile, accessorials, submit (sheet/email/quotes), won/lost tracking
+- [x] Merge duplicate customers: keep most complete record, fill blanks from duplicate, move loads/quotes/etc. to the kept one
