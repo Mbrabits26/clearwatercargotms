@@ -1367,6 +1367,8 @@ export type Database = {
           attachments: Json
           attachments_sent: Json
           carrier_invoice_amount: number | null
+          carrier_invoice_lines: Json
+          carrier_invoice_number: string | null
           carrier_invoice_path: string | null
           created_at: string
           created_by: string | null
@@ -1393,6 +1395,8 @@ export type Database = {
           attachments?: Json
           attachments_sent?: Json
           carrier_invoice_amount?: number | null
+          carrier_invoice_lines?: Json
+          carrier_invoice_number?: string | null
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null
@@ -1419,6 +1423,8 @@ export type Database = {
           attachments?: Json
           attachments_sent?: Json
           carrier_invoice_amount?: number | null
+          carrier_invoice_lines?: Json
+          carrier_invoice_number?: string | null
           carrier_invoice_path?: string | null
           created_at?: string
           created_by?: string | null

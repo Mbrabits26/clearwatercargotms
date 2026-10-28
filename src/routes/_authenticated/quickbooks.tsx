@@ -12,7 +12,7 @@ import { QbAttachDialog } from "@/components/QbAttachDialog";
 import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
-import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Load } from "@/lib/tms";
+import { CUSTOMER_TERMS, termsDays, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
 import { useAppWindows } from "@/lib/appWindows";
@@ -36,6 +36,14 @@ import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbo
 import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkActionBar, SelectAllBox, useSelection, type BulkAction } from "@/components/BulkActionBar";
+import { Files, ClipboardCheck, Landmark } from "lucide-react";
+import { InvoicePacketDialog, buildPacketBlob, listPacketDocs, saveBlob } from "@/components/InvoicePacket";
+import { packetDefault } from "@/lib/invoicePacket";
+import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoiceDialog";
+import { BillAuditDialog } from "@/components/BillAuditDialog";
+import { FactoringRemittanceDialog } from "@/components/FactoringRemittanceDialog";
+import { auditBill, parseChargeLines } from "@/lib/billAudit";
+import type { PayCarrier } from "@/lib/carrierPay";
 
 /** What the customer owes on an invoice row after percentage deductions; bills unchanged. */
 const owed = (s: { kind: string; amount: number; deductions?: unknown }) => (s.kind === "bill" ? Number(s.amount) : invoiceNet(Number(s.amount), s.deductions));
@@ -58,6 +66,8 @@ type SyncRow = {
   deductions?: unknown;
   carrier_invoice_amount: number | null;
   carrier_invoice_path: string | null;
+  carrier_invoice_number?: string | null;
+  carrier_invoice_lines?: unknown;
   terms?: string | null;
   due_date?: string | null;
   attachments?: unknown;
@@ -196,28 +206,46 @@ function Accounting() {
     return buildInvoicePdf({ invoiceNumber: s.invoice_number, terms, dueDate: dueOf(s), invoiceDate: s.created_at, load: l, billTo, amount, logo: await loadImage(logo.url), fleet: s.kind === "fleet_invoice", lines: g.length > 1 ? lines : undefined, deductions: s.deductions });
   };
   const viewInvoice = async (s: SyncRow) => { const d = await invoicePdf(s); if (d) viewer.show(d.output("blob"), `${s.invoice_number}.pdf`); };
-  const emailInvoice = async (s: SyncRow) => {
-    const l = loads.find((x) => x.id === s.load_id); const d = await invoicePdf(s);
-    if (!l || !d) return;
-    d.save(`${s.invoice_number}.pdf`);
+  /** Downloads the invoice (or a ready packet) and opens an email to the customer in the user's Gmail. */
+  const emailInvoice = async (s: SyncRow, file?: { blob: Blob; name: string }) => {
+    const l = loads.find((x) => x.id === s.load_id);
+    if (!l) return;
+    if (file) saveBlob(file.blob, file.name);
+    else { const d = await invoicePdf(s); if (!d) return; d.save(`${s.invoice_number}.pdf`); }
     const g = groupOf(s);
     const nums = g.map((x) => loads.find((y) => y.id === x.load_id)?.load_number).filter(Boolean).join(", ");
     const amt = g.reduce((t, x) => t + owed(x), 0);
     const to = companies.find((c) => c.id === l.customer_id)?.email ?? "";
     await composeEmail(to, `Invoice ${s.invoice_number} — ${g.length > 1 ? `${g.length} loads` : `Load ${l.load_number}`} — ${s.kind === "fleet_invoice" ? "Foust Farms Truckin" : "Clearwater Cargo"}`,
-      `Hello,\n\nPlease find invoice ${s.invoice_number} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, ${invoiceTerms(s)} (due ${new Date(dueOf(s) + "T12:00:00").toLocaleDateString("en-US")}).\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
-    toast.success("Invoice PDF downloaded and email started — attach the PDF.");
+      `Hello,\n\nPlease find invoice ${s.invoice_number}${file ? " with proof of delivery" : ""} for ${g.length > 1 ? `loads ${nums}` : `load ${l.load_number} (${l.origin_city}, ${l.origin_state} to ${l.dest_city}, ${l.dest_state})`} attached. Amount due: ${usd(amt)}, ${invoiceTerms(s)} (due ${new Date(dueOf(s) + "T12:00:00").toLocaleDateString("en-US")}).\n\nThank you,\n${s.kind === "fleet_invoice" ? "Foust Farms Truckin LLC · 336-622-9527" : "Clearwater Cargo LLC · 252-497-7916"}`, getMailClient());
+    toast.success(`${file ? "Invoice packet" : "Invoice PDF"} downloaded and email started — attach the PDF.`);
   };
-  const uploadCarrierInvoice = async (s: SyncRow, file?: File) => {
-    if (!file) return;
-    const amt = Number(prompt("Amount on the carrier's invoice ($)?", String(s.gross_amount ?? s.amount)) ?? "");
-    const path = `${s.load_id}/carrier_invoice-${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
-    const { error } = await supabase.storage.from("load-docs").upload(path, file);
-    if (error) return toast.error(error.message);
-    await supabase.from("qb_sync").update({ carrier_invoice_path: path, carrier_invoice_amount: Number.isFinite(amt) && amt > 0 ? amt : null }).eq("id", s.id);
-    toast.success("Carrier invoice attached");
-    qc.invalidateQueries({ queryKey: ["qb_sync"] });
+  const [packetRow, setPacketRow] = useState<SyncRow | null>(null);
+  const [packing, setPacking] = useState(false);
+  /** One packet per invoice for the ticked loads, with the default documents (POD + BOL). */
+  const downloadPackets = async () => {
+    const kind = tab as Kind;
+    const rowsFor = [...new Map(picked.map((id) => synced(id, kind)).filter((s): s is SyncRow => !!s?.invoice_number).map((s) => [s.invoice_number!, s])).values()];
+    if (!rowsFor.length) return toast.info("Tick loads that already have an invoice number.");
+    setPacking(true);
+    let made = 0;
+    for (const s of rowsFor) {
+      try {
+        const inv = await invoicePdf(s);
+        if (!inv) continue;
+        const docs = (await listPacketDocs(groupOf(s).map((x) => loadById.get(x.load_id)).filter((x): x is Load => !!x))).filter((d) => packetDefault(d.kind));
+        const r = await buildPacketBlob(inv, docs);
+        saveBlob(r.blob, `${s.invoice_number}-packet.pdf`); made++;
+      } catch (e) { toast.error(`${s.invoice_number}: ${(e as Error).message}`); }
+    }
+    setPacking(false);
+    toast.success(`${made} invoice packet${made === 1 ? "" : "s"} downloaded`);
   };
+  const [billTarget, setBillTarget] = useState<BillTarget | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [factorOpen, setFactorOpen] = useState(false);
+  const billTargetFor = (l: Load): BillTarget => { const b = billMath(l); return { load: l, bill: synced(l.id, "bill"), payee: payee(l, "bill"), net: b.net, gross: b.gross, fee: b.fee }; };
+  const invoicedIds = useMemo(() => new Set(sync.filter((s) => s.kind !== "bill").map((s) => s.load_id)), [sync]);
 
   const payee = (l: Load, kind: string) => {
     if (kind !== "bill") return companyById.get(l.customer_id ?? "")?.name ?? "Unknown customer";
@@ -238,6 +266,8 @@ function Accounting() {
     const total = chosen.reduce((t, l) => t + amountFor(l, kind), 0);
     const dlv = chosen.filter((l) => l.status === "delivered").length;
     const inQb = chosen.filter((l) => synced(l.id, kind)?.qb_ref).length;
+    const off = bill ? chosen.filter((l) => { const s = synced(l.id, "bill"); return s?.carrier_invoice_amount != null && Math.abs(Number(s.carrier_invoice_amount) - billMath(l).gross) > 0.009; }).length : 0;
+    const noInv = bill ? chosen.filter((l) => !synced(l.id, "bill")?.carrier_invoice_path).length : 0;
     return {
       title: `Send ${chosen.length} ${bill ? "carrier bill" : "customer invoice"}${chosen.length === 1 ? "" : "s"} to QuickBooks?`,
       body: `Total ${usd(total)} to ${kindCompany(kind)} QuickBooks.`,
@@ -245,6 +275,8 @@ function Accounting() {
         live(kind) ? `Sends right away. QuickBooks gets a new ${bill ? "bill" : "invoice"} for each one, unless it already has one with the same number.` : `${kindCompany(kind)} QuickBooks isn't connected, so these wait in the queue until it is.`,
         !bill && dlv ? `${dlv} delivered load${dlv === 1 ? "" : "s"} will change to Invoiced.` : null,
         inQb ? `${inQb} already in QuickBooks — those are not sent again.` : null,
+        off ? `Warning: ${off} carrier invoice${off === 1 ? "" : "s"} don't match the rate con. QuickBooks gets the rate con amount — check Bill audit first.` : null,
+        noInv ? `${noInv} ha${noInv === 1 ? "s" : "ve"} no carrier invoice attached.` : null,
         bill ? "Bill amount = rate con total minus any Quick Pay fee. This does not pay the carrier or mark it paid." : "The customer is not emailed. Use the envelope button to email the invoice.",
       ].filter(Boolean),
       confirmLabel: "Send to QuickBooks",
@@ -423,6 +455,13 @@ function Accounting() {
           {(tab === "invoice" || tab === "fleet_invoice") && (
             <ActionButton variant="outline" hint="Opens a window to create invoice numbers for the ticked loads — one per load or one combined. You review it before anything is saved." onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</ActionButton>
           )}
+          {(tab === "invoice" || tab === "fleet_invoice") && (
+            <ActionButton variant="outline" disabled={packing} hint="Downloads one invoice packet PDF (invoice + POD + BOL) per invoice for the ticked loads. Nothing is sent or changed." onClick={downloadPackets}><Files className="mr-1 h-4 w-4" />{packing ? "Building…" : `Invoice packets (${picked.length})`}</ActionButton>
+          )}
+          {tab === "bill" && <>
+            <ActionButton variant="outline" hint="Compares every carrier invoice on this tab with its signed rate con: over/under billing, charges not on the rate con, missing invoices. Read-only." onClick={() => setAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />Bill audit</ActionButton>
+            <ActionButton variant="outline" hint="Unpaid loads for factored carriers, grouped by factoring company, with the NOA remit-to address and a printable remittance schedule." onClick={() => setFactorOpen(true)}><Landmark className="mr-1 h-4 w-4" />Factoring remittance</ActionButton>
+          </>}
           {tab !== "log" && <ActionButton hint={tab === "bill" ? "Queues the ticked carrier bills and sends them to Clearwater QuickBooks. Does not pay the carrier." : "Queues the ticked invoices, moves delivered loads to Invoiced, and sends them to QuickBooks. Asks you first."} confirm={sendSpec} onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</ActionButton>}
         </div>
       </div>
@@ -537,6 +576,7 @@ function Accounting() {
                 const s = synced(l.id, tab as Kind);
                 const bm = tab === "bill" ? billMath(l) : null;
                 const mismatch = s?.carrier_invoice_amount != null && bm && Math.abs(Number(s.carrier_invoice_amount) - bm.gross) > 0.009;
+                const extra = bm ? auditBill({ rcTotal: null, rcLines: [{ label: "Linehaul", amount: Number(l.carrier_rate) }, ...((l.accessorials as Accessorial[] | null) ?? []).map((a) => ({ label: a.type, amount: Number(a.amount) }))], loadCost: bm.gross, billed: null, billedLines: parseChargeLines(s?.carrier_invoice_lines) }).unexpected : [];
                 const age = ageDays(l);
                 return (
                   <TableRow key={l.id}>
@@ -552,20 +592,22 @@ function Accounting() {
                     </TableCell>
                     <TableCell>
                       {tab === "bill" ? (
-                        s ? (
-                          <div className="flex flex-col gap-1 text-xs">
-                            {s.carrier_invoice_path ? <DocLink items={[{ name: "Carrier invoice", bucket: "load-docs", path: s.carrier_invoice_path }]}><FileText className="mr-1 inline h-3 w-3" />{s.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "View"}</DocLink> : null}
-                            {mismatch && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Differs from rate con {usd(bm!.gross)}</span>}
-                            <Hint text="Upload the carrier's own invoice so you can compare it to the rate con. It's stored on the load; nothing is sent."><label className="cursor-pointer text-muted-foreground underline"><Upload className="mr-1 inline h-3 w-3" />{s.carrier_invoice_path ? "Replace" : "Attach"}
-                              <input type="file" className="hidden" onChange={(e) => { uploadCarrierInvoice(s, e.target.files?.[0]); e.target.value = ""; }} /></label></Hint>
-                          </div>
-                        ) : <span className="text-xs text-muted-foreground">Queue bill first</span>
+                        <div className="flex flex-col gap-1 text-xs">
+                          {s?.carrier_invoice_path ? <DocLink items={[{ name: "Carrier invoice", bucket: "load-docs", path: s.carrier_invoice_path }]}><FileText className="mr-1 inline h-3 w-3" />{s.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "View"}{s.carrier_invoice_number ? ` · #${s.carrier_invoice_number}` : ""}</DocLink> : null}
+                          {mismatch && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Differs from rate con {usd(bm!.gross)}</span>}
+                          {extra.length > 0 && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Not on rate con: {extra.map((x) => x.description).join(", ")}</span>}
+                          <Hint text="Upload the carrier's own invoice. The TMS reads it and checks it against the signed rate con. Nothing is sent to QuickBooks.">
+                            <button className="w-fit text-muted-foreground underline" onClick={() => setBillTarget(billTargetFor(l))}><Upload className="mr-1 inline h-3 w-3" />{s?.carrier_invoice_path ? "Review / replace" : "Attach carrier invoice"}</button>
+                          </Hint>
+                        </div>
                       ) : s?.invoice_number ? (
                         <div className="flex items-center gap-1 text-xs">
                           <Hint text="View the invoice PDF."><button className="text-gold underline" onClick={() => viewInvoice(s)}>{s.invoice_number}</button></Hint>
                           <ActionButton size="icon" variant="ghost" aria-label="Email invoice" hint="Downloads the invoice PDF and opens an email to the customer in your Gmail. Nothing is sent until you press Send there."
                             confirm={{ title: `Email invoice ${s.invoice_number}?`, points: ["Downloads the invoice PDF to this computer.", `Opens a new email to ${companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.email || "the customer (no email on file — add it in the email)"} from your Gmail.`, "Attach the PDF and press Send yourself — nothing goes out automatically.", "Does not change the invoice, the load or QuickBooks."], confirmLabel: "Open email" }}
                             onClick={() => emailInvoice(s)}><Mail className="h-3.5 w-3.5" /></ActionButton>
+                          <ActionButton size="icon" variant="ghost" aria-label="Invoice packet" hint="Invoice packet: one PDF with the invoice, POD and BOL. Pick the documents, then preview, download or email it." onClick={() => setPacketRow(s)}><Files className="h-3.5 w-3.5" /></ActionButton>
+                          {!l.pod_received && <Hint text="No POD on this load yet."><AlertTriangle className="h-3 w-3 text-warning" /></Hint>}
                         </div>
                       ) : <span className="text-xs text-muted-foreground">Assigned when queued</span>}
                     </TableCell>
@@ -589,6 +631,12 @@ function Accounting() {
         )}
       </div>
       {viewer.viewer}
+      <InvoicePacketDialog invoiceNumber={packetRow?.invoice_number ?? null} loads={packetRow ? groupOf(packetRow).map((x) => loadById.get(x.load_id)).filter((l): l is Load => !!l) : []}
+        buildInvoice={() => (packetRow ? invoicePdf(packetRow) : Promise.resolve(null))}
+        onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => setPacketRow(null)} />
+      <CarrierInvoiceDialog target={billTarget} onClose={() => setBillTarget(null)} onSaved={() => { setBillTarget(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <BillAuditDialog open={auditOpen} onOpenChange={setAuditOpen} loads={shown} billOf={(id) => synced(id, "bill")} payeeOf={(l) => payee(l, "bill")} onAttach={(l) => setBillTarget(billTargetFor(l))} />
+      <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
       <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <QbAttachDialog row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
         onClose={() => setAttaching(null)} onSaved={() => { setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
@@ -729,6 +777,6 @@ function Aging({ k, b }: { k: string; b: { total: number; a: number; b: number; 
   );
 }
 function Pill({ status }: { status: string }) {
-  const cls = status === "sent" ? "border-success text-success" : status === "error" ? "border-destructive text-destructive" : "border-warning text-warning";
-  return <span className={cn("rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider", cls)}>{status}</span>;
+  const cls = status === "sent" ? "border-success text-success" : status === "error" ? "border-destructive text-destructive" : status === "hold" ? "border-muted-foreground text-muted-foreground" : "border-warning text-warning";
+  return <span title={status === "hold" ? "Carrier invoice attached — not sent to QuickBooks until you send it" : undefined} className={cn("rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider", cls)}>{status === "hold" ? "on hold" : status}</span>;
 }
