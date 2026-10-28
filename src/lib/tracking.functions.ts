@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const tokenSchema = z.object({ token: z.string().uuid() });
 
-type Admin = Awaited<ReturnType<typeof loadToken>>["supabaseAdmin"];
+type Admin = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
 
 /** Move the load to Delivered if a signed POD is on file (see podAutoDeliver.ts). Returns true when it changed. */
 async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by: string | null }, why: string) {
@@ -85,6 +85,7 @@ export const postPing = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin, tk, problem } = await loadToken(data.token);
     if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
+    if (data.lat == null || data.lng == null) return { ok: false as const, problem: "Location is required. Turn on Location for this page, then try again." };
     const { reverseGeocode } = await import("./geocode.server");
     const place = data.lat != null && data.lng != null ? await reverseGeocode(data.lat, data.lng) : null;
     const { data: ping, error } = await supabaseAdmin.from("load_tracking_pings").insert({
@@ -122,6 +123,7 @@ export const postPing = createServerFn({ method: "POST" })
         note: data.note, place, key: ping?.id ?? crypto.randomUUID(),
       });
     }
+    if (delivered) await closeLinks(supabaseAdmin, tk.load_id);
     return { ok: true as const, delivered, needsPod };
   });
 
@@ -156,6 +158,11 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}${delivered ? " — load marked Delivered" : ""}`,
       key: path,
     });
+    if (delivered) await closeLinks(supabaseAdmin, tk.load_id);
+    else if (data.kind === "pod") {
+      const { data: l } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).single();
+      if (trackingFinished(l)) await closeLinks(supabaseAdmin, tk.load_id);
+    }
     return { ok: true as const, delivered };
   });
 
