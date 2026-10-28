@@ -75,6 +75,8 @@ export const postPing = createServerFn({ method: "POST" })
     }).select("id").single();
     if (error) return { ok: false as const, problem: "Could not save the update. Please try again." };
     await supabaseAdmin.from("loads").update({ last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
+    let delivered = false;
+    let needsPod = false;
     if (data.kind === "status") {
       const label = data.status ?? "Update";
       const who = tk.driver_name ? `${tk.driver_name}: ` : "";
@@ -83,10 +85,20 @@ export const postPing = createServerFn({ method: "POST" })
         author_id: tk.created_by ?? undefined,
         body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${place ? ` — ${place}` : ""}`,
       });
+      if (label === "Delivered") {
+        delivered = await autoDeliverIfPod(supabaseAdmin, tk, "driver marked Delivered");
+        if (!delivered) {
+          const { data: l } = await supabaseAdmin.from("loads").select("pod_received").eq("id", tk.load_id).single();
+          needsPod = !l?.pod_received;
+        }
+      }
       const { emailDriverUpdate } = await import("./notifyPrefs.server");
-      await emailDriverUpdate(supabaseAdmin, tk, "email_driver_status", { what: `Status: ${label}`, note: data.note, place, key: ping?.id ?? crypto.randomUUID() });
+      await emailDriverUpdate(supabaseAdmin, tk, "email_driver_status", {
+        what: `Status: ${label}${delivered ? " — load marked Delivered" : ""}`,
+        note: data.note, place, key: ping?.id ?? crypto.randomUUID(),
+      });
     }
-    return { ok: true as const };
+    return { ok: true as const, delivered, needsPod };
   });
 
 export const uploadTrackingDoc = createServerFn({ method: "POST" })
@@ -114,9 +126,13 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       author_id: tk.created_by ?? undefined,
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
+    const delivered = data.kind === "pod" ? await autoDeliverIfPod(supabaseAdmin, tk, "POD uploaded") : false;
     const { emailDriverUpdate } = await import("./notifyPrefs.server");
-    await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", { what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}`, key: path });
-    return { ok: true as const };
+    await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", {
+      what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}${delivered ? " — load marked Delivered" : ""}`,
+      key: path,
+    });
+    return { ok: true as const, delivered };
   });
 
 /** Staff-only: fill in place names for older pings that only have coordinates (max 50 per call). */
