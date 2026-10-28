@@ -48,10 +48,10 @@ function Batch({ b, canPay }: { b: RemitBatch; canPay: boolean }) {
     subtitle: `Remit to: ${b.remit || "NO REMIT ADDRESS ON FILE"}`,
     filters: [`Prepared ${new Date().toLocaleDateString("en-US")}`, ...(ref.trim() ? [`Payment ref: ${ref.trim()}`] : [])],
     summary: [["Loads", String(chosen.length)], ["Carrier pay", usd(chosen.reduce((t, r) => t + r.gross, 0))], ["Quick Pay fees", usd(chosen.reduce((t, r) => t + r.fee, 0))], ["Net remitted", usd(net)]],
-    head: ["Load", "Carrier (assignor)", "MC / DOT", "Delivered", "Customer ref #", "Carrier pay", "Fee", "Net"],
-    right: [5, 6, 7],
-    rows: chosen.map((r) => [r.load.load_number, r.carrier.legal_name, "", r.load.delivery_at ? new Date(r.load.delivery_at).toLocaleDateString("en-US") : "", r.load.customer_ref ?? "", usd(r.gross), r.fee ? usd(r.fee) : "", usd(r.net)]),
-    total: ["Total", `${chosen.length} loads`, "", "", "", usd(chosen.reduce((t, r) => t + r.gross, 0)), usd(chosen.reduce((t, r) => t + r.fee, 0)), usd(net)],
+    head: ["Load", "Carrier (assignor)", "Delivered", "Customer ref #", "Carrier pay", "Fee", "Net"],
+    right: [4, 5, 6],
+    rows: chosen.map((r) => [r.load.load_number, r.carrier.legal_name, r.load.delivery_at ? new Date(r.load.delivery_at).toLocaleDateString("en-US") : "", r.load.customer_ref ?? "", usd(r.gross), r.fee ? usd(r.fee) : "", usd(r.net)]),
+    total: ["Total", `${chosen.length} loads`, "", "", usd(chosen.reduce((t, r) => t + r.gross, 0)), usd(chosen.reduce((t, r) => t + r.fee, 0)), usd(net)],
   });
   const markPaid = async () => {
     const { error } = await supabase.from("loads").update({ carrier_paid_at: new Date().toISOString(), carrier_paid_ref: ref.trim() || null }).in("id", chosen.map((r) => r.load.id));
