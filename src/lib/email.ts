@@ -20,13 +20,17 @@ export async function composeEmail(to: string, subject: string, body: string, cl
   } catch {
     // Not signed in or not connected — fall back to a draft.
   }
+  openDraft(to, subject, body, client, cc);
+  return false;
+}
+
+function openDraft(to: string, subject: string, body: string, client: MailClient, cc?: string) {
   if (client === "gmail") {
     const u = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}${cc ? `&cc=${encodeURIComponent(cc)}` : ""}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(u, "_blank", "noopener");
   } else {
     window.open(`mailto:${to}?${cc ? `cc=${encodeURIComponent(cc)}&` : ""}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   }
-  return false;
 }
 
 export type MailFile = { filename: string; mime: string; blob: Blob };
@@ -57,5 +61,6 @@ export async function composeEmailWithFiles(to: string, subject: string, body: s
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  return composeEmail(to, subject, `${body}\n\n(Attachment downloaded to your computer — please attach: ${files.map((f) => f.filename).join(", ")})`, getMailClient(), cc);
+  openDraft(to, subject, `${body}\n\n(Attach: ${files.map((f) => f.filename).join(", ")} — downloaded to your computer)`, getMailClient(), cc);
+  return false;
 }
