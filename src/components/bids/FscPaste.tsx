@@ -161,7 +161,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
       };
       await Promise.all(Array.from({ length: Math.min(6, patches.length) }, worker));
     }
-    const bidPatch: Partial<Bid> = { fsc_note: note.trim() || null };
+    const bidPatch: Partial<Bid> = { fsc_note: note.trim() || (mode === "weekly" && post ? defaultNote : null) };
     if (useDefault) bidPatch.fsc_per_mile = result.rpm!;
     if (mode === "paste") { const x = parseFscPaste(text); if (x.kind === "schedule") bidPatch.fsc_schedule = x.rows as never; }
     if (mode === "weekly" && pastedTable?.kind === "schedule") bidPatch.fsc_schedule = pastedTable.rows as never;
@@ -311,7 +311,7 @@ export function FscPasteDialog({ bid, lanes, checked, onClose }: { bid: Bid; lan
           </label>
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-            <Button size="sm" disabled={!canApply} onClick={() => { if (!note && mode === "weekly" && post) setNote(defaultNote); void apply(); }}>{busy ? "Applying…" : `Apply to ${result.rates ? result.rates.filter((r) => r != null).length : todo.length} lanes`}</Button>
+            <Button size="sm" disabled={!canApply} onClick={() => void apply()}>{busy ? "Applying…" : `Apply to ${result.rates ? result.rates.filter((r) => r != null).length : todo.length} lanes`}</Button>
           </div>
         </div>
       </DialogContent>
