@@ -5,7 +5,7 @@ import { LoadWorkNotice } from "@/components/LoadWorkNotice";
 import { InvoicedQbReview } from "@/components/InvoicedQbReview";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal, Gavel } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/fleet", label: "Fleet", icon: Container, p: "fleet" },
     { to: "/leads", label: "Leads", icon: Users, p: "leads" },
     { to: "/quotes", label: "Quotes", icon: Calculator, p: "quotes" },
+    { to: "/bids", label: "Bid Desk", icon: Gavel, p: "quotes" },
     { to: "/reports", label: "Reports", icon: BarChart3, p: "reports" },
     { to: "/quickbooks", label: "Accounting", icon: BookOpen, p: "" },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings, p: "" }] : []),
