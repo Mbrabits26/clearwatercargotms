@@ -39,12 +39,12 @@ export function QuickLaneCheck() {
   const t = laneTotals(calcLane, 0);
   const est = estimateCarrierCost(calcLane, f.kind, hist?.costRpm ?? null);
 
-  const lookupMiles = async () => {
+  const lookupMiles = async (auto = false) => {
     if (!ok) return;
     setBusy("miles");
     try {
       const r = await miles$({ data: { origin: f.origin, dest: f.dest } });
-      if (r.miles) setF((s) => ({ ...s, miles: String(r.miles) })); else toast.error("Couldn't find driving miles for that lane.");
+      if (r.miles) setF((s) => (auto && s.miles ? s : { ...s, miles: String(r.miles) })); else if (!auto) toast.error("Couldn't find driving miles for that lane.");
     } catch (e) { toast.error((e as Error).message); }
     setBusy("");
   };
@@ -83,15 +83,15 @@ export function QuickLaneCheck() {
     <div className="space-y-3 rounded-lg border p-4">
       <h2 className="font-display text-lg font-bold uppercase tracking-wider text-gold">Quick lane check</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Input className="col-span-2" placeholder="From — City, ST" value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })} onBlur={() => !f.miles && f.dest && lookupMiles()} />
-        <Input className="col-span-2" placeholder="To — City, ST" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} onBlur={() => !f.miles && f.origin && lookupMiles()} />
+        <Input className="col-span-2" placeholder="From — City, ST" value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })} onBlur={() => !f.miles && f.dest && lookupMiles(true)} />
+        <Input className="col-span-2" placeholder="To — City, ST" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} onBlur={() => !f.miles && f.origin && lookupMiles(true)} />
         <select value={f.equipment} onChange={(e) => { setF({ ...f, equipment: e.target.value }); setMkt(null); }} className="h-9 rounded border bg-background px-2 text-sm">{EQUIPMENT.map((x) => <option key={x}>{x}</option>)}</select>
         <div className="flex gap-1 text-xs">
           {(["spot", "contract"] as const).map((k) => <button key={k} type="button" onClick={() => setF({ ...f, kind: k })} className={cn("flex-1 rounded px-2 capitalize", f.kind === k ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>{k}</button>)}
         </div>
         <div className="col-span-2 flex gap-1">
           <Input type="number" placeholder="Miles" value={f.miles} onChange={(e) => setF({ ...f, miles: e.target.value })} />
-          <Button variant="outline" size="sm" className="h-9" disabled={!ok || !!busy} onClick={lookupMiles} title="Look up driving miles"><MapPin className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" className="h-9" disabled={!ok || !!busy} onClick={() => lookupMiles()} title="Look up driving miles"><MapPin className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" className="h-9" disabled={!ok || !!busy} onClick={lookupMarket}><Globe className="mr-1 h-4 w-4" />{busy === "market" ? "Checking…" : "Market"}</Button>
         </div>
       </div>

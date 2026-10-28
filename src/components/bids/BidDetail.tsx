@@ -262,7 +262,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
                     <td className="p-2 text-right text-xs" title={l.market_note ?? ""}>{l.market_spot_rpm || l.market_contract_rpm ? <>{rpm(l.market_spot_rpm)} / {rpm(l.market_contract_rpm)}<div className="text-muted-foreground">spot / contract</div></> : "—"}</td>
                     <td className="p-2 text-right"><Cell value={l.carrier_cost} placeholder={est.cost ? String(est.cost) : ""} onSave={(v) => patchLane(l.id, { carrier_cost: v })} /></td>
                     <td className="p-2 text-right"><Cell value={l.linehaul} onSave={(v) => patchLane(l.id, { linehaul: v })} /></td>
-                    <td className="p-2 text-right"><Cell value={l.fsc_per_mile} placeholder={fsc.toFixed(2)} step="0.01" w="w-16" onSave={(v) => patchLane(l.id, { fsc_per_mile: v })} /><div className="text-[11px] text-muted-foreground">{t.fsc ? usd(t.fsc) : ""}</div></td>
+                    <td className="p-2 text-right"><Cell value={l.fsc_per_mile} placeholder={fsc.toFixed(2)} step="0.01" w="w-20" onSave={(v) => patchLane(l.id, { fsc_per_mile: v })} /><div className="text-[11px] text-muted-foreground">{t.fsc ? usd(t.fsc) : ""}</div></td>
                     <td className="p-2 text-right"><AccButton value={accList(l.accessorials)} onChange={(v) => patchLane(l.id, { accessorials: v as never })} /></td>
                     <td className="p-2 text-right font-semibold text-gold">{t.linehaul > 0 ? usd(t.allIn) : "—"}</td>
                     <td className="p-2 text-right text-xs">{t.linehaul > 0 ? rpm(t.allInRpm) : "—"}</td>
