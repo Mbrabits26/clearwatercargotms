@@ -156,7 +156,8 @@ export function BidDetail({ bidId }: { bidId: string }) {
   // One click: miles → market rates → counters → pricing, re-reading lanes between steps so nothing is skipped.
   const autoAll = async (only?: BidLane[]) => {
     const ids = new Set((only ?? lanes).map((l) => l.id));
-    const fresh = async () => (await qc.fetchQuery({ ...bidLanesQuery(bidId), staleTime: 0 })).filter((l) => ids.has(l.id));
+    // Read straight from the database each step (not the screen's cached copy) so later steps see the miles/rates just saved.
+    const fresh = async () => (await bidLanesQuery(bidId).queryFn!({} as never) as BidLane[]).filter((l) => ids.has(l.id));
     let cur = await fresh();
     const problems: string[] = [];
     if (cur.some((l) => !(Number(l.miles) > 0))) { problems.push(...await fillMiles(cur, true)); cur = await fresh(); }
