@@ -74,6 +74,198 @@ export type Database = {
         }
         Relationships: []
       }
+      bid_lanes: {
+        Row: {
+          accessorials: Json
+          bid_id: string
+          carrier_cost: number | null
+          created_at: string
+          dest_city: string
+          dest_state: string
+          dest_zip: string | null
+          equipment: string
+          fsc_per_mile: number | null
+          history_cost_rpm: number | null
+          history_n: number | null
+          history_rpm: number | null
+          id: string
+          linehaul: number | null
+          load_id: string | null
+          loads_per_week: number | null
+          lost_reason: string | null
+          market_contract_rpm: number | null
+          market_note: string | null
+          market_spot_rpm: number | null
+          miles: number | null
+          notes: string | null
+          origin_city: string
+          origin_state: string
+          origin_zip: string | null
+          original: Json | null
+          pickup_date: string | null
+          position: number
+          quote_id: string | null
+          status: string
+          volume: string | null
+        }
+        Insert: {
+          accessorials?: Json
+          bid_id: string
+          carrier_cost?: number | null
+          created_at?: string
+          dest_city?: string
+          dest_state?: string
+          dest_zip?: string | null
+          equipment?: string
+          fsc_per_mile?: number | null
+          history_cost_rpm?: number | null
+          history_n?: number | null
+          history_rpm?: number | null
+          id?: string
+          linehaul?: number | null
+          load_id?: string | null
+          loads_per_week?: number | null
+          lost_reason?: string | null
+          market_contract_rpm?: number | null
+          market_note?: string | null
+          market_spot_rpm?: number | null
+          miles?: number | null
+          notes?: string | null
+          origin_city?: string
+          origin_state?: string
+          origin_zip?: string | null
+          original?: Json | null
+          pickup_date?: string | null
+          position?: number
+          quote_id?: string | null
+          status?: string
+          volume?: string | null
+        }
+        Update: {
+          accessorials?: Json
+          bid_id?: string
+          carrier_cost?: number | null
+          created_at?: string
+          dest_city?: string
+          dest_state?: string
+          dest_zip?: string | null
+          equipment?: string
+          fsc_per_mile?: number | null
+          history_cost_rpm?: number | null
+          history_n?: number | null
+          history_rpm?: number | null
+          id?: string
+          linehaul?: number | null
+          load_id?: string | null
+          loads_per_week?: number | null
+          lost_reason?: string | null
+          market_contract_rpm?: number | null
+          market_note?: string | null
+          market_spot_rpm?: number | null
+          miles?: number | null
+          notes?: string | null
+          origin_city?: string
+          origin_state?: string
+          origin_zip?: string | null
+          original?: Json | null
+          pickup_date?: string | null
+          position?: number
+          quote_id?: string | null
+          status?: string
+          volume?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_lanes_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bids"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_lanes_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_lanes_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bids: {
+        Row: {
+          bid_number: string
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          due_date: string | null
+          fsc_per_mile: number
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          source_file: string | null
+          source_headers: Json
+          status: string
+          submitted_at: string | null
+          target_margin: number
+        }
+        Insert: {
+          bid_number?: string
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          due_date?: string | null
+          fsc_per_mile?: number
+          id?: string
+          kind?: string
+          name: string
+          notes?: string | null
+          source_file?: string | null
+          source_headers?: Json
+          status?: string
+          submitted_at?: string | null
+          target_margin?: number
+        }
+        Update: {
+          bid_number?: string
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          due_date?: string | null
+          fsc_per_mile?: number
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          source_file?: string | null
+          source_headers?: Json
+          status?: string
+          submitted_at?: string | null
+          target_margin?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bids_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broker_commissions: {
         Row: {
           commission_pct: number
