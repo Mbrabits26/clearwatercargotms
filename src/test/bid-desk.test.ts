@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bidSheetRows, bidStatusFromLanes, estimateCarrierCost, guessMapping, laneTotals, priceLane, rowsToLanes, splitPlace, volumeToWeekly } from "@/lib/bidDesk";
+import { bidSheetRows, bidStatusFromLanes, counterLadder, defaultFieldMap, detectBelowPct, detectOrigin, estimateCarrierCost, findTables, guessMapping, laneOutValues, laneTotals, parseBand, priceLane, rowsToLanes, sheetNotes, sheetWrites, splitPlace, volumeToWeekly } from "@/lib/bidDesk";
 
 describe("bid lane totals", () => {
   it("adds a per-mile fuel surcharge and accessorials to the linehaul", () => {
@@ -62,5 +62,76 @@ describe("reading RFP spreadsheets", () => {
     expect(out.rows[0]!["Rate"]).toBe(300);
     expect(out.rows[0]!["Lane ID"]).toBe(7);
     expect(out.rows[0]!["Clearwater All-in $"]).toBe(350);
+  });
+});
+
+describe("reading a state-CPM / mileage-band carrier sheet", () => {
+  // Same layout as the customer's Q4 contract-rates workbook.
+  const sheet1: unknown[][] = [
+    ["State", "Negotiation Start CPM", "Counteroffer 1", "Counteroffer 2", "Final Agreed Rate", "", "Mileage Band", "Negotiation Start Rate", "Counteroffer 1", "Counteroffer 2", "Final Agreed Rate"],
+    ["AL", 2.295, "", "", "", "", "0-25", 340, "", "", ""],
+    ["GA", 2.7625, "", "", "", "", "301-higher", "", "", "", ""],
+  ];
+  const sheet2: unknown[][] = [
+    ["Destination", "State", "Mileage from Lexington, NC", "Mileage Band", "Negotiation Start CPM", "Counteroffer 1", "Counteroffer 2", "Counteroffer 3", "Final Agreed Rate"],
+    ["Greensboro", "NC", "35 mi", "26-50", 11.57, "", "", "", ""],
+    ["Opening Q4 State CPM is calculated at 15% below the Q4 State CPM to establish an initial negotiation position.", "", "", "", "", "", "", "", ""],
+  ];
+
+  it("splits side-by-side tables and maps the shipper's offer and counter columns", () => {
+    const t = findTables(sheet1, "STATE RATES");
+    expect(t).toHaveLength(2);
+    expect(t[0]!.table.out).toMatchObject({ counter1: "Counteroffer 1", counter2: "Counteroffer 2", final: "Final Agreed Rate" });
+    const lanes = rowsToLanes(t[0]!.rows, defaultFieldMap(t[0]!.table.headers, "Lexington, NC"));
+    expect(lanes[0]).toMatchObject({ origin_city: "Lexington", origin_state: "NC", dest_state: "AL", offer_rpm: 2.295, source_row: 1 });
+    const bands = rowsToLanes(t[1]!.rows, defaultFieldMap(t[1]!.table.headers, "Lexington, NC"));
+    expect(bands[0]).toMatchObject({ mileage_band: "0-25", miles: 25, offer_flat: 340, dest_state: "" });
+  });
+
+  it("finds the origin in a heading and the opening-offer discount in a note", () => {
+    expect(detectOrigin(["Mileage from Lexington, NC"])).toBe("Lexington, NC");
+    expect(detectBelowPct(sheetNotes(sheet2))).toBe(15);
+    const [t] = findTables(sheet2, "TOP 5");
+    const lanes = rowsToLanes(t!.rows, defaultFieldMap(t!.table.headers, "Lexington, NC"));
+    expect(lanes).toHaveLength(1);
+    expect(lanes[0]).toMatchObject({ dest_city: "Greensboro", dest_state: "NC", miles: 35, offer_rpm: 11.57 });
+  });
+
+  it("lets a typed value stand in for a missing column", () => {
+    const lanes = rowsToLanes([{ St: "GA" }], { origin: { fixed: "Staley, NC" }, dest_state: "St", equipment: { fixed: "Flatbed" } });
+    expect(lanes[0]).toMatchObject({ origin_city: "Staley", origin_state: "NC", dest_state: "GA", equipment: "Flatbed" });
+  });
+
+  it("reads mileage bands", () => {
+    expect(parseBand("26-50")).toEqual({ lo: 26, hi: 50 });
+    expect(parseBand("301-higher")).toEqual({ lo: 301, hi: null });
+  });
+});
+
+describe("counteroffer ladder", () => {
+  it("opens at the target margin and walks away at the 8% floor or their offer", () => {
+    // cost $2.00/mi: 15% target = 2.35, 8% floor = 2.17
+    const l = counterLadder({ offer: 2.0, cost: 2.0, targetPct: 15 });
+    expect(l.verdict).toBe("counter");
+    expect(l.counters).toEqual([2.35, 2.26, 2.17]);
+  });
+  it("caps counter 1 at the shipper's likely budget when the sheet says the offer is 15% low", () => {
+    const l = counterLadder({ offer: 1.9, cost: 2.0, targetPct: 15, belowPct: 15 });
+    expect(l.budget).toBe(2.24); // 1.90 ÷ 0.85
+    expect(l.counters[0]).toBe(2.24);
+  });
+  it("says take it when the offer already beats the target", () => {
+    expect(counterLadder({ offer: 2.5, cost: 2.0, targetPct: 15 }).verdict).toBe("take");
+  });
+  it("says walk away when even their budget is under the floor", () => {
+    expect(counterLadder({ offer: 1.5, cost: 2.0, targetPct: 15, belowPct: 10 }).verdict).toBe("walk");
+  });
+  it("sends counters back as dollars for flat-rate offers and $/mi otherwise", () => {
+    expect(laneOutValues({ miles: 50, offer_flat: 405, counters: [9.5] }, 0).counter1).toBe(475);
+    expect(laneOutValues({ miles: 35, offer_rpm: 11.57, counters: [12.345] }, 0).counter1).toBe(12.35);
+  });
+  it("writes into the shipper's own cells", () => {
+    const table = { key: "k", sheet: "S", label: "S", headerRow: 0, cols: [6, 7, 8], headers: ["Mileage Band", "Start", "Counteroffer 1"], out: { counter1: "Counteroffer 1" } };
+    expect(sheetWrites([table], [{ source_table: "k", source_row: 3, miles: 50, offer_flat: 405, counters: [9.5] }], 0)).toEqual([{ path: null, sheet: "S", r: 3, c: 8, v: 475 }]);
   });
 });
