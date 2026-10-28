@@ -278,7 +278,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[1500px] text-sm">
+          <table className="w-full min-w-[1600px] text-sm">
             <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
               <tr>
                 <th className="w-8 p-2"><SelectAllBox ids={lanes.map((l) => l.id)} sel={sel} /></th>
@@ -310,14 +310,14 @@ export function BidDetail({ bidId }: { bidId: string }) {
                     <td className="p-2 text-right text-xs">{h ? <span title={`${h.n} of our loads`}>{rpm(h.revRpm)} / {rpm(h.costRpm)}<div className="text-muted-foreground">sell / buy · {h.n}</div></span> : "—"}</td>
                     <td className="p-2 text-right text-xs" title={l.market_note ?? ""}>{l.market_spot_rpm || l.market_contract_rpm ? <>{rpm(l.market_spot_rpm)} / {rpm(l.market_contract_rpm)}<div className="text-muted-foreground">spot / contract</div></> : "—"}</td>
                     <td className="p-2 text-right">
-                      <Cell value={l.offer_rpm} step="0.01" w="w-20" placeholder={offer ? offer.toFixed(2) : ""} onSave={(v) => patchLane(l.id, { offer_rpm: v })} />
+                      <Cell value={l.offer_rpm} step="0.01" w="w-24" placeholder={offer ? offer.toFixed(2) : ""} onSave={(v) => patchLane(l.id, { offer_rpm: v })} />
                       {l.offer_flat ? <div className="text-[11px] text-muted-foreground">{usd(Number(l.offer_flat))} flat</div> : null}
                       {plan.ladder.budget ? <div className="text-[11px] text-muted-foreground" title="Their offer ÷ (1 − the % below budget)">budget ≈ {rpm(plan.ladder.budget)}</div> : null}
                     </td>
                     <td className="p-2">
                       <div className="flex gap-1">
                         {[0, 1, 2].map((i) => (
-                          <Cell key={i} value={saved[i] ?? null} step="0.01" w="w-16" placeholder={plan.ladder.counters[i]?.toFixed(2) ?? ""}
+                          <Cell key={i} value={saved[i] ?? null} step="0.01" w="w-20" placeholder={plan.ladder.counters[i]?.toFixed(2) ?? ""}
                             onSave={(v) => { const next = [0, 1, 2].map((j) => (j === i ? v : saved[j] ?? null)); while (next.length && next[next.length - 1] == null) next.pop(); patchLane(l.id, { counters: next as never }); }} />
                         ))}
                       </div>
@@ -327,7 +327,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
                         {saved[0] ? <span className="text-muted-foreground"> · C1 {rpmMargin(saved[0], plan.cost.rpm)?.toFixed(0) ?? "—"}%</span> : null}
                       </div>
                     </td>
-                    <td className="p-2 text-right"><Cell value={l.agreed_rpm} step="0.01" w="w-16" onSave={(v) => patchLane(l.id, { agreed_rpm: v })} /></td>
+                    <td className="p-2 text-right"><Cell value={l.agreed_rpm} step="0.01" w="w-20" onSave={(v) => patchLane(l.id, { agreed_rpm: v })} /></td>
                     <td className="p-2 text-right"><Cell value={l.carrier_cost} placeholder={est.cost ? String(est.cost) : ""} onSave={(v) => patchLane(l.id, { carrier_cost: v })} /></td>
                     <td className="p-2 text-right"><Cell value={l.linehaul} onSave={(v) => patchLane(l.id, { linehaul: v })} /></td>
                     <td className="p-2 text-right"><Cell value={l.fsc_per_mile} placeholder={fsc.toFixed(2)} step="0.01" w="w-20" onSave={(v) => patchLane(l.id, { fsc_per_mile: v })} /><div className="text-[11px] text-muted-foreground">{t.fsc ? usd(t.fsc) : ""}</div></td>

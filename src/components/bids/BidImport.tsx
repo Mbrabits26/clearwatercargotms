@@ -83,7 +83,7 @@ export function BidImport({ bid, startPos, open, onOpenChange }: { bid: Bid; sta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] max-w-5xl overflow-auto">
+      <DialogContent className="max-h-[92dvh] overflow-auto sm:max-w-5xl">
         <DialogHeader><DialogTitle>Add lanes to {bid.bid_number}</DialogTitle></DialogHeader>
         <datalist id={EQUIP_LIST}>{EQUIPMENT.map((x) => <option key={x} value={x} />)}</datalist>
         <Tabs defaultValue="sheet">
@@ -111,7 +111,13 @@ function SheetImport({ busy, onImport }: { busy: boolean; onImport: (r: SheetRes
   const read = async (f: File) => {
     try {
       const w = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-      const grids = w.SheetNames.map((s) => ({ s, grid: XLSX.utils.sheet_to_json<unknown[]>(w.Sheets[s]!, { header: 1, defval: "", raw: true }) }));
+      // Read from A1 so row/column numbers match the real cells we write back into.
+      const grids = w.SheetNames.map((s) => {
+        const ws = w.Sheets[s]!;
+        const ref = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : null;
+        const range = ref ? XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: ref.e }) : undefined;
+        return { s, grid: XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "", raw: true, blankrows: true, range }) };
+      });
       const tables = grids.flatMap(({ s, grid }) => findTables(grid, s));
       const n = [...new Set(grids.flatMap(({ grid }) => sheetNotes(grid)))];
       const o = detectOrigin([...tables.flatMap((t) => t.table.headers), ...n]);

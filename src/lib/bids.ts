@@ -99,7 +99,11 @@ export const placeText = (city: string, state: string, zip: string | null) => (z
 
 /** Lane history (our own loads, company-wide) used for pricing. */
 export function historyFor(loads: Load[], l: Pick<BidLane, "origin_city" | "origin_state" | "dest_city" | "dest_state" | "equipment" | "miles">) {
-  const s = laneStats(loads, { origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, equipment: l.equipment, miles: l.miles }, false);
+  // Per-mile rates swing hard with distance, so only compare loads of a similar length
+  // (lanes with no miles are state-rate lanes and compare to our 250+ mile loads).
+  const miles = Number(l.miles) || 0;
+  const near = loads.filter((x) => { const m = Number(x.miles) || 0; return miles > 0 ? m > 0 && Math.abs(m - miles) <= Math.max(40, miles * 0.3) : m >= 250; });
+  const s = laneStats(near, { origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, equipment: l.equipment, miles: l.miles }, false);
   const w = s.d365 ?? s.d90 ?? s.d30;
   return w ? { revRpm: w.revCpm, costRpm: w.costCpm, n: w.n } : null;
 }
@@ -198,17 +202,24 @@ export async function bidFiles(bid: Bid, lanes: BidLane[], outMap: Partial<Recor
   for (const [i, path] of paths.entries()) {
     const { data, error } = await supabase.storage.from("bid-files").download(path);
     if (error || !data) continue;
-    const wb = XLSX.read(await data.arrayBuffer(), { cellStyles: true, cellFormula: true });
-    const ts = tables.filter((t) => t.path === path);
-    for (const w of sheetWrites(ts, lanes, fsc)) {
-      const ws = wb.Sheets[w.sheet];
-      if (ws) XLSX.utils.sheet_add_aoa(ws, [[w.v]], { origin: { r: w.r, c: w.c } });
+    const src = await data.arrayBuffer();
+    const writes = sheetWrites(tables.filter((t) => t.path === path), lanes, fsc);
+    const extra = i === 0 && loose.length ? bidSheetRows([], loose, fsc, {}) : null;
+    let buf: ArrayBuffer;
+    if (/\.xlsx$/i.test(path)) {
+      // ExcelJS keeps the customer's colors, column widths, merged notes and formulas.
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(src);
+      for (const w of writes) wb.getWorksheet(w.sheet)?.getCell(w.r + 1, w.c + 1).value = w.v;
+      if (extra) { const ws = wb.addWorksheet("Clearwater lanes"); ws.addRow(extra.headers); extra.rows.forEach((r) => ws.addRow(extra.headers.map((h) => r[h] ?? ""))); }
+      buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+    } else {
+      const wb = XLSX.read(src);
+      for (const w of writes) { const ws = wb.Sheets[w.sheet]; if (ws) XLSX.utils.sheet_add_aoa(ws, [[w.v]], { origin: { r: w.r, c: w.c } }); }
+      if (extra) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(extra.rows, { header: extra.headers }), "Clearwater lanes");
+      buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     }
-    if (i === 0 && loose.length) {
-      const { headers, rows } = bidSheetRows([], loose, fsc, {});
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows, { header: headers }), "Clearwater lanes");
-    }
-    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     const orig = path.split("/").pop()!.replace(/^\d+-/, "").replace(/\.(xlsx|xls|csv)$/i, "");
     files.push({ filename: `${fileBase(bid)}-${orig}.xlsx`, mime: XLSX_MIME, blob: new Blob([buf], { type: XLSX_MIME }) });
   }
