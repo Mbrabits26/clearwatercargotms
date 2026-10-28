@@ -109,9 +109,10 @@ export function BidDetail({ bidId }: { bidId: string }) {
     setBusy(`Market 0/${types.length}`);
     for (const equipment of types) {
       const ids = todo.filter((l) => (l.equipment || "Dry Van") === equipment).map((l) => l.id);
-      const os = todo.find((l) => (l.equipment || "Dry Van") === equipment)?.origin_state || "NC";
+      const o = (todo.find((l) => (l.equipment || "Dry Van") === equipment)?.origin_state ?? "").trim().toUpperCase();
+      const os = o.length === 2 ? o : "NC";
       try {
-        const r = await market$({ data: { origin_state: os.slice(0, 2).toUpperCase().padEnd(2, "C"), dest_state: os.slice(0, 2).toUpperCase().padEnd(2, "C"), equipment, refresh: force, national: true } });
+        const r = await market$({ data: { origin_state: os, dest_state: os, equipment, refresh: force, national: true } });
         const m = r.result;
         if (r.error || !m || !(Number(m.spot_rpm) > 0 || Number(m.contract_rpm) > 0)) errs.push(`${equipment} (${ids.length} lanes): ${r.error ?? "no published market rate found — type a carrier cost"}`);
         else {
@@ -297,7 +298,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => setImportOpen(true)}><FileUp className="mr-1 h-4 w-4" />Add lanes</Button>
         <Hint text="Looks up driving miles for lanes that don't have them."><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => fillMiles()}><MapPin className="mr-1 h-4 w-4" />Fill miles</Button></Hint>
-        <Hint text="Checks public freight-market rate pages (AI web search) once per equipment + state pair. Results are saved for 24 hours."><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => fillMarket()}><Globe className="mr-1 h-4 w-4" />Get market rates</Button></Hint>
+        <Hint text="Checks public freight-market rate pages (AI web search) once per trailer type (national rate) and fills every lane of that type. Results are saved for 24 hours."><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => fillMarket()}><Globe className="mr-1 h-4 w-4" />Get market rates</Button></Hint>
         <Hint text={`Fills carrier cost and linehaul at ${bid.target_margin}% on lanes that aren't priced yet. Uses our own lane history first, then the ${bid.kind} market rate.`}><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => priceAll(false)}><Sparkles className="mr-1 h-4 w-4" />Price open lanes</Button></Hint>
         <Hint text={`Builds counter 1, counter 2 and a walk-away $/mi on lanes that don't have counters yet: from your ${bid.target_margin}% target down to the 8% floor, against the shipper's offer. Lanes with miles also get priced at counter 1.`}><Button size="sm" variant="outline" disabled={!!busy || !lanes.length} onClick={() => buildCounters(false)}><Handshake className="mr-1 h-4 w-4" />Build counteroffers</Button></Hint>
         <Hint text="Does it all for every lane: looks up missing miles, market rates for each lane's trailer type, then builds counteroffers and prices open lanes. Lanes you already typed are kept."><Button size="sm" disabled={!!busy || !lanes.length} onClick={() => autoAll()}><Sparkles className="mr-1 h-4 w-4" />Auto-price all lanes</Button></Hint>
