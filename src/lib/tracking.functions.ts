@@ -24,10 +24,9 @@ async function autoDeliverIfPod(admin: Admin, tk: { load_id: string; created_by:
 }
 
 
-/** A link stops working for good once the load is delivered (or later) with a signed POD on file, or cancelled. */
+/** A link stops working for good once the load is delivered (or later) with a signed POD on file. */
 export function trackingFinished(load: { status: string; pod_received: boolean | null } | null): boolean {
   if (!load) return false;
-  if (load.status === "cancelled") return true;
   return !!load.pod_received && ["delivered", "invoiced", "paid"].includes(load.status);
 }
 
