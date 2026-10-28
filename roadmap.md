@@ -167,5 +167,5 @@
 ## Current
 - [x] Bid Desk: upload RFP/tender/typed lanes, market + history pricing, FSC per mile, accessorials, submit (sheet/email/quotes), won/lost tracking
 - [x] Merge duplicate customers: keep most complete record, fill blanks from duplicate, move loads/quotes/etc. to the kept one
-- [ ] Bid Desk: read weekly fuel post (by region / trailer type) and apply FSC to lanes
-- [ ] Tracking link "Copy" uses the same message as the driver email
+- [x] Bid Desk: read weekly fuel post (by region / trailer type) and apply FSC to lanes
+- [x] Tracking link "Copy" uses the same message as the driver email
