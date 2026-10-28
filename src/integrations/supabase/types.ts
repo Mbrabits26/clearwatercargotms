@@ -228,7 +228,9 @@ export type Database = {
           customer_id: string | null
           customer_name: string | null
           due_date: string | null
+          fsc_note: string | null
           fsc_per_mile: number
+          fsc_schedule: Json | null
           id: string
           kind: string
           name: string
@@ -251,7 +253,9 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           due_date?: string | null
+          fsc_note?: string | null
           fsc_per_mile?: number
+          fsc_schedule?: Json | null
           id?: string
           kind?: string
           name: string
@@ -274,7 +278,9 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           due_date?: string | null
+          fsc_note?: string | null
           fsc_per_mile?: number
+          fsc_schedule?: Json | null
           id?: string
           kind?: string
           name?: string

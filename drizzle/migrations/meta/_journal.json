@@ -365,6 +365,13 @@
       "when": 1793199309973,
       "tag": "0051_bid_files_delete_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793227541653,
+      "tag": "0052_bid_fsc_schedule",
+      "breakpoints": true
     }
   ]
 }
