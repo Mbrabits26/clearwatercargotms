@@ -106,6 +106,15 @@ export const postPing = createServerFn({ method: "POST" })
         author_id: tk.created_by ?? undefined,
         body: `Driver update — ${who}${label}${data.note ? ` — ${data.note}` : ""}${place ? ` — ${place}` : ""}`,
       });
+      if (label === "Loaded / rolling") {
+        const { data: upd } = await supabaseAdmin.from("loads").update({ status: "rolling" })
+          .eq("id", tk.load_id).in("status", ["booked", "dispatched"]).select("id");
+        if (upd?.length) await supabaseAdmin.from("load_notes").insert({
+          load_id: tk.load_id,
+          author_id: tk.created_by ?? undefined,
+          body: "Status changed → Loaded / Rolling (automatic — driver marked Loaded via driver link)",
+        });
+      }
       if (label === "Delivered") {
         delivered = await autoDeliverIfPod(supabaseAdmin, tk, "driver marked Delivered");
         if (!delivered) {
