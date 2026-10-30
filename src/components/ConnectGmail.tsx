@@ -37,14 +37,13 @@ function waitForOAuthCompletion(popup: Window) {
   });
 }
 
-export function ConnectGmail() {
+/** Opens Google sign-in and saves the connection. Also used to reconnect for reply reading. */
+export function useConnectGmail() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const { data: status } = useQuery({ queryKey: ["gmail-status"], queryFn: () => gmailStatus() });
-
-  const connect = async () => {
+  const connect = async (successMsg?: string) => {
     const popup = window.open("", "lovable-oauth", "width=600,height=720");
-    if (!popup) return toast.error("Popup blocked. Allow popups and try again.");
+    if (!popup) { toast.error("Popup blocked. Allow popups and try again."); return false; }
     setBusy(true);
     try {
       const { authorizationUrl } = await startGmailConnect();
@@ -53,14 +52,25 @@ export function ConnectGmail() {
       const code = await completion;
       if (code) await completeGmailConnection({ data: { code } });
       await qc.invalidateQueries({ queryKey: ["gmail-status"] });
-      toast.success(status?.connected ? "Reconnected to Gmail" : "Gmail connected — emails now send from your address");
+      await qc.invalidateQueries({ queryKey: ["outreach_sender_me"] });
+      toast.success(successMsg ?? "Gmail connected — emails now send from your address");
+      return true;
     } catch (e) {
       popup.close();
       toast.error(e instanceof Error ? e.message : "Couldn't connect Gmail");
+      return false;
     } finally {
       setBusy(false);
     }
   };
+  return { connect, busy, setBusy };
+}
+
+export function ConnectGmail() {
+  const qc = useQueryClient();
+  const { connect: doConnect, busy, setBusy } = useConnectGmail();
+  const { data: status } = useQuery({ queryKey: ["gmail-status"], queryFn: () => gmailStatus() });
+  const connect = () => doConnect(status?.connected || status?.reconnectRequired ? "Reconnected to Gmail" : undefined);
 
   const disconnect = async () => {
     setBusy(true);
