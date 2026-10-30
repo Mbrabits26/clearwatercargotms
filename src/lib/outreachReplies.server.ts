@@ -125,11 +125,11 @@ export async function checkRepliesForSender(snd: SenderRow, force = false): Prom
     byEmail.set(l.email.trim().toLowerCase(), l);
     if (!firstSent || r.sent_at < firstSent) firstSent = r.sent_at;
   }
-  const done = async (status: ReplyCheckResult["status"], found: number) => {
-    await supabaseAdmin.from("outreach_senders").update({ replies_checked_at: startedAt, reply_access: "on" }).eq("id", snd.id);
+  const done = async (status: ReplyCheckResult["status"], found: number, readOk = true) => {
+    await supabaseAdmin.from("outreach_senders").update({ replies_checked_at: startedAt, ...(readOk ? { reply_access: "on" } : {}) }).eq("id", snd.id);
     return { status, found, notes };
   };
-  if (!byEmail.size || !firstSent) return done("ok", 0);
+  if (!byEmail.size || !firstSent) return done("ok", 0, false);
 
   const lastCheck = snd.replies_checked_at ? new Date(snd.replies_checked_at).getTime() - 2 * 3600_000 : 0;
   const afterSec = Math.floor(Math.max(new Date(firstSent).getTime() - 3600_000, lastCheck) / 1000);
@@ -228,6 +228,7 @@ export async function checkAllReplies() {
   const { data: senders } = await supabaseAdmin.from("outreach_senders").select("id, user_id, from_email, display_name, replies_checked_at, reply_access").eq("active", true);
   const report: string[] = [];
   for (const s of senders ?? []) {
+    if (s.reply_access === "reconnect") continue; // waits until they reconnect Gmail
     try {
       const r = await checkRepliesForSender(s as SenderRow);
       if (r.status !== "skipped") report.push(`${s.from_email}: ${r.status}, ${r.found} new${r.notes.length ? ` — ${r.notes.join("; ")}` : ""}`);
