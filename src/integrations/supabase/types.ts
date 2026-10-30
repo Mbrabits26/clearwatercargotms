@@ -989,54 +989,72 @@ export type Database = {
           company_id: string | null
           company_name: string
           contact_name: string | null
+          contact_title: string | null
           created_at: string
+          do_not_contact: boolean
           email: string | null
+          equipment: string | null
           est_monthly_loads: number | null
           id: string
+          industry: string | null
           lanes: string | null
           lost_reason: string | null
           next_follow_up: string | null
+          outreach_status: string
           owner_id: string | null
           phone: string | null
           source: string | null
           stage: string
           state: string | null
+          website: string | null
         }
         Insert: {
           city?: string | null
           company_id?: string | null
           company_name: string
           contact_name?: string | null
+          contact_title?: string | null
           created_at?: string
+          do_not_contact?: boolean
           email?: string | null
+          equipment?: string | null
           est_monthly_loads?: number | null
           id?: string
+          industry?: string | null
           lanes?: string | null
           lost_reason?: string | null
           next_follow_up?: string | null
+          outreach_status?: string
           owner_id?: string | null
           phone?: string | null
           source?: string | null
           stage?: string
           state?: string | null
+          website?: string | null
         }
         Update: {
           city?: string | null
           company_id?: string | null
           company_name?: string
           contact_name?: string | null
+          contact_title?: string | null
           created_at?: string
+          do_not_contact?: boolean
           email?: string | null
+          equipment?: string | null
           est_monthly_loads?: number | null
           id?: string
+          industry?: string | null
           lanes?: string | null
           lost_reason?: string | null
           next_follow_up?: string | null
+          outreach_status?: string
           owner_id?: string | null
           phone?: string | null
           source?: string | null
           stage?: string
           state?: string | null
+          website?: string | null
         }
         Relationships: [
           {
@@ -1541,6 +1559,111 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      outreach_messages: {
+        Row: {
+          approved: boolean
+          body: string
+          created_at: string
+          error: string | null
+          id: string
+          lead_id: string
+          send_after: string
+          sender_id: string
+          sent_at: string | null
+          status: string
+          step: number
+          subject: string
+        }
+        Insert: {
+          approved?: boolean
+          body: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          lead_id: string
+          send_after?: string
+          sender_id: string
+          sent_at?: string | null
+          status?: string
+          step: number
+          subject: string
+        }
+        Update: {
+          approved?: boolean
+          body?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          lead_id?: string
+          send_after?: string
+          sender_id?: string
+          sent_at?: string | null
+          status?: string
+          step?: number
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_senders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_senders: {
+        Row: {
+          active: boolean
+          created_at: string
+          daily_cap: number
+          display_name: string
+          from_email: string
+          id: string
+          last_sent_at: string | null
+          phone: string | null
+          require_approval: boolean
+          signature: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          daily_cap?: number
+          display_name: string
+          from_email: string
+          id?: string
+          last_sent_at?: string | null
+          phone?: string | null
+          require_approval?: boolean
+          signature?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          daily_cap?: number
+          display_name?: string
+          from_email?: string
+          id?: string
+          last_sent_at?: string | null
+          phone?: string | null
+          require_approval?: boolean
+          signature?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

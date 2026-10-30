@@ -61,10 +61,10 @@ function SignPage() {
   };
 
   const shell = (body: React.ReactNode) => (
-    <div className="min-h-screen bg-background px-4 py-8">
+    <div className="min-h-screen bg-background px-3 py-5 pb-28 sm:px-4 sm:py-8">
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="text-center">
-          <h1 className="text-3xl font-bold uppercase">Rate Confirmation</h1>
+          <h1 className="text-2xl font-bold uppercase sm:text-3xl">Rate Confirmation</h1>
           <p className="text-sm text-muted-foreground">Clearwater Cargo LLC · Staley, NC · 252-497-7916</p>
         </div>
         {body}
@@ -75,7 +75,7 @@ function SignPage() {
   if (isLoading) return shell(<p className="text-center text-muted-foreground">Loading…</p>);
   if (data && !data.ok && data.signed && !signedUrl)
     return shell(
-      <div className="rounded border bg-card p-8 text-center">
+      <div className="rounded border bg-card p-5 text-center sm:p-8">
         <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" />
         <h2 className="text-2xl font-bold">Signed — RC #{data.rcNumber}</h2>
         <p className="mb-4 text-muted-foreground">
@@ -90,7 +90,7 @@ function SignPage() {
     );
   if (signedUrl)
     return shell(
-      <div className="rounded border bg-card p-8 text-center">
+      <div className="rounded border bg-card p-5 text-center sm:p-8">
         <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" />
         <h2 className="text-2xl font-bold">Signed{data?.ok ? ` — RC #${data.rc.rc}` : ""}</h2>
         <p className="mb-4 text-muted-foreground">Thank you. A signed copy is on file with Clearwater Cargo, and a copy link has been emailed to you.</p>
@@ -101,22 +101,27 @@ function SignPage() {
 
   return shell(
     <>
-      <div className="grid grid-cols-3 gap-3 rounded border bg-card p-4 text-sm">
+      <div className="grid grid-cols-2 gap-3 rounded border bg-card p-4 sm:grid-cols-3 text-sm">
         <div><div className="text-xs text-muted-foreground">RC #</div><div className="font-mono text-gold">{data.rc.rc}</div></div>
-        <div><div className="text-xs text-muted-foreground">Lane</div>{data.rc.lane}</div>
-        <div><div className="text-xs text-muted-foreground">Total to carrier</div><div className="font-display text-2xl text-gold">${data.rc.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div></div>
+        <div className="col-span-2 sm:col-span-1"><div className="text-xs text-muted-foreground">Lane</div>{data.rc.lane}</div>
+        <div className="col-start-2 row-start-1 sm:col-start-auto sm:row-start-auto"><div className="text-xs text-muted-foreground">Total to carrier</div><div className="font-display text-2xl text-gold">${data.rc.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div></div>
       </div>
-      {url && <iframe title="Rate confirmation" src={url} className="h-[900px] w-full rounded border bg-foreground" />}
+      {url && (
+        <>
+          <Button asChild variant="secondary" className="h-12 w-full text-base md:hidden"><a href={url} target="_blank" rel="noreferrer"><Download className="mr-1 h-4 w-4" />Open full rate confirmation</a></Button>
+          <iframe title="Rate confirmation" src={url} className="hidden h-[900px] w-full rounded border bg-foreground md:block" />
+        </>
+      )}
       <div className="space-y-3 rounded border bg-card p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs text-muted-foreground">Full name *<Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <label className="text-xs text-muted-foreground">Title<Input className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="text-xs text-muted-foreground">Full name *<Input className="mt-1 h-12 text-base sm:h-10 sm:text-sm" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="text-xs text-muted-foreground">Title<Input className="mt-1 h-12 text-base sm:h-10 sm:text-sm" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+        <label className="flex min-h-11 items-start gap-3 text-sm">
+          <input className="mt-0.5 h-5 w-5 shrink-0" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           I'm authorized to sign for {data.rc.carrier} and accept this rate confirmation.
         </label>
-        <Button className="w-full" size="lg" disabled={busy} onClick={submit}>{busy ? "Signing…" : "Sign rate confirmation"}</Button>
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0"><Button className="h-12 w-full text-base" size="lg" disabled={busy} onClick={submit}>{busy ? "Signing…" : "Sign rate confirmation"}</Button></div>
       </div>
     </>,
   );

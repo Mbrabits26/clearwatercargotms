@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OutreachTools, LeadOutreach } from "@/components/leads/Outreach";
 import { BulkActionBar, SelectAllBox, deleteAction, exportAction, useSelection, type BulkAction } from "@/components/BulkActionBar";
 
 export const Route = createFileRoute("/_authenticated/leads")({
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/leads")({
 
 const STAGES = ["new", "contacted", "quoting", "negotiating", "won", "lost"] as const;
 const METHODS = ["call", "email", "visit", "text"];
-type Lead = { id: string; company_name: string; contact_name: string | null; phone: string | null; email: string | null; city: string | null; state: string | null; lanes: string | null; source: string | null; est_monthly_loads: number | null; stage: string; lost_reason: string | null; next_follow_up: string | null; owner_id: string | null; company_id: string | null; created_at: string };
+type Lead = { id: string; company_name: string; contact_name: string | null; phone: string | null; email: string | null; city: string | null; state: string | null; lanes: string | null; source: string | null; est_monthly_loads: number | null; stage: string; lost_reason: string | null; next_follow_up: string | null; owner_id: string | null; company_id: string | null; created_at: string; website?: string | null; industry?: string | null; outreach_status: string; do_not_contact: boolean };
 type Act = { id: string; lead_id: string; method: string; notes: string | null; occurred_at: string; follow_up: string | null };
 const today = () => new Date().toISOString().slice(0, 10);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -68,6 +69,7 @@ function LeadsPage() {
           <h1 className="font-display text-xl font-bold uppercase tracking-wide text-gold">Sales Leads</h1>
           <Button size="sm" className="ml-auto" onClick={() => { setAdding(true); setSel(null); }}><Plus className="mr-1 h-4 w-4" />New lead</Button>
         </div>
+        <OutreachTools onAdded={refresh} />
         {due.length > 0 && (
           <div className="border-b bg-warning/10 p-3 text-sm">
             <div className="mb-1 font-semibold">Follow-ups due ({due.length})</div>
@@ -92,7 +94,7 @@ function LeadsPage() {
             <div key={l.id} className={`flex items-start gap-2 border-b pl-3 hover:bg-muted/50 ${sel === l.id ? "bg-muted" : ""}`}>
             <Checkbox className="mt-3.5" aria-label={`Select ${l.company_name}`} checked={pick.has(l.id)} onCheckedChange={(v) => pick.toggle(l.id, v === true)} />
             <button onClick={() => { setSel(l.id); setAdding(false); setMobileDetail(true); }} className="block min-h-11 min-w-0 flex-1 p-3 pl-0 text-left text-sm">
-              <div className="flex justify-between"><span className="font-semibold">{l.company_name}</span><span className="text-xs uppercase text-gold">{l.stage}</span></div>
+              <div className="flex justify-between"><span className="font-semibold">{l.company_name}</span><span className="text-xs uppercase text-gold">{l.do_not_contact ? "DNC · " : l.outreach_status === "active" ? "emailing · " : l.outreach_status === "replied" ? "🔥 replied · " : ""}{l.stage}</span></div>
               <div className="text-xs text-muted-foreground">{[l.contact_name, l.city && `${l.city}, ${l.state ?? ""}`, l.lanes].filter(Boolean).join(" · ")}</div>
               <div className="text-xs text-muted-foreground">Owner: {name(l.owner_id)}{l.next_follow_up && ` · Follow up ${l.next_follow_up}`}</div>
             </button>
@@ -109,7 +111,7 @@ function LeadsPage() {
   );
 }
 
-const F = [["company_name", "Company *"], ["contact_name", "Contact"], ["phone", "Phone"], ["email", "Email"], ["city", "City"], ["state", "State"], ["lanes", "Lanes / freight"], ["source", "Lead source"], ["est_monthly_loads", "Est. loads / month"]] as const;
+const F = [["company_name", "Company *"], ["contact_name", "Contact"], ["phone", "Phone"], ["email", "Email"], ["city", "City"], ["state", "State"], ["contact_title", "Contact title"], ["website", "Website"], ["lanes", "Lanes / freight"], ["source", "Lead source"], ["est_monthly_loads", "Est. loads / month"]] as const;
 
 function LeadForm({ onDone }: { onDone: (id: string) => void }) {
   const [f, setF] = useState<Record<string, string>>({});
@@ -183,6 +185,7 @@ function LeadDetail({ lead, onChange }: { lead: Lead; onChange: () => void }) {
           <ConfirmDelete table="leads" id={lead.id} label={lead.company_name} what="Lead" size="sm" invalidate={["leads"]} linked="Its contact history is deleted too." />
         </div>
       </div>
+      <LeadOutreach lead={lead} onChange={onChange} />
       <div className="rounded border p-3">
         <div className="mb-2 font-semibold">Log a conversation</div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
