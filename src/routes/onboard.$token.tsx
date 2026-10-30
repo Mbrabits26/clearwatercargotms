@@ -91,11 +91,11 @@ function Portal() {
   };
 
   const shell = (body: React.ReactNode) => (
-    <div className="min-h-screen bg-background px-4 py-10">
+    <div className="min-h-screen bg-background px-3 py-6 pb-28 sm:px-4 sm:py-10">
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 text-center">
-          <img src={logo.url} alt="Clearwater Cargo" className="mx-auto mb-3 w-32 rounded bg-foreground p-2" />
-          <h1 className="text-3xl font-bold uppercase">Carrier Onboarding</h1>
+          <img src={logo.url} alt="Clearwater Cargo" className="mx-auto mb-3 w-24 sm:w-32 rounded bg-foreground p-2" />
+          <h1 className="text-2xl font-bold uppercase sm:text-3xl">Carrier Onboarding</h1>
           <p className="text-sm text-muted-foreground">Clearwater Cargo, LLC · Staley, NC</p>
         </div>
         {body}
@@ -115,11 +115,11 @@ function Portal() {
     );
 
   const field = (k: string, label: string, type = "text") => (
-    <label className="text-xs text-muted-foreground">{label}<Input className="mt-1" type={type} value={f[k] ?? ""} onChange={set(k)} /></label>
+    <label className="text-xs text-muted-foreground">{label}<Input className="mt-1 h-12 text-base sm:h-10 sm:text-sm" type={type} inputMode={k.includes("phone") ? "tel" : type === "number" ? "numeric" : undefined} value={f[k] ?? ""} onChange={set(k)} /></label>
   );
   const fileIn = (k: Kind, label: string, req?: boolean) => (
     <label key={k} className="block text-xs text-muted-foreground">{label}{req && " *"}
-      <Input key={`in-${k}`} className="mt-1" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => {
+      <Input key={`in-${k}`} className="mt-1 h-14 cursor-pointer border-dashed py-3 text-base sm:h-10 sm:py-1 sm:text-sm" type="file" accept="application/pdf,image/*" onChange={(e) => {
         const file = e.target.files?.[0];
         setFiles((p) => { const n = { ...p }; if (file) n[k] = file; else delete n[k]; return n; });
       }} />
@@ -129,9 +129,9 @@ function Portal() {
 
   return shell(
     <div className="space-y-5">
-      <section className="rounded border bg-card p-5">
+      <section className="rounded border bg-card p-4 sm:p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gold">1. Company</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {field("legal_name", "Legal name *")}{field("dba", "DBA")}
           {field("mc_number", "MC #")}{field("dot_number", "DOT #")}
           {field("contact_name", "Contact name")}{field("phone", "Phone")}
@@ -139,19 +139,20 @@ function Portal() {
           {field("city", "City")}{field("state", "State (2 letters)")}
         </div>
       </section>
-      <section className="rounded border bg-card p-5">
+      <section className="rounded border bg-card p-4 sm:p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gold">2. Insurance</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {field("auto_liability", "Auto liability limit ($)", "number")}{field("auto_expires", "Auto liability expires *", "date")}
           {field("cargo_insurance", "Cargo limit ($)", "number")}{field("cargo_expires", "Cargo expires *", "date")}
         </div>
         <div className="mt-3">{fileIn("coi", "Certificate of insurance (Clearwater Cargo as certificate holder)", true)}</div>
       </section>
-      <section className="rounded border bg-card p-5 space-y-3">
+      <section className="rounded border bg-card p-4 sm:p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">3. Tax & payment</h2>
+        <p className="text-xs text-muted-foreground">On a phone you can take a photo of each document or pick a PDF.</p>
         {fileIn("w9", "W-9", true)}
         <label className="block text-sm">How would you like to be paid?
-          <select className="mt-1 h-10 w-full rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => {
+          <select className="mt-1 h-12 w-full text-base sm:h-10 sm:text-sm rounded border bg-background px-2" value={f.pay_terms || "net30"} onChange={(e) => {
             const v = e.target.value; const fac = v === "factoring" || v === "factored_quickpay";
             setF((p) => ({ ...p, pay_terms: v }));
             // Drop the file that no longer applies so it can't land in the wrong slot.
@@ -169,14 +170,14 @@ function Portal() {
         </>)}
         {f.pay_terms === "factoring" || f.pay_terms === "factored_quickpay" ? fileIn("noa", "Notice of Assignment (NOA)", true) : fileIn("voided_check", "Voided check for direct deposit")}
       </section>
-      <section className="rounded border bg-card p-5 space-y-3">
+      <section className="rounded border bg-card p-4 sm:p-5 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">4. Broker-carrier agreement</h2>
-        <div className="legal-agreement max-h-96 overflow-auto rounded border bg-background p-4 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: agreementLegalHtml }} />
+        <div className="legal-agreement max-h-72 overflow-auto rounded border bg-background p-3 text-sm sm:max-h-96 sm:p-4 leading-relaxed" dangerouslySetInnerHTML={{ __html: agreementLegalHtml }} />
         {fileIn("agreement", "Upload a signed copy instead (optional)")}
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />I have read and accept the broker-carrier agreement.</label>
+        <label className="flex min-h-11 items-start gap-3 text-sm"><input className="mt-0.5 h-5 w-5 shrink-0" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />I have read and accept the broker-carrier agreement.</label>
         {field("signer_name", "Type your full name to sign *")}
       </section>
-      <Button className="w-full" size="lg" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit packet"}</Button>
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0"><Button className="h-12 w-full text-base" size="lg" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit packet"}</Button></div>
     </div>,
   );
 }
