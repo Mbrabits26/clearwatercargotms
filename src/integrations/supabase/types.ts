@@ -461,8 +461,11 @@ export type Database = {
       carrier_signatures: {
         Row: {
           carrier_id: string
+          consent_text: string | null
           created_at: string
+          doc_sha256: string | null
           external_ref: string
+          file_path: string | null
           id: string
           pay_type: string | null
           signed_at: string | null
@@ -470,12 +473,16 @@ export type Database = {
           signer_name: string | null
           signer_title: string | null
           source: string
+          terms_sha256: string | null
           user_agent: string | null
         }
         Insert: {
           carrier_id: string
+          consent_text?: string | null
           created_at?: string
+          doc_sha256?: string | null
           external_ref: string
+          file_path?: string | null
           id?: string
           pay_type?: string | null
           signed_at?: string | null
@@ -483,12 +490,16 @@ export type Database = {
           signer_name?: string | null
           signer_title?: string | null
           source?: string
+          terms_sha256?: string | null
           user_agent?: string | null
         }
         Update: {
           carrier_id?: string
+          consent_text?: string | null
           created_at?: string
+          doc_sha256?: string | null
           external_ref?: string
+          file_path?: string | null
           id?: string
           pay_type?: string | null
           signed_at?: string | null
@@ -496,6 +507,7 @@ export type Database = {
           signer_name?: string | null
           signer_title?: string | null
           source?: string
+          terms_sha256?: string | null
           user_agent?: string | null
         }
         Relationships: [
@@ -2015,18 +2027,23 @@ export type Database = {
       ratecon_requests: {
         Row: {
           carrier_email: string | null
+          consent_text: string | null
           created_at: string
           created_by: string | null
+          doc_sha256: string | null
           expires_at: string
           id: string
           load_id: string
           pdf_path: string | null
           signed_at: string | null
+          signer_ip: string | null
           signer_name: string | null
           signer_title: string | null
           snapshot: Json
           status: string
+          terms_sha256: string | null
           token: string
+          user_agent: string | null
           void_note: string | null
           void_reason: string | null
           voided_at: string | null
@@ -2034,18 +2051,23 @@ export type Database = {
         }
         Insert: {
           carrier_email?: string | null
+          consent_text?: string | null
           created_at?: string
           created_by?: string | null
+          doc_sha256?: string | null
           expires_at?: string
           id?: string
           load_id: string
           pdf_path?: string | null
           signed_at?: string | null
+          signer_ip?: string | null
           signer_name?: string | null
           signer_title?: string | null
           snapshot: Json
           status?: string
+          terms_sha256?: string | null
           token?: string
+          user_agent?: string | null
           void_note?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -2053,18 +2075,23 @@ export type Database = {
         }
         Update: {
           carrier_email?: string | null
+          consent_text?: string | null
           created_at?: string
           created_by?: string | null
+          doc_sha256?: string | null
           expires_at?: string
           id?: string
           load_id?: string
           pdf_path?: string | null
           signed_at?: string | null
+          signer_ip?: string | null
           signer_name?: string | null
           signer_title?: string | null
           snapshot?: Json
           status?: string
+          terms_sha256?: string | null
           token?: string
+          user_agent?: string | null
           void_note?: string | null
           void_reason?: string | null
           voided_at?: string | null
