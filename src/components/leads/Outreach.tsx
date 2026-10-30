@@ -2,16 +2,38 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Search, Send, Flame, Ban } from "lucide-react";
+import { Loader2, Search, Send, Flame, Ban, Inbox, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { findShipperProspects, enrollLead, type Prospect } from "@/lib/outreach.functions";
-import { INDUSTRIES, EQUIPMENT, MAX_DAILY_CAP, isOptOut } from "@/lib/outreach";
+import { findShipperProspects, enrollLead, checkMyReplies, type Prospect } from "@/lib/outreach.functions";
+import { INDUSTRIES, EQUIPMENT, MAX_DAILY_CAP, REPLY_CHECK_MIN, REPLY_LABEL, isOptOut, type ReplyCategory } from "@/lib/outreach";
+import { useConnectGmail } from "@/components/ConnectGmail";
 
-type Sender = { id: string; user_id: string; from_email: string; display_name: string; title: string | null; phone: string | null; signature: string | null; daily_cap: number; require_approval: boolean; active: boolean };
+type Sender = { id: string; user_id: string; from_email: string; display_name: string; title: string | null; phone: string | null; signature: string | null; daily_cap: number; require_approval: boolean; active: boolean; reply_access?: string; replies_checked_at?: string | null };
+type Reply = { id: string; lead_id: string; from_email: string | null; subject: string | null; body: string | null; category: ReplyCategory; summary: string | null; action_taken: string | null; received_at: string; leads?: { company_name: string } | null };
+
+const CAT_TONE: Record<string, string> = { hot: "text-gold", info: "text-primary", later: "text-muted-foreground", not_interested: "text-muted-foreground", opt_out: "text-destructive", auto_reply: "text-muted-foreground", bounce: "text-destructive" };
+
+function ReplyRow({ r, showCompany }: { r: Reply; showCompany?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="p-2 text-sm">
+      <button className="w-full text-left" onClick={() => setOpen(!open)}>
+        <div className="flex flex-wrap items-center gap-2">
+          {showCompany && <span className="font-semibold">{r.leads?.company_name}</span>}
+          <span className={`text-xs font-semibold uppercase ${CAT_TONE[r.category] ?? ""}`}>{REPLY_LABEL[r.category] ?? r.category}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{new Date(r.received_at).toLocaleString()}</span>
+        </div>
+        <div className="text-xs">{r.summary}</div>
+        {r.action_taken && <div className="text-xs text-muted-foreground">{r.action_taken}</div>}
+      </button>
+      {open && <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-xs">{r.from_email}\n{r.subject}\n\n{r.body}</pre>}
+    </div>
+  );
+}
 type Msg = { id: string; lead_id: string; sender_id: string; step: number; subject: string; body: string; send_after: string; status: string; approved: boolean; sent_at: string | null; error: string | null; leads: { company_name: string; email: string | null } | null };
 
 export function useMySender() {
@@ -27,18 +49,20 @@ export function useMySender() {
 
 /** Header buttons on Sales Leads: find shippers, review queue, sender settings. */
 export function OutreachTools({ onAdded }: { onAdded: () => void }) {
-  const [open, setOpen] = useState<null | "find" | "queue" | "settings">(null);
+  const [open, setOpen] = useState<null | "find" | "queue" | "replies" | "settings">(null);
   return (
     <>
       <div className="flex flex-wrap gap-1 border-b p-2">
         <Button size="sm" variant="secondary" onClick={() => setOpen("find")}><Search className="mr-1 h-4 w-4" />Find shippers</Button>
         <Button size="sm" variant="secondary" onClick={() => setOpen("queue")}><Send className="mr-1 h-4 w-4" />Email queue</Button>
+        <Button size="sm" variant="secondary" onClick={() => setOpen("replies")} title="Shipper replies the TMS read from your Gmail and what it did with each"><Inbox className="mr-1 h-4 w-4" />Replies</Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen("settings")}>Outreach settings</Button>
       </div>
       <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto">
           {open === "find" && <FindShippers onAdded={onAdded} />}
           {open === "queue" && <Queue />}
+          {open === "replies" && <Replies onChange={onAdded} />}
           {open === "settings" && <Settings />}
         </DialogContent>
       </Dialog>
@@ -152,6 +176,74 @@ function Queue() {
   );
 }
 
+/** Runs a reply check on the caller's inbox now; shows reconnect when Gmail read access is missing. */
+function useCheckReplies(onDone?: () => void) {
+  const check = useServerFn(checkMyReplies);
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await check();
+      if (r.status === "reconnect") toast.error("Reconnect Gmail so the TMS can read replies (button in Outreach settings).");
+      else if (r.status === "not_connected") toast.error("Connect your Gmail first.");
+      else if (r.status === "no_sender") toast.error(r.notes[0]);
+      else if (r.status === "error") toast.error(r.notes[0] ?? "Reply check failed");
+      else toast.success(r.found ? `${r.found} new repl${r.found === 1 ? "y" : "ies"}: ${r.notes.join("; ")}` : "No new replies");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Reply check failed"); }
+    setBusy(false);
+    qc.invalidateQueries({ queryKey: ["outreach_replies"] });
+    qc.invalidateQueries({ queryKey: ["outreach_sender_me"] });
+    qc.invalidateQueries({ queryKey: ["outreach_queue"] });
+    onDone?.();
+  };
+  return { run, busy };
+}
+
+function Replies({ onChange }: { onChange: () => void }) {
+  const { data: rows = [] } = useQuery({ queryKey: ["outreach_replies"], queryFn: async () => (await supabase.from("outreach_replies").select("*, leads(company_name)").order("received_at", { ascending: false }).limit(200)).data as unknown as Reply[] ?? [] });
+  const { run, busy } = useCheckReplies(onChange);
+  const [cat, setCat] = useState<string>("all");
+  const shown = cat === "all" ? rows : rows.filter((r) => r.category === cat);
+  return (
+    <div className="space-y-3">
+      <DialogHeader><DialogTitle>Shipper replies</DialogTitle></DialogHeader>
+      <p className="text-xs text-muted-foreground">The TMS reads each sender's Gmail about every {REPLY_CHECK_MIN} minutes on weekdays, only for replies from leads they emailed. It stops follow-ups, updates the lead and posts hot replies to Team chat. Answer the shipper from your Gmail as usual.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={run} disabled={busy}>{busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}Check my replies now</Button>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-8 rounded border bg-background px-2 text-xs">
+          <option value="all">All kinds</option>
+          {Object.entries(REPLY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+      <div className="divide-y rounded border">
+        {shown.map((r) => <ReplyRow key={r.id} r={r} showCompany />)}
+        {!shown.length && <div className="p-4 text-center text-sm text-muted-foreground">No replies read yet.</div>}
+      </div>
+    </div>
+  );
+}
+
+function ReplyAccess({ sender }: { sender: Sender | null | undefined }) {
+  const { connect, busy } = useConnectGmail();
+  const { run, busy: checking } = useCheckReplies();
+  if (!sender) return null;
+  const st = sender.reply_access ?? "unknown";
+  return (
+    <div className="space-y-2 rounded border p-2 text-xs">
+      <div className="font-semibold">Automatic reply reading</div>
+      {st === "on" && <div className="text-success">On — last checked {sender.replies_checked_at ? new Date(sender.replies_checked_at).toLocaleString() : "—"}.</div>}
+      {st === "reconnect" && <div className="text-destructive">Your Gmail was connected before reply reading existed. Reconnect it once and allow "read your email" so the TMS can see shipper replies.</div>}
+      {st === "unknown" && <div className="text-muted-foreground">Not checked yet. If you connected Gmail before this feature, reconnect it once and allow "read your email".</div>}
+      <div className="flex flex-wrap gap-1">
+        {st !== "on" && <Button size="sm" variant="outline" onClick={() => connect("Gmail reconnected — reply reading is on")} disabled={busy}>Reconnect Gmail</Button>}
+        <Button size="sm" variant="ghost" onClick={run} disabled={checking}>{checking && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Check my replies now</Button>
+      </div>
+      <div className="text-muted-foreground">Only replies from leads you emailed (and bounce notices) are read. Nothing else in your inbox is stored.</div>
+    </div>
+  );
+}
+
 function Settings() {
   const qc = useQueryClient();
   const { data } = useMySender();
@@ -185,10 +277,11 @@ function Settings() {
       <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!v.require_approval} onCheckedChange={(x) => set("require_approval", x === true)} />I approve each email before it sends</label>
       <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!v.active} onCheckedChange={(x) => set("active", x === true)} />Sending is on</label>
       <Button onClick={save}>Save sender</Button>
+      <ReplyAccess sender={s} />
       {all.length > 0 && (
         <div className="rounded border p-2 text-xs">
           <div className="mb-1 font-semibold">Team senders</div>
-          {all.map((x) => <div key={x.id}>{x.display_name} · {x.from_email} · {x.daily_cap}/day · {x.active ? "on" : "off"}{x.require_approval ? " · approves each" : " · autopilot"}</div>)}
+          {all.map((x) => <div key={x.id}>{x.display_name} · {x.from_email} · {x.daily_cap}/day · {x.active ? "on" : "off"}{x.require_approval ? " · approves each" : " · autopilot"} · replies {x.reply_access === "on" ? "read automatically" : x.reply_access === "reconnect" ? "need Gmail reconnect" : "not checked yet"}</div>)}
           <div className="mt-1 text-muted-foreground">Each broker or admin sets up their own sender here after connecting their Gmail.</div>
         </div>
       )}
@@ -203,7 +296,8 @@ export function LeadOutreach({ lead, onChange }: { lead: { id: string; company_n
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState("");
   const { data: msgs = [] } = useQuery({ queryKey: ["outreach_lead", lead.id], queryFn: async () => (await supabase.from("outreach_messages").select("id, step, status, send_after, sent_at, subject").eq("lead_id", lead.id).order("step")).data ?? [] });
-  const refresh = () => { onChange(); qc.invalidateQueries({ queryKey: ["outreach_lead", lead.id] }); qc.invalidateQueries({ queryKey: ["outreach_queue"] }); };
+  const { data: replies = [] } = useQuery({ queryKey: ["outreach_replies", lead.id], queryFn: async () => (await supabase.from("outreach_replies").select("*").eq("lead_id", lead.id).order("received_at", { ascending: false })).data as unknown as Reply[] ?? [] });
+  const refresh = () => { onChange(); qc.invalidateQueries({ queryKey: ["outreach_lead", lead.id] }); qc.invalidateQueries({ queryKey: ["outreach_queue"] }); qc.invalidateQueries({ queryKey: ["outreach_replies"] }); };
   const stopPending = () => supabase.from("outreach_messages").update({ status: "skipped" }).eq("lead_id", lead.id).eq("status", "pending");
   const start = async () => {
     setBusy(true);
@@ -238,9 +332,10 @@ export function LeadOutreach({ lead, onChange }: { lead: { id: string; company_n
         </div>
       </div>
       {msgs.length > 0 && <div className="text-xs text-muted-foreground">{msgs.map((m) => `Touch ${m.step}: ${m.status === "sent" ? `sent ${new Date(m.sent_at!).toLocaleDateString()}` : m.status === "pending" ? `queued for ${m.send_after}` : "skipped"}`).join(" · ")}</div>}
+      {replies.length > 0 && <div className="divide-y rounded border">{replies.map((r) => <ReplyRow key={r.id} r={r} />)}</div>}
       {!lead.do_not_contact && msgs.some((m) => m.status === "sent") && (
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Paste their reply here when they answer" />
+          <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Replies are read from Gmail automatically — or paste one here" />
           <Button size="sm" disabled={!reply.trim()} onClick={logReply}><Flame className="mr-1 h-4 w-4" />Log reply</Button>
         </div>
       )}

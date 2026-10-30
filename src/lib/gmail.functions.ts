@@ -17,11 +17,14 @@ import {
 
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 const CONNECTOR_ID = "google_mail";
+/** Scopes every send/status call needs. */
 const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/gmail.send",
 ];
+/** Asked for at connect: also lets outreach read shipper replies. Not required for sending, so older connections keep sending. */
+const CONNECT_SCOPES = [...GMAIL_SCOPES, "https://www.googleapis.com/auth/gmail.readonly"];
 
 function clientKey(): string {
   const k = process.env['GOOGLE_MAIL_APP_USER_CONNECTOR_CLIENT_API_KEY'];
@@ -46,7 +49,7 @@ export const startGmailConnect = createServerFn({ method: "POST" })
       clientAPIKey: clientKey(),
       returnUrl,
       connectionAPIKey: connectionAPIKey ?? undefined,
-      credentialsConfiguration: { scopes: GMAIL_SCOPES },
+      credentialsConfiguration: { scopes: CONNECT_SCOPES },
     });
     return { authorizationUrl };
   });
@@ -58,6 +61,8 @@ export const completeGmailConnection = createServerFn({ method: "POST" })
     const { connectionAPIKey, connectorId } = await exchangeAppUserOAuthCode(GATEWAY_BASE_URL, data.code);
     if (connectorId !== CONNECTOR_ID) throw new Error("OAuth completion returned the wrong connector");
     await saveConnectionKeyForUser(context.userId, connectorId, connectionAPIKey);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("outreach_senders").update({ reply_access: "unknown" }).eq("user_id", context.userId);
     return { ok: true };
   });
 

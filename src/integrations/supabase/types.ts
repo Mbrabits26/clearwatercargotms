@@ -1620,6 +1620,69 @@ export type Database = {
           },
         ]
       }
+      outreach_replies: {
+        Row: {
+          action_taken: string | null
+          body: string | null
+          category: string
+          created_at: string
+          from_email: string | null
+          gmail_message_id: string
+          id: string
+          lead_id: string
+          received_at: string
+          sender_id: string | null
+          subject: string | null
+          summary: string | null
+          thread_id: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          body?: string | null
+          category?: string
+          created_at?: string
+          from_email?: string | null
+          gmail_message_id: string
+          id?: string
+          lead_id: string
+          received_at?: string
+          sender_id?: string | null
+          subject?: string | null
+          summary?: string | null
+          thread_id?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          body?: string | null
+          category?: string
+          created_at?: string
+          from_email?: string | null
+          gmail_message_id?: string
+          id?: string
+          lead_id?: string
+          received_at?: string
+          sender_id?: string | null
+          subject?: string | null
+          summary?: string | null
+          thread_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_replies_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_replies_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_senders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outreach_senders: {
         Row: {
           active: boolean
@@ -1630,6 +1693,8 @@ export type Database = {
           id: string
           last_sent_at: string | null
           phone: string | null
+          replies_checked_at: string | null
+          reply_access: string
           require_approval: boolean
           signature: string | null
           title: string | null
@@ -1644,6 +1709,8 @@ export type Database = {
           id?: string
           last_sent_at?: string | null
           phone?: string | null
+          replies_checked_at?: string | null
+          reply_access?: string
           require_approval?: boolean
           signature?: string | null
           title?: string | null
@@ -1658,6 +1725,8 @@ export type Database = {
           id?: string
           last_sent_at?: string | null
           phone?: string | null
+          replies_checked_at?: string | null
+          reply_access?: string
           require_approval?: boolean
           signature?: string | null
           title?: string | null
