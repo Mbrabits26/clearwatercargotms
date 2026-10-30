@@ -34,6 +34,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as OauthGoogle_mailReturnRouteImport } from './routes/oauth/google_mail/return'
 import { Route as OauthQuickbooksReturnRouteImport } from './routes/oauth/quickbooks/return'
 import { Route as ApiPublicHooksCarrierRecheckRouteImport } from './routes/api/public/hooks/carrier-recheck'
+import { Route as ApiPublicJobsOutreachSendRouteImport } from './routes/api/public/jobs/outreach-send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
 const IndexRoute = IndexRouteImport.update({
@@ -162,6 +163,12 @@ const ApiPublicHooksCarrierRecheckRoute =
     path: '/api/public/hooks/carrier-recheck',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicJobsOutreachSendRoute =
+  ApiPublicJobsOutreachSendRouteImport.update({
+    id: '/api/public/jobs/outreach-send',
+    path: '/api/public/jobs/outreach-send',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailTransactionalPreviewRoute =
   LovableEmailTransactionalPreviewRouteImport.update({
     id: '/lovable/email/transactional/preview',
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/api/public/jobs/outreach-send': typeof ApiPublicJobsOutreachSendRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesByTo {
@@ -221,6 +229,7 @@ export interface FileRoutesByTo {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/api/public/jobs/outreach-send': typeof ApiPublicJobsOutreachSendRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesById {
@@ -250,6 +259,7 @@ export interface FileRoutesById {
   '/oauth/google_mail/return': typeof OauthGoogle_mailReturnRoute
   '/oauth/quickbooks/return': typeof OauthQuickbooksReturnRoute
   '/api/public/hooks/carrier-recheck': typeof ApiPublicHooksCarrierRecheckRoute
+  '/api/public/jobs/outreach-send': typeof ApiPublicJobsOutreachSendRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRouteTypes {
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/api/public/jobs/outreach-send'
     | '/lovable/email/transactional/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/api/public/jobs/outreach-send'
     | '/lovable/email/transactional/preview'
   id:
     | '__root__'
@@ -334,6 +346,7 @@ export interface FileRouteTypes {
     | '/oauth/google_mail/return'
     | '/oauth/quickbooks/return'
     | '/api/public/hooks/carrier-recheck'
+    | '/api/public/jobs/outreach-send'
     | '/lovable/email/transactional/preview'
   fileRoutesById: FileRoutesById
 }
@@ -353,6 +366,7 @@ export interface RootRouteChildren {
   OauthGoogle_mailReturnRoute: typeof OauthGoogle_mailReturnRoute
   OauthQuickbooksReturnRoute: typeof OauthQuickbooksReturnRoute
   ApiPublicHooksCarrierRecheckRoute: typeof ApiPublicHooksCarrierRecheckRoute
+  ApiPublicJobsOutreachSendRoute: typeof ApiPublicJobsOutreachSendRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
@@ -533,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCarrierRecheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/outreach-send': {
+      id: '/api/public/jobs/outreach-send'
+      path: '/api/public/jobs/outreach-send'
+      fullPath: '/api/public/jobs/outreach-send'
+      preLoaderRoute: typeof ApiPublicJobsOutreachSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/transactional/preview': {
       id: '/lovable/email/transactional/preview'
       path: '/lovable/email/transactional/preview'
@@ -589,6 +610,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthGoogle_mailReturnRoute: OauthGoogle_mailReturnRoute,
   OauthQuickbooksReturnRoute: OauthQuickbooksReturnRoute,
   ApiPublicHooksCarrierRecheckRoute: ApiPublicHooksCarrierRecheckRoute,
+  ApiPublicJobsOutreachSendRoute: ApiPublicJobsOutreachSendRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport
