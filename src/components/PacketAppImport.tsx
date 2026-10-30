@@ -16,9 +16,15 @@ export function SignatureRecords({ carrierId }: { carrierId: string }) {
         <div key={s.id} className="grid grid-cols-1 gap-x-4 text-xs sm:grid-cols-2">
           <span>Signer: <b>{s.signer_name ?? "—"}</b>{s.signer_title ? `, ${s.signer_title}` : ""}</span>
           <span>Signed: {fmtDate(s.signed_at)} {s.signed_at && new Date(s.signed_at).toLocaleTimeString()}</span>
-          <span>IP address: {s.signer_ip ?? "—"}</span>
+          <span>IP address: {s.signer_ip ?? "Not recorded"}</span>
           <span>Reference: {s.external_ref}</span>
-          <span className="sm:col-span-2 truncate text-muted-foreground">Device: {s.user_agent ?? "—"}</span>
+          <span className="sm:col-span-2 truncate text-muted-foreground">Device: {s.user_agent ?? "Not recorded"}</span>
+          {s.doc_sha256 && <span className="sm:col-span-2 truncate font-mono text-muted-foreground">Fingerprint: {s.doc_sha256}</span>}
+          {s.source === "carrier portal" && !s.signer_ip && (
+            <span className="sm:col-span-2 text-warning">
+              Signed before the portal started saving IP address and device (Oct 15, 2026). Send a new packet link if you need full signing proof.
+            </span>
+          )}
         </div>
       ))}
     </div>
