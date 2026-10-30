@@ -86,9 +86,10 @@ export const signRateCon = createServerFn({ method: "POST" })
     const rc = req.snapshot as unknown as RateConData;
     // The signed copy is built here from the saved snapshot, stamped with server time, IP and device.
     const { buildRateConPdf } = await import("./ratecon");
-    const { addSignatureCertificate, sha256Hex, stableJson, requestSigner, ESIGN_CONSENT } = await import("./esign");
+    const { addSignatureCertificate, sha256Hex, stableJson, ESIGN_CONSENT } = await import("./esign");
+    const { requestSigner } = await import("./esign.server");
     const signedAt = new Date().toISOString();
-    const { ip, ua } = await requestSigner();
+    const { ip, ua } = requestSigner();
     const termsSha = await sha256Hex(stableJson(rc));
     const title = data.title || undefined;
     const doc = buildRateConPdf(rc, { name: data.name, title, signedAt });

@@ -127,9 +127,10 @@ export const submitPacket = createServerFn({ method: "POST" })
     }
     // Signed PDF of the exact agreement text shown on the portal, plus a signature certificate page.
     const signedAt = new Date().toISOString();
-    const { addSignatureCertificate, sha256Hex, stableJson, requestSigner, ESIGN_CONSENT } = await import("./esign");
+    const { addSignatureCertificate, sha256Hex, stableJson, ESIGN_CONSENT } = await import("./esign");
+    const { requestSigner } = await import("./esign.server");
     const { agreementLegalHtml } = await import("@/content/agreement-legal");
-    const { ip, ua } = await requestSigner();
+    const { ip, ua } = requestSigner();
     const reference = `CWA-${inv.id.slice(0, 8).toUpperCase()}`;
     const termsSha = await sha256Hex(stableJson({ agreement: agreementLegalHtml, carrier: i, pay_terms: data.pay_terms }));
     let agreementPath = "";

@@ -24,14 +24,6 @@ export function stableJson(v: unknown): string {
   return JSON.stringify(v ?? null);
 }
 
-/** Client IP and device from the signing request (server only). */
-export async function requestSigner() {
-  const { getRequestHeader } = await import("@tanstack/react-start/server");
-  const ip = (getRequestHeader("cf-connecting-ip") || getRequestHeader("x-real-ip") || getRequestHeader("x-forwarded-for") || "").split(",")[0]?.trim() || null;
-  const ua = getRequestHeader("user-agent")?.slice(0, 500) || null;
-  return { ip, ua };
-}
-
 export type CertInfo = {
   document: string; reference: string; parties: string;
   signer: string; signerTitle?: string | null; sentTo?: string | null;
