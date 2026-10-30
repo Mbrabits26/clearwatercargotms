@@ -215,10 +215,10 @@ export function buildRateConPdf(r: RateConData, sig?: Signature): jsPDF {
   if (sig) {
     doc.setFont("times", "italic"); doc.setFontSize(18); doc.setTextColor(16, 42, 92);
     doc.text(sig.name, L + 6, y - 6);
-    font(9); doc.text(new Date(sig.signedAt).toLocaleDateString("en-US"), L + 280, y - 6);
+    font(9); doc.text(new Date(sig.signedAt).toLocaleDateString("en-US", { timeZone: "America/New_York" }), L + 280, y - 6);
     ink(); font(7);
     doc.setTextColor(...gray);
-    doc.text(`Signed electronically by ${sig.name}${sig.title ? `, ${sig.title}` : ""} on ${new Date(sig.signedAt).toLocaleString("en-US")} for ${r.carrier}`, L + 6, y + 12);
+    doc.text(`Signed electronically by ${sig.name}${sig.title ? `, ${sig.title}` : ""} on ${new Date(sig.signedAt).toLocaleString("en-US", { timeZone: "America/New_York" })} ET for ${r.carrier}`, L + 6, y + 12);
   }
   ink(); doc.setDrawColor(40); doc.setLineWidth(0.6);
   doc.line(L + 6, y, L + 230, y);

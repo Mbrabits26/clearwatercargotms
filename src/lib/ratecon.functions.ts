@@ -77,23 +77,41 @@ export const signRateCon = createServerFn({ method: "POST" })
     tokenSchema.extend({
       name: z.string().trim().min(2).max(120),
       title: z.string().trim().max(80).optional(),
-      signedAt: z.string().datetime(),
-      pdfBase64: z.string().min(100).max(8_000_000),
+      consent: z.literal(true),
     }).parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, req, problem } = await loadRequest(data.token);
     if (problem || !req) return { ok: false as const, problem: problem ?? "Invalid link" };
     const rc = req.snapshot as unknown as RateConData;
+    // The signed copy is built here from the saved snapshot, stamped with server time, IP and device.
+    const { buildRateConPdf } = await import("./ratecon");
+    const { addSignatureCertificate, sha256Hex, stableJson, requestSigner, ESIGN_CONSENT } = await import("./esign");
+    const signedAt = new Date().toISOString();
+    const { ip, ua } = await requestSigner();
+    const termsSha = await sha256Hex(stableJson(rc));
+    const title = data.title || undefined;
+    const doc = buildRateConPdf(rc, { name: data.name, title, signedAt });
+    addSignatureCertificate(doc, {
+      document: `Rate Confirmation RC #${rc.rc} · ${rc.lane}`,
+      reference: `RC-${rc.rc}-${req.id.slice(0, 8).toUpperCase()}`,
+      parties: `Clearwater Cargo LLC (broker) and ${rc.carrier}${rc.carrierMc ? ` (${rc.carrierMc})` : ""} (carrier)`,
+      signer: data.name, signerTitle: title, sentTo: req.carrier_email,
+      signedAt, ip, device: ua, consent: ESIGN_CONSENT, termsSha256: termsSha,
+    });
+    const bytes = new Uint8Array(doc.output("arraybuffer"));
+    const docSha = await sha256Hex(bytes);
     const path = `${req.load_id}/ratecon-${rc.rc}-signed-${req.id.slice(0, 8)}.pdf`;
     const { error } = await supabaseAdmin.storage
       .from("load-docs")
-      .upload(path, Buffer.from(data.pdfBase64, "base64"), { contentType: "application/pdf", upsert: true });
+      .upload(path, bytes, { contentType: "application/pdf", upsert: true });
     if (error) { console.error(error); return { ok: false as const, problem: "Could not save the signed document. Please try again." }; }
     await supabaseAdmin.from("ratecon_requests").update({
-      status: "signed", signer_name: data.name, signer_title: data.title || null, signed_at: data.signedAt, pdf_path: path,
+      status: "signed", signer_name: data.name, signer_title: title ?? null, signed_at: signedAt, pdf_path: path,
+      signer_ip: ip, user_agent: ua, consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha,
     }).eq("id", req.id);
     await supabaseAdmin.from("loads").update({ ratecon_signed: true, ratecon_pdf_path: path }).eq("id", req.load_id);
-    await sendSignedEmails(supabaseAdmin, req, rc, data.name, data.title || undefined, data.signedAt);
-    return { ok: true as const };
+    await sendSignedEmails(supabaseAdmin, req, rc, data.name, title, signedAt);
+    const { data: s } = await supabaseAdmin.storage.from("load-docs").createSignedUrl(path, 60 * 60);
+    return { ok: true as const, downloadUrl: s?.signedUrl ?? null };
   });
