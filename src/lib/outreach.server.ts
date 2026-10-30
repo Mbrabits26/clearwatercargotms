@@ -94,7 +94,7 @@ export async function sendDueOutreach() {
     let q = supabaseAdmin.from("outreach_messages").select("*, leads!inner(id, email, outreach_status, do_not_contact, company_name)").eq("sender_id", snd.id).eq("status", "pending").lte("send_after", today).order("step").order("send_after").limit(1);
     if (snd.require_approval) q = q.eq("approved", true);
     const { data: rows } = await q;
-    const m = rows?.[0] as (typeof rows extends (infer R)[] | null ? R : never) & { leads: { id: string; email: string | null; outreach_status: string; do_not_contact: boolean; company_name: string } } | undefined;
+    const m = rows?.[0] as unknown as { id: string; step: number; subject: string; body: string; leads: { id: string; email: string | null; outreach_status: string; do_not_contact: boolean; company_name: string } } | undefined;
     if (!m) continue;
     const lead = m.leads;
     if (lead.do_not_contact || lead.outreach_status !== "active" || !lead.email) {
