@@ -114,7 +114,7 @@ function Queue() {
   const { data: msgs = [] } = useQuery({ queryKey: ["outreach_queue"], queryFn: async () => (await supabase.from("outreach_messages").select("*, leads(company_name, email)").order("send_after").order("step").limit(300)).data as unknown as Msg[] ?? [] });
   const [edit, setEdit] = useState<Msg | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: ["outreach_queue"] });
-  const upd = async (ids: string[], patch: Partial<Msg>) => { const { error } = await supabase.from("outreach_messages").update(patch).in("id", ids); if (error) toast.error(error.message); refresh(); };
+  const upd = async (ids: string[], patch: Partial<Omit<Msg, "leads">>) => { const { error } = await supabase.from("outreach_messages").update(patch).in("id", ids); if (error) toast.error(error.message); refresh(); };
   const pending = msgs.filter((m) => m.status === "pending");
   const waiting = pending.filter((m) => !m.approved);
   return (

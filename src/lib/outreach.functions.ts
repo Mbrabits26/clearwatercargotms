@@ -42,7 +42,7 @@ export const enrollLead = createServerFn({ method: "POST" })
     const emails = await draftSequence(facts, sender, ai);
     await sb.from("outreach_messages").delete().eq("lead_id", lead.id).eq("status", "pending");
     const today = nyClock(new Date()).date;
-    const { error } = await sb.from("outreach_messages").insert(emails.map((e, i) => ({ lead_id: lead.id, sender_id: sender.id, step: i + 1, subject: e.subject, body: e.body, send_after: addDays(today, CADENCE_DAYS[i]), approved: !sender.require_approval })));
+    const { error } = await sb.from("outreach_messages").insert(emails.map((e, i) => ({ lead_id: lead.id, sender_id: sender.id, step: i + 1, subject: e.subject, body: e.body, send_after: addDays(today, CADENCE_DAYS[i] ?? 0), approved: !sender.require_approval })));
     if (error) throw new Error(error.message);
     await sb.from("leads").update({ outreach_status: "active" }).eq("id", lead.id);
     return { ok: true };
