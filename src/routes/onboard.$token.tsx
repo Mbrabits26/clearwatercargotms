@@ -7,6 +7,7 @@ import { CheckCircle2 } from "lucide-react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { getInvite, submitPacket } from "@/lib/onboarding.functions";
 import { agreementLegalHtml } from "@/content/agreement-legal";
+import { ESIGN_CONSENT } from "@/lib/esign";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -174,7 +175,8 @@ function Portal() {
         <h2 className="text-sm font-semibold uppercase tracking-widest text-gold">4. Broker-carrier agreement</h2>
         <div className="legal-agreement max-h-72 overflow-auto rounded border bg-background p-3 text-sm sm:max-h-96 sm:p-4 leading-relaxed" dangerouslySetInnerHTML={{ __html: agreementLegalHtml }} />
         {fileIn("agreement", "Upload a signed copy instead (optional)")}
-        <label className="flex min-h-11 items-start gap-3 text-sm"><input className="mt-0.5 h-5 w-5 shrink-0" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />I have read and accept the broker-carrier agreement.</label>
+        <label className="flex min-h-11 items-start gap-3 text-sm"><input className="mt-0.5 h-5 w-5 shrink-0" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>I have read and accept the broker-carrier agreement. {ESIGN_CONSENT}</span></label>
+        <p className="text-xs text-muted-foreground">When you sign, we record the time, your IP address and device, and add a signature certificate to the signed agreement.</p>
         {field("signer_name", "Type your full name to sign *")}
       </section>
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0"><Button className="h-12 w-full text-base" size="lg" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit packet"}</Button></div>

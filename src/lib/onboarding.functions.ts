@@ -125,20 +125,30 @@ export const submitPacket = createServerFn({ method: "POST" })
         expires_on: expires,
       });
     }
-    // Signed PDF of the exact agreement text shown on the portal.
+    // Signed PDF of the exact agreement text shown on the portal, plus a signature certificate page.
     const signedAt = new Date().toISOString();
-    const { getRequestHeader } = await import("@tanstack/react-start/server");
-    const ip = (getRequestHeader("cf-connecting-ip") || getRequestHeader("x-forwarded-for") || "").split(",")[0]?.trim() || null;
-    const ua = getRequestHeader("user-agent") || null;
+    const { addSignatureCertificate, sha256Hex, stableJson, ESIGN_CONSENT } = await import("./esign");
+    const { requestSigner } = await import("./esign.server");
+    const { agreementLegalHtml } = await import("@/content/agreement-legal");
+    const { ip, ua } = requestSigner();
     const reference = `CWA-${inv.id.slice(0, 8).toUpperCase()}`;
+    const termsSha = await sha256Hex(stableJson({ agreement: agreementLegalHtml, carrier: i, pay_terms: data.pay_terms }));
     let agreementPath = "";
+    let docSha: string | null = null;
     try {
       const { buildAgreementPdf } = await import("./agreementPdf");
       const pdf = buildAgreementPdf({ ...i, pay_terms: data.pay_terms, signer_name: data.signer_name, signed_at: signedAt, signer_ip: ip, reference });
+      addSignatureCertificate(pdf, {
+        document: "Broker-Carrier Agreement", reference,
+        parties: `Clearwater Cargo LLC (broker) and ${i.legal_name}${i.mc_number ? ` (MC ${i.mc_number})` : ""} (carrier)`,
+        signer: data.signer_name, sentTo: inv.email, signedAt, ip, device: ua, consent: ESIGN_CONSENT, termsSha256: termsSha,
+      });
+      const bytes = new Uint8Array(pdf.output("arraybuffer"));
+      docSha = await sha256Hex(bytes);
       agreementPath = `${carrierId}/agreement-signed-${Date.now()}.pdf`;
-      const { error } = await supabaseAdmin.storage.from("carrier-docs").upload(agreementPath, new Uint8Array(pdf.output("arraybuffer")), { contentType: "application/pdf" });
-      if (error) { console.error(error); agreementPath = ""; }
-    } catch (e) { console.error("Agreement PDF failed", e); agreementPath = ""; }
+      const { error } = await supabaseAdmin.storage.from("carrier-docs").upload(agreementPath, bytes, { contentType: "application/pdf" });
+      if (error) { console.error(error); agreementPath = ""; docSha = null; }
+    } catch (e) { console.error("Agreement PDF failed", e); agreementPath = ""; docSha = null; }
     await supabaseAdmin.from("carrier_documents").insert({
       carrier_id: carrierId, kind: "agreement", file_path: agreementPath,
       file_name: `Broker-Carrier Agreement — signed by ${data.signer_name} ${signedAt.slice(0, 10)}.pdf`, source: "carrier portal",
@@ -146,6 +156,7 @@ export const submitPacket = createServerFn({ method: "POST" })
     await supabaseAdmin.from("carrier_signatures").insert({
       carrier_id: carrierId, external_ref: reference, source: "carrier portal", signer_name: data.signer_name,
       signed_at: signedAt, signer_ip: ip, user_agent: ua, pay_type: data.pay_terms,
+      consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha, file_path: agreementPath || null,
     });
     await supabaseAdmin.from("carrier_invites").update({ status: "submitted", submitted_at: new Date().toISOString(), carrier_id: carrierId }).eq("id", inv.id);
     return { ok: true as const };

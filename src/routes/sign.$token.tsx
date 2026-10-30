@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Download } from "lucide-react";
 import { getRateConForSigning, signRateCon } from "@/lib/ratecon.functions";
-import { buildRateConPdf, pdfBase64 } from "@/lib/ratecon";
+import { buildRateConPdf } from "@/lib/ratecon";
+import { ESIGN_CONSENT } from "@/lib/esign";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -48,11 +49,9 @@ function SignPage() {
     if (name.trim().length < 2 || !agree) return toast.error("Type your full name and accept the terms to sign.");
     setBusy(true);
     try {
-      const signedAt = new Date().toISOString();
-      const doc = buildRateConPdf(data.rc, { name: name.trim(), title: title.trim() || undefined, signedAt });
-      const r = await sign({ data: { token, name: name.trim(), title: title.trim() || undefined, signedAt, pdfBase64: pdfBase64(doc) } });
+      const r = await sign({ data: { token, name: name.trim(), title: title.trim() || undefined, consent: true } });
       if (!r.ok) return toast.error(r.problem);
-      setSignedUrl(URL.createObjectURL(doc.output("blob")));
+      setSignedUrl(r.downloadUrl ?? "");
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -88,13 +87,13 @@ function SignPage() {
         )}
       </div>,
     );
-  if (signedUrl)
+  if (signedUrl !== null)
     return shell(
       <div className="rounded border bg-card p-5 text-center sm:p-8">
         <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success" />
         <h2 className="text-2xl font-bold">Signed{data?.ok ? ` — RC #${data.rc.rc}` : ""}</h2>
         <p className="mb-4 text-muted-foreground">Thank you. A signed copy is on file with Clearwater Cargo, and a copy link has been emailed to you.</p>
-        <Button asChild><a href={signedUrl} download="RateCon-signed.pdf"><Download className="mr-1 h-4 w-4" />Download signed copy</a></Button>
+        {signedUrl && <Button asChild><a href={signedUrl} target="_blank" rel="noreferrer"><Download className="mr-1 h-4 w-4" />Download signed copy</a></Button>}
       </div>,
     );
   if (!data?.ok) return shell(<p className="rounded border bg-card p-6 text-center">{data?.problem ?? "This link is not valid."}</p>);
@@ -119,8 +118,9 @@ function SignPage() {
         </div>
         <label className="flex min-h-11 items-start gap-3 text-sm">
           <input className="mt-0.5 h-5 w-5 shrink-0" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-          I'm authorized to sign for {data.rc.carrier} and accept this rate confirmation.
+          <span>I'm authorized to sign for {data.rc.carrier} and accept this rate confirmation. {ESIGN_CONSENT}</span>
         </label>
+        <p className="text-xs text-muted-foreground">When you sign, we record the time, your IP address and device, and add a signature certificate to the signed copy.</p>
         <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0"><Button className="h-12 w-full text-base" size="lg" disabled={busy} onClick={submit}>{busy ? "Signing…" : "Sign rate confirmation"}</Button></div>
       </div>
     </>,
