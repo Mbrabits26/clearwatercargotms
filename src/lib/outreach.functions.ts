@@ -47,3 +47,15 @@ export const enrollLead = createServerFn({ method: "POST" })
     await sb.from("leads").update({ outreach_status: "active" }).eq("id", lead.id);
     return { ok: true };
   });
+
+/** Checks the caller's own Gmail for shipper replies right now (staff only). */
+export const checkMyReplies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
+    if (!staff) throw new Error("Forbidden");
+    const { data: snd } = await context.supabase.from("outreach_senders").select("id, user_id, from_email, display_name, replies_checked_at").eq("user_id", context.userId).maybeSingle();
+    if (!snd) return { status: "no_sender" as const, found: 0, notes: ["Set up your sender in Outreach settings first."] };
+    const { checkRepliesForSender } = await import("./outreachReplies.server");
+    return checkRepliesForSender(snd, true);
+  });
