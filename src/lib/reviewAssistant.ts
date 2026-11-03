@@ -1,5 +1,5 @@
 /** Pure helpers for the finance review assistant: turns an AI-read plan into a reviewable list. Nothing here changes data. */
-import { bestMatches, normName, scoreMatch, type MatchLoad, type QbInvoice, type Match } from "@/lib/qbMatch";
+import { bestMatches, normName, planMatches, type MatchLoad, type QbInvoice, type Match } from "@/lib/qbMatch";
 
 export type ReviewMode = "qb_match" | "paid_mismatch" | "closeout" | "crosscheck";
 export type ReviewPlan = {
@@ -56,17 +56,20 @@ export type CrossCheck = {
  */
 export function crossCheck(invoices: QbInvoice[], loads: CrossLoad[]): CrossCheck {
   const pool = loads.filter((l) => (NOT_INVOICED as readonly string[]).includes(l.status));
-  const pairs = invoices.flatMap((inv) => pool.map((l) => ({ inv, m: scoreMatch(inv, l) })))
-    .filter((p) => p.m.score >= 40).sort((a, b) => b.m.score - a.m.score);
-  const usedInv = new Set<string>(), usedLoad = new Set<string>();
+  const plan = planMatches(invoices, pool);
+  const usedLoad = new Set<string>();
   const qbOnly: CrossCheck["qbOnly"] = [];
   const weak = new Map<string, Match & { invoice: QbInvoice }>();
-  for (const { inv, m } of pairs) {
-    if (m.score < CROSS_MIN) { if (!weak.has(m.load.id)) weak.set(m.load.id, { ...m, invoice: inv }); continue; }
-    if (usedInv.has(inv.id) || usedLoad.has(m.load.id)) continue;
-    usedInv.add(inv.id); usedLoad.add(m.load.id);
-    qbOnly.push({ invoice: inv, match: m, status: (m.load as CrossLoad).status });
+  for (const inv of invoices) {
+    const p = plan.get(inv.id);
+    const m = p?.best;
+    // Only sure pairings count: a reference # match, or customer + amount with no look-alike load and no double in QuickBooks.
+    if (m && m.score >= CROSS_MIN && m.level !== "weak" && !m.tie && !p.doubleOf) {
+      usedLoad.add(m.load.id);
+      qbOnly.push({ invoice: inv, match: m, status: (m.load as CrossLoad).status });
+    } else for (const x of p?.matches ?? []) if (!weak.has(x.load.id)) weak.set(x.load.id, { ...x, invoice: inv });
   }
+  qbOnly.sort((a, b) => b.match.score - a.match.score);
   const tmsOnly = pool.filter((l) => !usedLoad.has(l.id)).map((l) => ({ ...l, weak: weak.get(l.id) ?? null }));
   return { qbOnly, tmsOnly };
 }

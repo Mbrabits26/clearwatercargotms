@@ -95,7 +95,7 @@ export function planMatches(invoices: QbInvoice[], loads: MatchLoad[]): Map<stri
   const pairs = invoices.flatMap((i) => (per.get(i.id) ?? []).map((m) => ({ inv: i, m }))).sort((a, b) => b.m.score - a.m.score);
   const usedLoad = new Map<string, QbInvoice>(), chosen = new Map<string, Match>(), doubles = new Map<string, QbInvoice>();
   for (const { inv, m } of pairs) {
-    if (chosen.has(inv.id)) continue;
+    if (chosen.has(inv.id) || doubles.has(inv.id)) continue;
     const owner = usedLoad.get(m.load.id);
     if (owner) {
       if (m.level === "high" && !doubles.has(inv.id)) doubles.set(inv.id, owner);

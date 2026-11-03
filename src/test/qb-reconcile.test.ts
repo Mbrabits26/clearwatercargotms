@@ -12,7 +12,10 @@ describe("date ranges", () => {
 describe("QuickBooks matching", () => {
   const load: MatchLoad = { id: "1", load_number: "CW-1", customer: "Acme Foods", customer_rate: 1500, origin_city: "Raleigh", origin_state: "NC", dest_city: "Atlanta", dest_state: "GA", delivery_at: "2026-03-01", pickup_at: null };
   const inv: QbInvoice = { id: "9", docNumber: "5521", date: "2026-03-03", customer: "Acme Foods, Inc.", total: 1500, balance: 0, lines: [], text: "Raleigh NC to Atlanta GA" };
-  it("customer + amount + cities is a high match", () => expect(scoreMatch(inv, load).level).toBe("high"));
+  it("customer + amount + cities without a reference # is only probable", () => expect(scoreMatch(inv, load).level).toBe("probable"));
+  it("a customer ref # plus customer is a high match", () => expect(scoreMatch({ ...inv, text: "Ref PO7781" }, { ...load, customer_ref: "PO-7781" }).level).toBe("high"));
+  it("a QuickBooks invoice # equal to the TMS invoice # is a high match", () => expect(scoreMatch({ ...inv, docNumber: "INV-1001" }, { ...load, invoice_number: "INV-1001" }).level).toBe("high"));
+  it("load # CW-1 does not match CW-10", () => expect(scoreMatch({ ...inv, text: "CW-10 Raleigh" }, load).reasons).not.toContain("Load #"));
   it("different amount and customer is weak", () => expect(scoreMatch({ ...inv, customer: "Other", total: 900, text: "" }, load).level).toBe("weak"));
 });
 
