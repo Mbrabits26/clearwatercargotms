@@ -5,7 +5,7 @@ const FREE_MAIL = new Set(["gmail.com", "yahoo.com", "outlook.com", "hotmail.com
 
 export const emailDomain = (e: string | null | undefined) => {
   const m = (e ?? "").trim().toLowerCase().match(/@([a-z0-9.-]+\.[a-z]{2,})$/);
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 };
 const digits = (p: string | null | undefined) => { const d = (p ?? "").replace(/\D/g, ""); return d.length === 11 && d.startsWith("1") ? d.slice(1) : d; };
 /** Domain name without TLD and punctuation, e.g. "abc-trucking.net" → "abctrucking". */
@@ -14,14 +14,14 @@ const core = (d: string) => d.replace(/\.[a-z]{2,}(\.[a-z]{2})?$/, "").replace(/
 export function editDistance(a: string, b: string) {
   const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
-    let prev = dp[0]; dp[0] = i;
+    let prev = dp[0]!; dp[0] = i;
     for (let j = 1; j <= b.length; j++) {
-      const tmp = dp[j];
-      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      const tmp = dp[j]!;
+      dp[j] = Math.min(dp[j]! + 1, dp[j - 1]! + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
       prev = tmp;
     }
   }
-  return dp[b.length];
+  return dp[b.length]!;
 }
 
 export type FraudFlag = { level: "high" | "medium" | "ok"; text: string };
