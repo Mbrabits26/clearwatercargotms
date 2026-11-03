@@ -29,7 +29,7 @@
 - Conditional carrier approval (carriers.conditional_until) is honored by enforce_carrier_compliance and admin-only via the guard_carrier_conditional trigger; DNU/unauthorized authority are never bypassable.
 - Admin compliance overrides live on loads.override_* (guard_load_override trigger, admin-only); enforce_carrier_compliance honors them except DNU/unauthorized authority. Client `carrierCompliance().bookable` mirrors the trigger.
 - Driver pings geocode server-side. Driver-link auto-Delivered (`podAutoDeliver.ts`) requires a signed POD on file (pod_received), fires on link POD upload or "Delivered" tap, only from booked/dispatched/rolling; staff status changes stay manual.
-- Staff uploads tagged Signed POD (DocTypePicker type `pod`) set loads.pod_received via `markPodReceived` (podMark.ts), because every POD indicator reads that flag, not file names.
+- Uploads tagged Signed POD set loads.pod_received (`markPodReceived`); all POD indicators read that flag, not file names.
 - `DocPreview` previews docs in-page. RC tracking: `applyTrackingFee` splits $200 out of carrier pay; editor shows split lines, load stores unsplit.
 - `assign_invoice_number` trigger sets qb_sync number + QB class: invoice → INV-, fleet_invoice → FF- (Foust letterhead). Carrier bills store gross, quickpay_fee, net.
 - Role changes via server-side `setUserAdmin` (no self-demotion, ≥1 admin).
@@ -39,7 +39,6 @@
 - Combined invoice = qb_sync rows sharing one (non-unique) invoice_number, sent as one multi-line QB invoice. `isFleetLoad` loads (incl. FLEET_CARRIER_ID, the one internal-fleet carrier) stay out of brokerage reports.
 - Bulk actions: every generated list gets checkboxes + `BulkActionBar` (per-row under RLS; bulk delete admin-only, tables in its delete union); load lists use `LoadListBar` (skips in `loadActSkip`); bulk status uses `BulkStatusBar` (`bulkStatus.ts`).
 - Load rules/status history use DB triggers; `batch_load_action` and bulk status update per-row under RLS so triggers judge each load. `closed_at` archives operationally, never means paid; paged `loadWorkQuery` drives all-date notices.
-- qb_sync.deductions: amount gross, net=invoiceNet, QB minus lines. qb_sync.attachments go once (attachments_sent); qbSyncNow first runs `autoAttachPods` so load PODs (`isPodDoc`) join unsent customer invoices.
 - carriers.inactive: hidden from CarrierPicker default list, still searchable; picking reactivates.
 - Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
