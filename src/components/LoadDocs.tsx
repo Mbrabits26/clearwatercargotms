@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
+import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTypePicker";
 
 const label = (n: string) => {
   const k = n.split("-")[0]!.toLowerCase();
@@ -53,11 +54,12 @@ export function LoadDocs({ loadId }: { loadId: string }) {
       <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-2">
       <Button size="sm" variant="secondary" disabled={busy} asChild>
         <label className="cursor-pointer"><Upload className="mr-1 h-3.5 w-3.5" />{busy ? "Uploading…" : "Attach file"}
-          <input type="file" className="hidden" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+          <input type="file" className="hidden" onChange={(e) => { setPending(e.target.files?.[0] ?? null); e.target.value = ""; }} />
         </label>
       </Button>
-      <span className="text-xs text-muted-foreground">or drag &amp; drop a file here</span>
+      <span className="text-xs text-muted-foreground">or drag &amp; drop a file here — you'll pick the type next</span>
       </div>
+      <DocTypePicker file={pending} busy={busy} onPick={upload} onCancel={() => setPending(null)} />
     </div>
   );
 }
