@@ -5,7 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { qbScanInvoices, qbLinkInvoice } from "@/lib/quickbooks.functions";
 import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
-import { bestMatches, type MatchLoad, type QbInvoice } from "@/lib/qbMatch";
+import { planMatches, type MatchLoad, type QbInvoice } from "@/lib/qbMatch";
+import { QbFilesPanel } from "@/components/QbFilesPanel";
 import { invoiceNet } from "@/lib/invoiceDeductions";
 import { fmtDate, usd, isFleetLoad, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { ReportExport } from "@/components/ReportExport";
 import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
 import { ActionButton, Hint } from "@/components/ActionGuard";
 
-type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown }[]; available?: { brokerage: boolean; fleet: boolean }; onMinimize?: () => void };
+type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[]; companies: { id: string; name: string }[]; sync: { load_id: string; kind: string; qb_ref: string | null; amount: number; deductions?: unknown; invoice_number?: string | null }[]; available?: { brokerage: boolean; fleet: boolean }; onMinimize?: () => void };
 
 export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, available, onMinimize }: Props) {
   const scan = useServerFn(qbScanInvoices);
@@ -41,11 +42,13 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
     // Foust Farms QuickBooks only matches fleet loads; Clearwater only brokerage loads.
     return loads.filter((l) => !linked.has(l.id) && isFleetLoad(l) === (entity === "fleet") && ["delivered", "invoiced", "paid"].includes(l.status)).map((l) => {
       const s = sync.find((x) => x.load_id === l.id && x.kind === kind);
-      return { id: l.id, load_number: l.load_number, customer: companies.find((c) => c.id === l.customer_id)?.name ?? "", customer_rate: Number(l.customer_rate), net: s ? invoiceNet(Number(s.amount), s.deductions) : undefined,
+      return { id: l.id, load_number: l.load_number, invoice_number: s?.invoice_number ?? null, customer: companies.find((c) => c.id === l.customer_id)?.name ?? "", customer_rate: Number(l.customer_rate), net: s ? invoiceNet(Number(s.amount), s.deductions) : undefined,
         origin_city: l.origin_city, origin_state: l.origin_state, dest_city: l.dest_city, dest_state: l.dest_state, delivery_at: l.delivery_at, pickup_at: l.pickup_at, customer_ref: l.customer_ref, ship_ref: l.ship_ref };
     });
   }, [loads, sync, companies, kind, entity]);
 
+  // One-to-one suggestions: a load is never suggested for two invoices; a second strong hit is flagged as a possible double.
+  const plan = useMemo(() => planMatches((invoices ?? []).filter((i) => !done.has(i.id)), candidates), [invoices, candidates, done]);
   const pickRange = (k: RangeKey) => { setRange(k); const r = rangeFor(k); if (r) setDates(r); };
   const run = async () => {
     setBusy(true);
@@ -70,7 +73,7 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
       summary: [["Unlinked invoices", String(list.length)], ["Total", usd(list.reduce((t, i) => t + i.total, 0))], ["Open balance", usd(list.reduce((t, i) => t + i.balance, 0))]],
       head: ["QB invoice", "Date", "Customer", "Amount", "Balance", "Suggested load", "Match", "Why"], right: [3, 4],
       rows: list.map((inv) => {
-        const m = bestMatches(inv, candidates); const best = m[0];
+        const p = plan.get(inv.id); const m = p?.matches ?? []; const best = p?.best ?? null;
         const pick = candidates.find((c) => c.id === (manual[inv.id] ?? best?.load.id));
         return [`#${inv.docNumber ?? inv.id}`, inv.date ? dayText(inv.date) : "", inv.customer, usd(inv.total), inv.balance > 0 ? usd(inv.balance) : "Paid",
           pick ? `${pick.load_number} · ${pick.customer} · ${usd(pick.customer_rate)}` : "", best ? (best.level === "high" ? "High" : best.level === "probable" ? "Probable" : "Weak") : "No match", best?.reasons.join(", ") ?? ""];
@@ -114,16 +117,19 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
             <TableHeader className="sticky top-0 z-10 bg-background"><TableRow><TableHead>QuickBooks invoice</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Suggested load</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {invoices.filter((i) => !done.has(i.id)).map((inv) => {
-                const m = bestMatches(inv, candidates);
-                const best = m[0];
-                const chosen = manual[inv.id] ?? best?.load.id ?? "";
+                const p = plan.get(inv.id);
+                const m = p?.matches ?? [];
+                const best = p?.best ?? null;
+                // Only sure matches are pre-picked; look-alikes and possible doubles wait for a person.
+                const chosen = manual[inv.id] ?? (best && best.level !== "weak" && !best.tie && !p?.doubleOf ? best.load.id : "");
                 return (
                   <TableRow key={inv.id}>
                     <TableCell><div className="font-medium">#{inv.docNumber ?? inv.id}</div><div className="text-xs text-muted-foreground">{inv.date ? fmtDate(inv.date) : ""}</div><div className="max-w-56 truncate text-xs text-muted-foreground" title={inv.text}>{inv.text}</div></TableCell>
                     <TableCell>{inv.customer}</TableCell>
                     <TableCell className="text-right">{usd(inv.total)}<div className="text-xs text-muted-foreground">{inv.balance > 0 ? `${usd(inv.balance)} open` : "Paid"}</div></TableCell>
                     <TableCell>
-                      {best ? <div className="mb-1 flex items-center gap-2"><Badge variant={best.level === "high" ? "default" : "secondary"}>{best.level === "high" ? "High match" : best.level === "probable" ? "Probable" : "Weak"}</Badge><span className="text-xs text-muted-foreground">{best.reasons.join(", ")}</span></div> : <Badge variant="outline">No match</Badge>}
+                      {p?.doubleOf && <div className="mb-1 rounded border border-destructive/60 bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">Possible double in QuickBooks — invoice #{p.doubleOf.docNumber ?? p.doubleOf.id} already matches {m[0]?.load.load_number ?? "the same load"}.</div>}
+                      {best ? <div className="mb-1 flex items-center gap-2"><Badge variant={best.level === "high" ? "default" : "secondary"}>{best.level === "high" ? "Sure match" : best.level === "probable" ? "Check it" : "Weak"}</Badge><span className="text-xs text-muted-foreground">{best.tie ? "Another load looks the same — pick by hand. " : ""}{best.reasons.join(", ")}</span></div> : <Badge variant="outline">No match</Badge>}
                       <Select value={chosen} onValueChange={(v) => setManual((s) => ({ ...s, [inv.id]: v }))}>
                         <SelectTrigger className="w-72"><SelectValue placeholder="Pick a load" /></SelectTrigger>
                         <SelectContent>
@@ -160,7 +166,8 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
                           confirmLabel: "Link",
                         };
                       }}
-                      onClick={() => doLink(inv, chosen)}>Link</ActionButton></TableCell>
+                      onClick={() => doLink(inv, chosen)}>Link</ActionButton>
+                      {chosen && <div className="mt-1"><QbFilesPanel compact loadId={chosen} entity={entity} qbId={inv.id} /></div>}</TableCell>
                   </TableRow>
                 );
               })}

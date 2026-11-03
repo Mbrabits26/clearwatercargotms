@@ -316,10 +316,18 @@ function Accounting() {
     try {
       const r = await qbSync({ data: {} });
       const att = r.attached || r.attachFailed ? ` · ${r.attached} file(s) attached${r.attachFailed ? `, ${r.attachFailed} file(s) failed` : ""}` : "";
+      if (r.linked?.length) toast.info(`Linked to invoices already in QuickBooks (no doubles made): ${r.linked.join("; ")}`, { duration: 12000 });
       if (r.sent || r.failed || att) toast[r.failed || r.attachFailed ? "warning" : "success"](`${r.sent} sent to QuickBooks${r.failed ? `, ${r.failed} failed — see Sync log` : ""}${att}`);
       else toast.info("Nothing waiting to send.");
     } catch (e) { toast.error((e as Error).message); }
     setSyncing(false);
+    qc.invalidateQueries({ queryKey: ["qb_sync"] });
+  };
+  const sendAnyway = async (id: string) => {
+    try {
+      const r = await qbSync({ data: { ids: [id], force: true } });
+      toast[r.failed ? "warning" : "success"](r.failed ? "Still couldn't send — see the error." : "Sent to QuickBooks.");
+    } catch (e) { toast.error((e as Error).message); }
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
   };
   const connect = async (entity: "brokerage" | "fleet" = "brokerage") => {
@@ -551,6 +559,7 @@ function Accounting() {
                     <div className="flex gap-1">
                       {isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
                       <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>
+                      {s.status === "error" && s.error?.startsWith("Possible duplicate") && <ActionButton size="sm" variant="ghost" className="h-8 px-2 text-xs" hint="Sends this as a new QuickBooks invoice even though one with the same customer and amount exists." confirm={() => ({ title: "Send a new invoice anyway?", points: ["Only do this if the QuickBooks invoice shown in the error is for a different load.", "A new invoice is created in QuickBooks."], confirmLabel: "Send anyway" })} onClick={() => sendAnyway(s.id)}>Send anyway</ActionButton>}
                       {s.status === "error" && <ActionButton size="icon" variant="ghost" aria-label="Retry" hint={HINT.retry} confirm={retrySpec(s)} onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></ActionButton>}
                       {isFinance && <ActionButton size="icon" variant="ghost" aria-label="Remove from queue" hint={HINT.remove} confirm={removeSpec(s)} onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></ActionButton>}
                     </div>

@@ -1,5 +1,8 @@
+import { invoiceNet } from "./invoiceDeductions";
 import { deductionLines } from "./invoiceDeductions";
 import { customerRefs, freightLineText } from "./qbInvoiceText";
+import { findQbDuplicate } from "./qbDupGuard";
+import type { QbInvoice } from "./qbMatch";
 import { isPodDoc, parseAttachments, pendingAttachments, qbContentType, qbUploadBody, withPods, type QbAttachment } from "./qbAttachments";
 // Server-only QuickBooks Online helpers: OAuth tokens + invoice/bill delivery.
 export const QB_REDIRECT_URI = "https://tms.clearwatercargo.com/oauth/quickbooks/return";
@@ -156,17 +159,19 @@ async function klass(qb: Qb, name: string | null) {
 }
 
 type SyncRow = { id: string; kind: string; payee: string | null; amount: number; invoice_number: string | null; qb_class: string | null; qb_ref: string | null; load_id: string; deductions?: unknown };
-type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null; customer_ref: string | null };
+type LoadLite = { id: string; load_number: string; origin_city: string | null; origin_state: string | null; dest_city: string | null; dest_state: string | null; delivery_at: string | null; customer_ref: string | null; ship_ref: string | null };
 
-export async function deliverQueued(admin: Admin, ids?: string[]) {
+/** force = the person reviewed a "possible duplicate" hold and wants a new invoice anyway. */
+export async function deliverQueued(admin: Admin, ids?: string[], force = false) {
   let q = admin.from("qb_sync").select("*").in("status", ["queued", "error"]).is("qb_ref", null);
   if (ids?.length) q = q.in("id", ids);
   const { data: rows } = await q.limit(100);
   const list = (rows ?? []) as SyncRow[];
-  if (!list.length) return { sent: 0, failed: 0 };
-  const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at, customer_ref").in("id", list.map((r) => r.load_id));
+  if (!list.length) return { sent: 0, failed: 0, linked: [] as string[] };
+  const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at, customer_ref, ship_ref").in("id", list.map((r) => r.load_id));
   const byId = new Map(((loads ?? []) as LoadLite[]).map((l) => [l.id, l]));
   let sent = 0, failed = 0;
+  const linked: string[] = [];
   // Each row goes to its own company's QuickBooks (connections are opened lazily, once per company).
   const conns = new Map<QbEntity, Promise<Qb | null>>();
   const qbFor = (e: QbEntity) => {
@@ -174,7 +179,27 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
     return conns.get(e)!;
   };
   // Combined invoices: several rows share one invoice_number → one QuickBooks invoice with a line per load.
-  const made = new Map<string, string>();
+  const made = new Map<string, { ref: string; doc?: string }>();
+  // Recent QuickBooks invoices per company (read once per run) so we link to an invoice someone already made instead of doubling it.
+  const recent = new Map<QbEntity, Promise<QbInvoice[]>>();
+  const { data: linkedRows } = await admin.from("qb_sync").select("qb_ref, kind").not("qb_ref", "is", null).in("kind", ["invoice", "fleet_invoice"]);
+  const linkedRefs = new Set(((linkedRows ?? []) as { qb_ref: string; kind: string }[]).map((x) => `${entityForKind(x.kind)}:${x.qb_ref}`));
+  const recentFor = (e: QbEntity, qb: Qb) => {
+    if (!recent.has(e)) {
+      const since = new Date(Date.now() - 180 * 86400_000).toISOString().slice(0, 10);
+      recent.set(e, (async () => {
+        const out: QbInvoice[] = [];
+        for (let start = 1; start <= 1000; start += 500) {
+          const q = encodeURIComponent(`select * from Invoice where TxnDate >= '${since}' startposition ${start} maxresults 500`);
+          const page = (await qb.req<{ QueryResponse: { Invoice?: RawInv[] } }>(`query?query=${q}`)).QueryResponse?.Invoice ?? [];
+          out.push(...page.map(toQbInvoice));
+          if (page.length < 500) break;
+        }
+        return out.filter((i) => !linkedRefs.has(`${e}:${i.id}`));
+      })());
+    }
+    return recent.get(e)!;
+  };
   for (const r of list) {
     const l = byId.get(r.load_id);
     try {
@@ -187,6 +212,7 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
       const classRef = classId ? { ClassRef: { value: classId } } : {};
       const txnDate = (l.delivery_at ?? new Date().toISOString()).slice(0, 10);
       let ref: string;
+      let realDoc: string | undefined;
       if (r.kind === "bill") {
         const doc = l.load_number.slice(0, 21);
         const vendor = await party(qb, "Vendor", r.payee || "Unknown carrier");
@@ -205,11 +231,19 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
         const group = r.invoice_number ? list.filter((x) => x.kind === r.kind && x.invoice_number === r.invoice_number) : [r];
         const cust = await party(qb, "Customer", r.payee || "Unknown customer");
         const dup = await qb.query<Ref>("Invoice", `where DocNumber = '${esc(doc)}'`);
-        if (made.has(`${r.kind}:${doc}`)) ref = made.get(`${r.kind}:${doc}`)!;
+        const groupLoads = group.map((g) => byId.get(g.load_id)).filter((x): x is LoadLite => !!x);
+        const hit = made.has(`${r.kind}:${doc}`) || dup[0] ? null
+          : findQbDuplicate(await recentFor(ent, qb), r.payee || "", groupLoads, group.reduce((t, g) => t + invoiceNet(Number(g.amount), g.deductions), 0), txnDate);
+        if (made.has(`${r.kind}:${doc}`)) { const m = made.get(`${r.kind}:${doc}`)!; ref = m.ref; realDoc = m.doc; }
         else if (dup[0]) ref = dup[0].Id;
-        else {
+        else if (hit?.kind === "same") {
+          // Someone already invoiced this load in QuickBooks: link to it and keep its real number.
+          ref = hit.invoice.id; realDoc = hit.invoice.docNumber ?? undefined;
+          linked.push(`${l.load_number} → QuickBooks #${hit.invoice.docNumber ?? hit.invoice.id} (${hit.why})`);
+        } else if (hit?.kind === "maybe" && !force) {
+          throw new Error(`Possible duplicate: QuickBooks invoice #${hit.invoice.docNumber ?? hit.invoice.id} (${hit.invoice.customer}, $${hit.invoice.total.toFixed(2)}, ${hit.invoice.date ?? ""}) has the ${hit.why}. Link it in "Match QuickBooks invoices", or press "Send anyway" if it's a different load.`);
+        } else {
           const item = await freightItem(qb);
-          const groupLoads = group.map((g) => byId.get(g.load_id)).filter((x): x is LoadLite => !!x);
           const refs = customerRefs(groupLoads);
           const memo = refs.length ? `Customer ref # ${refs.join(", ")}` : undefined;
           const j = await qb.req<{ Invoice: Ref }>("invoice", {
@@ -225,15 +259,15 @@ export async function deliverQueued(admin: Admin, ids?: string[]) {
           ref = j.Invoice.Id;
         }
       }
-      if (r.kind !== "bill") made.set(`${r.kind}:` + (r.invoice_number ?? l.load_number).slice(0, 21), ref);
-      await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: null, sent_at: new Date().toISOString() }).eq("id", r.id);
+      if (r.kind !== "bill") made.set(`${r.kind}:` + (r.invoice_number ?? l.load_number).slice(0, 21), { ref, doc: realDoc });
+      await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: null, sent_at: new Date().toISOString(), ...(realDoc ? { invoice_number: realDoc } : {}) }).eq("id", r.id);
       sent++;
     } catch (e) {
       await admin.from("qb_sync").update({ status: "error", error: (e as Error).message.slice(0, 500) }).eq("id", r.id);
       failed++;
     }
   }
-  return { sent, failed };
+  return { sent, failed, linked };
 }
 
 type PodRow = { id: string; kind: string; load_id: string; invoice_number: string | null; attachments: unknown; attachments_sent: unknown };
@@ -318,7 +352,7 @@ export async function sendAttachments(admin: Admin, ids?: string[]) {
   return { attached, attachFailed };
 }
 
-type RawInv = { Id: string; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
+type RawInv = { Id: string; CustomField?: { StringValue?: string }[]; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
 /** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
 export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean, entity: QbEntity = "brokerage") {
   const c = await getConn(admin, entity);
@@ -336,9 +370,47 @@ export async function scanInvoices(admin: Admin, from: string, to: string, openO
     out.push(...page);
     if (page.length < 500) break;
   }
-  return out.map((i) => {
-    const lines = (i.Line ?? []).filter((l) => l.DetailType !== "SubTotalLineDetail").map((l) => ({ amount: Number(l.Amount ?? 0), description: l.Description ?? "" }));
-    const text = [i.PrivateNote, i.CustomerMemo?.value, ...lines.map((l) => l.description), ...Object.values(i.ShipAddr ?? {})].filter(Boolean).join(" ");
-    return { id: i.Id, docNumber: i.DocNumber ?? null, date: i.TxnDate ?? null, customer: i.CustomerRef?.name ?? "", total: Number(i.TotalAmt ?? 0), balance: Number(i.Balance ?? 0), lines, text };
-  });
+  return out.map(toQbInvoice);
+}
+
+function toQbInvoice(i: RawInv): QbInvoice {
+  const lines = (i.Line ?? []).filter((l) => l.DetailType !== "SubTotalLineDetail").map((l) => ({ amount: Number(l.Amount ?? 0), description: l.Description ?? "" }));
+  // Custom fields (e.g. "PO #", "Load #") hold reference numbers too.
+  const custom = (i.CustomField ?? []).map((f) => f.StringValue).filter(Boolean);
+  const text = [i.PrivateNote, i.CustomerMemo?.value, ...custom, ...lines.map((l) => l.description), ...Object.values(i.ShipAddr ?? {})].filter(Boolean).join(" ");
+  return { id: i.Id, docNumber: i.DocNumber ?? null, date: i.TxnDate ?? null, customer: i.CustomerRef?.name ?? "", total: Number(i.TotalAmt ?? 0), balance: Number(i.Balance ?? 0), lines, text };
+}
+
+type RawAttachable = { Id: string; FileName?: string; ContentType?: string; Size?: number; TempDownloadUri?: string; AttachableRef?: { EntityRef?: { type?: string; value?: string } }[] };
+export type QbFile = { id: string; invoiceId: string; name: string; contentType: string; size: number; url: string | null; pod: boolean };
+
+/** Files attached to QuickBooks invoices (read-only). Temp links from QuickBooks last about 15 minutes. */
+export async function listInvoiceFiles(admin: Admin, entity: QbEntity, invoiceIds: string[]): Promise<QbFile[]> {
+  const c = await getConn(admin, entity);
+  if (!c) throw new Error(entity === "fleet" ? "Foust Farms QuickBooks isn't connected." : "Clearwater Cargo QuickBooks isn't connected.");
+  const qb = new Qb(c);
+  const out: QbFile[] = [];
+  for (const id of [...new Set(invoiceIds)].slice(0, 25)) {
+    const q = encodeURIComponent(`select * from Attachable where AttachableRef.EntityRef.Type = 'Invoice' and AttachableRef.EntityRef.value = '${esc(id)}'`);
+    const list = (await qb.req<{ QueryResponse: { Attachable?: RawAttachable[] } }>(`query?query=${q}`)).QueryResponse?.Attachable ?? [];
+    for (const a of list) {
+      if (!a.FileName) continue; // notes, not files
+      out.push({ id: a.Id, invoiceId: id, name: a.FileName, contentType: a.ContentType ?? "", size: Number(a.Size ?? 0), url: a.TempDownloadUri ?? null, pod: isPodDoc(a.FileName) });
+    }
+  }
+  return out;
+}
+
+/** Downloads one QuickBooks attachment (fresh temp link) for copying onto a load. */
+export async function downloadInvoiceFile(admin: Admin, entity: QbEntity, attachableId: string) {
+  const c = await getConn(admin, entity);
+  if (!c) throw new Error("QuickBooks isn't connected.");
+  const qb = new Qb(c);
+  const a = (await qb.req<{ Attachable: RawAttachable }>(`attachable/${encodeURIComponent(attachableId)}`)).Attachable;
+  if (!a?.TempDownloadUri || !a.FileName) throw new Error("QuickBooks didn't return a download link for this file.");
+  const res = await fetch(a.TempDownloadUri);
+  if (!res.ok) throw new Error(`Couldn't download the file from QuickBooks (${res.status}).`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength > MAX_BYTES) throw new Error("File is over 25 MB.");
+  return { bytes, name: a.FileName, contentType: a.ContentType || "application/octet-stream" };
 }
