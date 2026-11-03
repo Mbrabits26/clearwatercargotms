@@ -84,7 +84,7 @@ function SearchBox({ onChange, seed }: { onChange: (v: string) => void; seed?: {
     const t = setTimeout(() => startTransition(() => onChange(v)), v ? 250 : 0);
     return () => clearTimeout(t);
   }, [v, onChange]);
-  return <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
+  return <Input className="pl-8" placeholder="Search load #, invoice #, customer, carrier, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
 }
 
 const WORK_VIEWS = ["delivery", "pod", "invoice", "closeout", "closed"];
