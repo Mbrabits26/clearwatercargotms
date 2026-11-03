@@ -277,11 +277,24 @@ type PodRow = { id: string; kind: string; load_id: string; invoice_number: strin
  * picked or sent on any row of the same invoice is skipped so it never uploads twice.
  */
 export async function autoAttachPods(admin: Admin, ids?: string[]) {
-  let q = admin.from("qb_sync").select("id, kind, load_id, invoice_number, attachments, attachments_sent")
+  const cols = "id, kind, load_id, invoice_number, attachments, attachments_sent";
+  let q = admin.from("qb_sync").select(cols)
     .in("kind", ["invoice", "fleet_invoice"]).in("status", ["queued", "error"]).is("qb_ref", null);
   if (ids?.length) q = q.in("id", ids);
-  const { data } = await q.limit(100);
-  const rows = (data ?? []) as unknown as PodRow[];
+  // Invoices already in QuickBooks whose load now has a signed POD: the POD is uploaded onto
+  // that same QuickBooks invoice (never a new invoice); files already sent are skipped.
+  let sq = admin.from("qb_sync").select(cols)
+    .in("kind", ["invoice", "fleet_invoice"]).eq("status", "sent").not("qb_ref", "is", null);
+  if (ids?.length) sq = sq.in("id", ids);
+  const [{ data }, { data: sentData }] = await Promise.all([q.limit(100), sq.order("sent_at", { ascending: false }).limit(300)]);
+  const sentRows = (sentData ?? []) as unknown as PodRow[];
+  let sentWithPod: PodRow[] = [];
+  if (sentRows.length) {
+    const { data: podLoads } = await admin.from("loads").select("id").eq("pod_received", true).in("id", [...new Set(sentRows.map((r) => r.load_id))]);
+    const ok = new Set(((podLoads ?? []) as { id: string }[]).map((l) => l.id));
+    sentWithPod = sentRows.filter((r) => ok.has(r.load_id));
+  }
+  const rows = [...((data ?? []) as unknown as PodRow[]), ...sentWithPod];
   if (!rows.length) return 0;
   // Paths already used by any row on the same invoice number.
   const nums = [...new Set(rows.map((r) => r.invoice_number).filter((n): n is string => !!n))];
