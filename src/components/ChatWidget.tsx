@@ -122,7 +122,9 @@ export function ChatWidget({ userId }: { userId: string }) {
     const { data, error } = await supabase.from("chat_messages").insert({ channel, body }).select().single();
     if (error) return toast.error(error.message);
     qc.setQueryData<Msg[]>(["chat-msgs"], (old = []) => (old.some((o) => o.id === data.id) ? old : [...old, data as Msg]));
-    await saveMentions(findMentions(body, people), body, { source: "chat", channel }, userId);
+    // In a private chat, @team/@everyone only reach the people in that chat.
+    const members = channel === "team" ? people : people.filter((p) => channel.split(":").includes(p.id));
+    await saveMentions(findMentions(body, people, members), body, { source: "chat", channel }, userId);
   };
 
   const others = people.filter((p) => p.id !== userId);
