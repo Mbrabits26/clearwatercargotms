@@ -294,6 +294,10 @@ function Dispatch() {
     const i = selectedId ? filtered.findIndex((l) => l.id === selectedId) : -1;
     if (i >= limit) setLimit(i + 1);
   }, [selectedId, filtered, limit]);
+  // An invoice # that matches exactly one load opens it right away.
+  useEffect(() => {
+    if (invLoadIds?.size === 1 && filtered.length === 1 && invLoadIds.has(filtered[0]!.id)) setSelectedId(filtered[0]!.id);
+  }, [invLoadIds, filtered]);
   const pickSet = useMemo(() => new Set(pick), [pick]);
   const selectLoad = useCallback((id: string) => { setSelectedId(id); setMobileDetail(true); }, []);
   const togglePick = useCallback((id: string, on: boolean) => setPick((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id))), []);
