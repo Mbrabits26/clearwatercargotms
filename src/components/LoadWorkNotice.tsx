@@ -12,11 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BatchLoadActionDialog } from "@/components/BatchLoadActionDialog";
 import { Hint } from "@/components/ActionGuard";
 
-const ITEMS = [["delivery", "delivery overdue"], ["invoice", "need invoicing"], ["closeout", "ready for closeout"]] as const;
+const ITEMS = [["delivery", "delivery overdue"], ["pod", "delivered, missing POD"], ["invoice", "need invoicing"], ["closeout", "ready for closeout"]] as const;
 
 export function LoadWorkNotice() {
   const { user, isAdmin, isAccountant } = useRouteContext({ from: "/_authenticated" });
-  const { data, error } = useQuery({ ...loadWorkQuery, refetchInterval: 60_000 });
+  const { data, error } = useQuery({ ...loadWorkQuery, refetchInterval: 20_000, refetchOnWindowFocus: true });
   const [openFilter, setOpenFilter] = useState<WorkFilter | null>(null);
   if (error) return <div role="alert" className="border-b px-4 py-2 text-xs text-warning">Unfinished-load notices could not load. Refresh to retry.</div>;
   if (!data) return null;
@@ -26,7 +26,7 @@ export function LoadWorkNotice() {
   const current = items.find((i) => i.filter === openFilter);
   return <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-warning/10 px-4 py-2 text-xs">
     <span className="flex items-center gap-2 font-semibold text-warning"><ClipboardList className="h-4 w-4" />{isAdmin || isAccountant ? "Company loads" : "Your loads"}</span>
-    {items.map((item) => <button type="button" key={item.filter} onClick={() => setOpenFilter(item.filter)} className="text-gold underline">{item.list.length} {item.label}</button>)}
+    {items.map((item) => <button type="button" key={item.filter} onClick={() => setOpenFilter(item.filter)} className="text-gold underline">{item.list.length} {item.label}{item.filter === "invoice" ? ` (${item.list.filter((l) => l.pod_received).length} with POD)` : ""}</button>)}
     {current && <WorkListDialog filter={current.filter} label={current.label} loads={current.list} onClose={() => setOpenFilter(null)} owner={isAdmin || isAccountant ? undefined : user.id} />}
   </div>;
 }
@@ -58,12 +58,13 @@ function WorkListDialog({ filter, label, loads, onClose, owner }: { filter: Work
           <Hint text="Shows this same list on the Dispatch board."><Button size="sm" variant="outline" asChild><Link to="/dispatch" search={{ work: filter, owner }} onClick={onClose}>View on Dispatch board</Link></Button></Hint>
         </div>
       </div>
-      {filter === "invoice" && <p className="text-xs text-muted-foreground">Open a load to create its invoice, or invoice several from the Dispatch board.</p>}
+      {filter === "invoice" && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>Open a load to create its invoice, or invoice several from the Dispatch board.</span>
+        <span className="text-destructive">{loads.filter((l) => !l.pod_received).length} missing POD</span></div>}
       <div className="min-h-0 flex-1 overflow-auto rounded border text-xs">
         <table className="w-full">
           <thead className="sticky top-0 bg-card text-left text-muted-foreground"><tr>
             {batch && <th className="p-2"><input type="checkbox" aria-label="Select all" checked={allOn} onChange={toggleAll} className="accent-gold" /></th>}
-            <th className="p-2">Load</th><th className="p-2">Status</th><th className="p-2">Customer</th><th className="p-2">Cust ref #</th><th className="p-2">Lane</th><th className="p-2">Delivery</th><th className="p-2"></th>
+            <th className="p-2">Load</th><th className="p-2">Status</th><th className="p-2">Customer</th><th className="p-2">Cust ref #</th><th className="p-2">Lane</th><th className="p-2">Delivery</th><th className="p-2">POD</th><th className="p-2"></th>
           </tr></thead>
           <tbody className="divide-y">{rows.map((l) => <tr key={l.id}>
             {batch && <td className="p-2"><input type="checkbox" aria-label={`Select ${l.load_number}`} checked={pick.has(l.id)} onChange={() => setPick((p) => { const n = new Set(p); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} className="accent-gold" /></td>}
@@ -73,6 +74,7 @@ function WorkListDialog({ filter, label, loads, onClose, owner }: { filter: Work
             <td className="p-2">{l.customer_ref ?? "—"}</td>
             <td className="p-2">{[l.origin_city, l.dest_city].filter(Boolean).join(" → ") || "—"}</td>
             <td className="p-2">{l.delivery_at ? fmtDate(l.delivery_at) : "—"}</td>
+            <td className="p-2">{l.pod_received ? <span className="font-semibold text-success">✓ POD on file</span> : <span className="font-semibold text-destructive">✗ No POD</span>}</td>
             <td className="p-2"><Link to="/dispatch" search={{ load: l.id }} onClick={onClose} className="text-gold underline">Open</Link></td>
           </tr>)}</tbody>
         </table>

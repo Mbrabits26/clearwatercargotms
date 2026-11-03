@@ -4,7 +4,7 @@ import { backfillPingPlaces, getLanePoints } from "@/lib/tracking.functions";
 import { TrackingMap } from "@/components/TrackingMap";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Mail, MapPin, Ban } from "lucide-react";
+import { Copy, Mail, MapPin, Ban, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/email";
 import { fmtDate, type Load } from "@/lib/tms";
@@ -81,6 +81,11 @@ export function TrackingPanel({ load }: { load: Load }) {
         <div className="space-y-2">
           <div className="break-all rounded border bg-background p-2 font-mono text-xs">{link}</div>
           <div className="flex flex-wrap gap-2">
+            {active.driver_phone && (
+              <Button size="sm" asChild title="Opens your own texting app (Google Voice, phone, etc.) with the message filled in — no fees">
+                <a href={`sms:${active.driver_phone.replace(/[^\d+]/g, "")}?&body=${encodeURIComponent(message())}`}><MessageSquare className="mr-1 h-3.5 w-3.5" />Text driver</a>
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
             <Button size="sm" variant="outline" onClick={email}><Mail className="mr-1 h-3.5 w-3.5" />Email</Button>
             <Button size="sm" variant="ghost" onClick={() => revoke(active.id)}><Ban className="mr-1 h-3.5 w-3.5" />Revoke</Button>
