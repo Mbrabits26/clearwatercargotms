@@ -1,6 +1,6 @@
 // Server-only: shipper prospect discovery, AI-drafted cold email, and the throttled Gmail sender.
 import { readDocJson } from "./extract.server";
-import { CADENCE_DAYS, nyClock, senderCanSend, addDays } from "./outreach";
+import { CADENCE_DAYS, nyClock, senderCanSend, addDays, sendFailurePlan } from "./outreach";
 
 export type Prospect = { company_name: string; city: string | null; state: string | null; website: string | null; industry: string; equipment: string; why: string; contact_name: string | null; contact_title: string | null; email: string | null; phone: string | null };
 
