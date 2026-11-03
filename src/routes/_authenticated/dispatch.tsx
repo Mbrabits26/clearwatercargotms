@@ -638,22 +638,6 @@ const Cockpit = memo(function Cockpit({
         </div>
       </div>
 
-      <div aria-label="Load quick view" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border text-sm sm:grid-cols-3 xl:grid-cols-6">
-        {[
-          ["Load #", load.load_number],
-          ["Pickup", `${shipper?.name ?? `${load.origin_city ?? ""}, ${load.origin_state ?? ""}`} · ${fmtDate(load.pickup_at)}`],
-          ["Delivery", `${consignee?.name ?? `${load.dest_city ?? ""}, ${load.dest_state ?? ""}`} · ${fmtDate(load.delivery_at)}`],
-          ["Customer / ref #", `${customer?.name ?? "—"}${load.customer_ref ? ` · ${load.customer_ref}` : ""}${load.ship_ref ? ` · PU ${load.ship_ref}` : ""}`],
-          ["Price", `${usd(t.revenue)} · carrier ${usd(t.cost)}`],
-          ["Carrier", carrier?.legal_name ?? "Not assigned"],
-        ].map(([k, v]) => (
-          <div key={k} className="bg-card p-2.5">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</div>
-            <div className="truncate font-medium" title={v}>{v}</div>
-          </div>
-        ))}
-      </div>
-
       <Tabs defaultValue="load">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="load">Load</TabsTrigger>
@@ -663,6 +647,23 @@ const Cockpit = memo(function Cockpit({
         </TabsList>
 
         <TabsContent value="load" className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div aria-label="Load quick view" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border text-sm sm:grid-cols-4 xl:col-span-2">
+          {[
+            ["Load #", load.load_number],
+            ["Pickup", `${shipper?.name ?? `${load.origin_city ?? ""}, ${load.origin_state ?? ""}`} · ${fmtDate(load.pickup_at)}`],
+            ["Delivery", `${consignee?.name ?? `${load.dest_city ?? ""}, ${load.dest_state ?? ""}`} · ${fmtDate(load.delivery_at)}`],
+            ["Customer / ref #", `${customer?.name ?? "—"}${load.customer_ref ? ` · ${load.customer_ref}` : ""}${load.ship_ref ? ` · PU ${load.ship_ref}` : ""}`],
+            ["Broker", profiles.find((p) => p.id === load.broker_id)?.full_name ?? "Unassigned"],
+            ["Price", `${usd(t.revenue)} · carrier ${usd(t.cost)}`],
+            ["Carrier", carrier?.legal_name ?? "Not assigned"],
+            ["POD", load.pod_received ? "✓ Signed POD on file" : "✗ No POD yet"],
+          ].map(([k, v]) => (
+            <div key={k} className="bg-card p-2.5">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</div>
+              <div className={cn("line-clamp-2 break-words font-medium", k === "POD" && (load.pod_received ? "text-success" : "text-destructive"))} title={v}>{v}</div>
+            </div>
+          ))}
+        </div>
         <Panel title="Freight">
           <KV k="Equipment" v={load.equipment} />
           <KV k="Commodity" v={load.commodity ?? "—"} />

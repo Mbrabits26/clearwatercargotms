@@ -61,6 +61,8 @@ export function InvoicedQbReview() {
   if (dismissed || !data?.length) return null;
   const count = (s: QbReviewState) => data.filter((x) => x.state === s).length;
   const errors = count("error");
+  const withPod = data.filter((x) => x.l.pod_received).length;
+  const noPod = data.length - withPod;
   const total = data.reduce((t, x) => t + loadTotals(x.l).revenue, 0);
 
   return (
@@ -70,6 +72,7 @@ export function InvoicedQbReview() {
         <button type="button" className="font-bold underline" onClick={() => setOpen(true)}>
           {data.length} invoiced load{data.length > 1 ? "s" : ""} to review and sync with QuickBooks
         </button>
+        <span className="font-semibold"> ({withPod} with POD{noPod ? <>, <span className="text-destructive">{noPod} missing POD</span></> : ""})</span>
         <span className="text-muted-foreground"> · {usd(total)}{errors ? ` · ${errors} failed to send` : ""}</span>
       </span>
       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDismissed(true)} aria-label="Hide until next visit"><X className="h-3.5 w-3.5" /></Button>
@@ -79,7 +82,7 @@ export function InvoicedQbReview() {
           <DialogHeader>
             <DialogTitle>Invoiced loads — QuickBooks review</DialogTitle>
             <DialogDescription>
-              Loads marked Invoiced whose customer invoice isn't in QuickBooks yet: {count("not_queued")} not queued, {count("queued")} queued, {errors} failed. A load drops off this list once its invoice is sent.
+              Loads marked Invoiced whose customer invoice isn't in QuickBooks yet: {count("not_queued")} not queued, {count("queued")} queued, {errors} failed. A load drops off this list once its invoice is sent. POD: {withPod} on file, {noPod} missing.
             </DialogDescription>
           </DialogHeader>
           <LoadListBar loads={data.filter((x) => sel.has(x.l.id)).map((x) => x.l)} total={data.length} onClear={sel.clear} title="Invoiced loads — QuickBooks review"
@@ -88,16 +91,17 @@ export function InvoicedQbReview() {
           <div className="min-h-0 flex-1 overflow-auto rounded border">
             <Table>
               <TableHeader className="sticky top-0 bg-card">
-                <TableRow><TableHead className="w-8"><SelectAllBox ids={data.map((x) => x.l.id)} sel={sel} /></TableHead><TableHead>Load</TableHead><TableHead>Customer</TableHead><TableHead>Lane</TableHead><TableHead>Delivered</TableHead><TableHead>Amount</TableHead><TableHead>Invoice #</TableHead><TableHead>QuickBooks</TableHead><TableHead /></TableRow>
+                <TableRow><TableHead className="w-8"><SelectAllBox ids={data.map((x) => x.l.id)} sel={sel} /></TableHead><TableHead>Load</TableHead><TableHead>Customer</TableHead><TableHead>Lane</TableHead><TableHead>Delivered</TableHead><TableHead>POD</TableHead><TableHead>Amount</TableHead><TableHead>Invoice #</TableHead><TableHead>QuickBooks</TableHead><TableHead /></TableRow>
               </TableHeader>
               <TableBody>
                 {data.map(({ l, state, customer, invoice }) => (
                   <TableRow key={l.id}>
                     <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={sel.has(l.id)} onCheckedChange={(v) => sel.toggle(l.id, v === true)} /></TableCell>
-                    <TableCell className="font-mono text-gold">{l.load_number}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-gold">{l.load_number}</TableCell>
                     <TableCell>{customer}</TableCell>
                     <TableCell className="whitespace-nowrap">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
                     <TableCell>{fmtDate(l.delivery_at)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">{l.pod_received ? <span className="font-semibold text-success">✓ POD on file</span> : <span className="font-semibold text-destructive">✗ No POD</span>}</TableCell>
                     <TableCell>{usd(loadTotals(l).revenue)}</TableCell>
                     <TableCell>{invoice ?? <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                     <TableCell>
@@ -116,10 +120,10 @@ export function InvoicedQbReview() {
           <div className="flex flex-wrap justify-between gap-2">
             <ReportExport build={(): ReportSpec => ({
               title: "Invoiced loads — QuickBooks review",
-              summary: [["Loads", String(data.length)], ["Amount", usd(total)], ["Not queued", String(count("not_queued"))], ["Queued", String(count("queued"))], ["Failed", String(errors)]],
-              head: ["Load", "Customer", "Lane", "Delivered", "Amount", "Invoice #", "QuickBooks"], right: [4],
-              rows: data.map(({ l, state, customer, invoice }) => [l.load_number, customer, `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`, l.delivery_at ? dayText(l.delivery_at) : "", usd(loadTotals(l).revenue), invoice ?? "", QB_REVIEW_LABEL[state]]),
-              total: ["Total", `${data.length} loads`, "", "", usd(total), "", ""],
+              summary: [["Loads", String(data.length)], ["Amount", usd(total)], ["POD on file", String(withPod)], ["Missing POD", String(noPod)], ["Not queued", String(count("not_queued"))], ["Queued", String(count("queued"))], ["Failed", String(errors)]],
+              head: ["Load", "Customer", "Lane", "Delivered", "POD", "Amount", "Invoice #", "QuickBooks"], right: [5],
+              rows: data.map(({ l, state, customer, invoice }) => [l.load_number, customer, `${l.origin_city}, ${l.origin_state} → ${l.dest_city}, ${l.dest_state}`, l.delivery_at ? dayText(l.delivery_at) : "", l.pod_received ? "On file" : "Missing", usd(loadTotals(l).revenue), invoice ?? "", QB_REVIEW_LABEL[state]]),
+              total: ["Total", `${data.length} loads`, "", "", "", usd(total), "", ""],
             })} />
             <Hint text="Opens Accounting filtered to invoiced loads not yet in QuickBooks."><Button asChild><Link to="/quickbooks" search={{ review: true }} onClick={() => setOpen(false)}>Review all in Accounting</Link></Button></Hint>
           </div>
