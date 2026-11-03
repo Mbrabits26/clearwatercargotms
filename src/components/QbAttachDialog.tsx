@@ -105,7 +105,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
         <div className="flex flex-wrap items-center gap-3">
           <Hint text="Upload a new file to this load (PDF, image, Word, Excel…) and tick it to attach."><Button size="sm" variant="secondary" disabled={busy} asChild>
             <label className="cursor-pointer"><Upload className="mr-1 h-3.5 w-3.5" />Upload a file
-              <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.gif,.tif,.tiff,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+              <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.gif,.tif,.tiff,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf" onChange={(e) => { choose(e.target.files?.[0]); e.target.value = ""; }} />
             </label>
           </Button></Hint>
           <span className="text-xs text-muted-foreground">or drag &amp; drop a file here</span>
@@ -116,6 +116,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
             </label>
           )}
         </div>
+        <DocTypePicker file={pending} busy={busy} onPick={upload} onCancel={() => setPending(null)} />
         <ActionButton className="w-full" hintClassName="flex w-full" disabled={busy}
           hint={row?.qb_ref ? "Saves your picks and uploads the new files to this QuickBooks entry right now." : "Saves your picks. The files go to QuickBooks when this is sent."}
           confirm={() => {
