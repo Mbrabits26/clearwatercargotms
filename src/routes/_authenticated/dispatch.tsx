@@ -434,6 +434,7 @@ function Dispatch() {
                   <SelectItem value="active">All active</SelectItem>
                   <SelectItem value="all">Everything</SelectItem>
                   <SelectItem value="delivery">Delivery overdue</SelectItem>
+                  <SelectItem value="pod">Delivered, missing POD</SelectItem>
                   <SelectItem value="invoice">Needs invoicing</SelectItem>
                   <SelectItem value="closeout">Ready for closeout</SelectItem>
                   <SelectItem value="closed">Closed out</SelectItem>
