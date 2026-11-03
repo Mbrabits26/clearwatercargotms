@@ -63,13 +63,15 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
     queryKey: key,
     queryFn: async () => (await supabase.from("carrier_documents").select("*").eq("carrier_id", c.id).order("uploaded_at", { ascending: false })).data ?? [],
   });
-  const [kind, setKind] = useState<string>("w9");
+  const [pending, setPending] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const flag: Record<string, keyof Carrier> = { w9: "w9_received", coi: "coi_received", agreement: "agreement_signed", noa: "noa_received", voided_check: "voided_check_received" };
 
-  const upload = async (file?: File) => {
+  const upload = async (kind: string) => {
+    const file = pending;
     if (!file) return;
     setBusy(true);
+    setPending(null);
     const path = `${c.id}/${kind}-${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
     const { error } = await supabase.storage.from("carrier-docs").upload(path, file);
     if (error) { setBusy(false); return toast.error(error.message); }
@@ -109,18 +111,23 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
         })}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Select value={kind} onValueChange={setKind}>
-          <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>{DOC_KINDS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
-        </Select>
         <Button variant="secondary" disabled={busy} asChild>
           <label className="cursor-pointer"><Upload className="mr-1 h-4 w-4" />{busy ? "Uploading…" : "Upload file"}
-            <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => upload(e.target.files?.[0])} />
+            <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { setPending(e.target.files?.[0] ?? null); e.target.value = ""; }} />
           </label>
         </Button>
-        <span className="text-xs text-muted-foreground">Drag a file onto a button to upload</span>
+        <span className="self-center text-xs text-muted-foreground">or drag a file onto the button — you'll pick the type next</span>
         <PacketImport c={c} onDone={() => qc.invalidateQueries({ queryKey: key })} />
       </div>
+      {pending && (
+        <div className="space-y-2 rounded-md border border-gold/50 bg-gold/10 p-2">
+          <div className="text-xs"><b>What is this document?</b> <span className="text-muted-foreground">{pending.name}</span></div>
+          <div className="flex flex-wrap gap-1.5">
+            {DOC_KINDS.map((d) => <Button key={d.value} size="sm" variant="secondary" disabled={busy} onClick={() => upload(d.value)}>{d.label}</Button>)}
+            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
       <ul className="divide-y text-sm">
         {docs.map((d) => (
           <li key={d.id} className="flex items-center justify-between py-1.5">
