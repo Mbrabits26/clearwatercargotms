@@ -59,8 +59,6 @@ function WorkListDialog({ filter, label, loads, onClose, owner }: { filter: Work
         </div>
       </div>
       {filter === "invoice" && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>Open a load to create its invoice, or invoice several from the Dispatch board.</span>
-        <Button size="sm" variant="outline" onClick={() => setQ("")}>All ({loads.length})</Button>
-        <Button size="sm" variant="outline" onClick={() => setPick(new Set(loads.filter((l) => l.pod_received).map((l) => l.id)))}>Tick ready with POD ({loads.filter((l) => l.pod_received).length})</Button>
         <span className="text-destructive">{loads.filter((l) => !l.pod_received).length} missing POD</span></div>}
       <div className="min-h-0 flex-1 overflow-auto rounded border text-xs">
         <table className="w-full">
