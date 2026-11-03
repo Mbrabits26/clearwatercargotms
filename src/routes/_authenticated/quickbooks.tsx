@@ -607,7 +607,7 @@ function Accounting() {
                             confirm={{ title: `Email invoice ${s.invoice_number}?`, points: ["Downloads the invoice PDF to this computer.", `Opens a new email to ${companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.email || "the customer (no email on file — add it in the email)"} from your Gmail.`, "Attach the PDF and press Send yourself — nothing goes out automatically.", "Does not change the invoice, the load or QuickBooks."], confirmLabel: "Open email" }}
                             onClick={() => emailInvoice(s)}><Mail className="h-3.5 w-3.5" /></ActionButton>
                           <ActionButton size="icon" variant="ghost" aria-label="Invoice packet" hint="Invoice packet: one PDF with the invoice, POD and BOL. Pick the documents, then preview, download or email it." onClick={() => setPacketRow(s)}><Files className="h-3.5 w-3.5" /></ActionButton>
-                          {!l.pod_received && <Hint text="No POD on this load yet."><AlertTriangle className="h-3 w-3 text-warning" /></Hint>}
+                          {l.pod_received ? <span className="text-success">✓ POD</span> : <Hint text="No signed POD on this load yet."><span className="flex items-center gap-0.5 font-semibold text-destructive"><AlertTriangle className="h-3 w-3" />No POD</span></Hint>}
                         </div>
                       ) : <span className="text-xs text-muted-foreground">Assigned when queued</span>}
                     </TableCell>
