@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 import { QbFilesPanel } from "@/components/QbFilesPanel";
-import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTypePicker";
+import { DocTypePicker, LOAD_DOC_TYPES, loadDocPath, retypedName, typeFromName, type LoadDocType } from "@/components/DocTypePicker";
 import { markPodReceived, marksPod } from "@/lib/podMark";
 
 const label = (n: string) => {
@@ -42,17 +42,35 @@ export function LoadDocs({ loadId }: { loadId: string }) {
     else toast.success(marksPod(type) ? "Signed POD attached — load marked POD received" : "File attached to load");
     qc.invalidateQueries({ queryKey: key });
   };
+  // Re-label a file already on the load (e.g. mark it as the Signed POD). The stored file never moves.
+  const retype = async (path: string, name: string, type: LoadDocType) => {
+    setBusy(true);
+    const err = await rename(path, retypedName(type, name));
+    const podErr = !err && marksPod(type) ? await markPodReceived(loadId, qc) : null;
+    setBusy(false);
+    if (err || podErr) return toast.error(err ?? `Renamed, but the load couldn't be marked "Signed POD received": ${podErr}`);
+    toast.success(marksPod(type) ? "Marked as Signed POD — load marked POD received" : "Document type updated");
+  };
   return (
     <div className="space-y-2">
       <ul className="divide-y text-sm">
-        {items.map((d, i) => (
-          <li key={d.path} className="flex items-center gap-2 py-1.5">
-            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <b className="text-xs uppercase text-gold">{label(d.file)}</b>
-            <DocLink items={items} index={i} className="min-w-0 truncate">{d.name}</DocLink>
-            <RenameDoc name={d.name} original={d.file} onSave={(n) => rename(d.path, n)} />
-          </li>
-        ))}
+        {items.map((d, i) => {
+          const picked = typeFromName(d.name);
+          const shown = picked ? LOAD_DOC_TYPES.find((t) => t.value === picked)!.label : label(d.file);
+          return (
+            <li key={d.path} className="flex items-center gap-2 py-1.5">
+              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <select aria-label={`Document type for ${d.name}`} title="Choose what this document is"
+                className="h-7 shrink-0 rounded border border-border bg-background px-1 text-xs font-bold uppercase text-gold"
+                value={picked ?? ""} disabled={busy} onChange={(e) => e.target.value && retype(d.path, d.name, e.target.value as LoadDocType)}>
+                <option value="" disabled>{shown}</option>
+                {LOAD_DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <DocLink items={items} index={i} className="min-w-0 truncate">{d.name}</DocLink>
+              <RenameDoc name={d.name} original={d.file} onSave={(n) => rename(d.path, n)} />
+            </li>
+          );
+        })}
         {!items.length && <li className="py-2 text-xs text-muted-foreground">No documents yet. Driver POD/BOL uploads and signed rate cons appear here.</li>}
       </ul>
       <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-2">
