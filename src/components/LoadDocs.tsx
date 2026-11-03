@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
+import { QbFilesPanel } from "@/components/QbFilesPanel";
 import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTypePicker";
 
 const label = (n: string) => {
@@ -60,6 +61,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
       <span className="text-xs text-muted-foreground">or drag &amp; drop a file here — you'll pick the type next</span>
       </div>
       <DocTypePicker file={pending} busy={busy} onPick={upload} onCancel={() => setPending(null)} />
+      <QbFilesPanel loadId={loadId} />
     </div>
   );
 }
