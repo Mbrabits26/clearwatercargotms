@@ -1581,6 +1581,7 @@ export type Database = {
           id: string
           lead_id: string
           send_after: string
+          send_attempts: number
           sender_id: string
           sent_at: string | null
           status: string
@@ -1595,6 +1596,7 @@ export type Database = {
           id?: string
           lead_id: string
           send_after?: string
+          send_attempts?: number
           sender_id: string
           sent_at?: string | null
           status?: string
@@ -1609,6 +1611,7 @@ export type Database = {
           id?: string
           lead_id?: string
           send_after?: string
+          send_attempts?: number
           sender_id?: string
           sent_at?: string | null
           status?: string

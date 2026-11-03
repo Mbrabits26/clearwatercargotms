@@ -29,3 +29,23 @@ describe("outreach rules", () => {
   });
   it("spaces touches by days", () => expect(addDays("2026-10-29", 3)).toBe("2026-11-01"));
 });
+
+import { sendFailurePlan } from "./outreach";
+
+describe("failed cold email handling", () => {
+  it("skips an email Gmail rejects (bad address) right away", () => {
+    const p = sendFailurePlan(400, 0, "2026-11-02");
+    expect(p.status).toBe("skipped");
+  });
+  it("retries a temporary Gmail failure tomorrow, moving it out of today's queue", () => {
+    const p = sendFailurePlan(503, 0, "2026-11-02");
+    expect(p.status).toBe("pending");
+    expect("send_after" in p && p.send_after).toBe("2026-11-03");
+    expect(p.send_attempts).toBe(1);
+  });
+  it("gives up after 3 tries", () => {
+    expect(sendFailurePlan(429, 1, "2026-11-02").status).toBe("pending");
+    expect(sendFailurePlan(429, 2, "2026-11-02").status).toBe("skipped");
+    expect(sendFailurePlan(null, 2, "2026-11-02").status).toBe("skipped");
+  });
+});
