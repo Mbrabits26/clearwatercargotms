@@ -8,6 +8,7 @@ import { DocLink, type DocItem } from "@/components/DocPreview";
 import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 import { QbFilesPanel } from "@/components/QbFilesPanel";
 import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTypePicker";
+import { markPodReceived, marksPod } from "@/lib/podMark";
 
 const label = (n: string) => {
   const k = n.split("-")[0]!.toLowerCase();
@@ -33,10 +34,12 @@ export function LoadDocs({ loadId }: { loadId: string }) {
     if (!pending) return;
     setBusy(true);
     const { error } = await supabase.storage.from("load-docs").upload(loadDocPath(loadId, type, pending), pending);
+    if (error) { setBusy(false); return toast.error(error.message); }
+    const podErr = marksPod(type) ? await markPodReceived(loadId, qc) : null;
     setBusy(false);
-    if (error) return toast.error(error.message);
     setPending(null);
-    toast.success("File attached to load");
+    if (podErr) toast.error(`File saved, but the load couldn't be marked "Signed POD received": ${podErr}`);
+    else toast.success(marksPod(type) ? "Signed POD attached — load marked POD received" : "File attached to load");
     qc.invalidateQueries({ queryKey: key });
   };
   return (
