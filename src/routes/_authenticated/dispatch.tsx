@@ -645,7 +645,7 @@ const Cockpit = memo(function Cockpit({
           ["Delivery", `${consignee?.name ?? `${load.dest_city ?? ""}, ${load.dest_state ?? ""}`} · ${fmtDate(load.delivery_at)}`],
           ["Customer / ref #", `${customer?.name ?? "—"}${load.customer_ref ? ` · ${load.customer_ref}` : ""}${load.ship_ref ? ` · PU ${load.ship_ref}` : ""}`],
           ["Price", `${usd(t.revenue)} · carrier ${usd(t.cost)}`],
-          ["Carrier", carrier?.name ?? "Not assigned"],
+          ["Carrier", carrier?.legal_name ?? "Not assigned"],
         ].map(([k, v]) => (
           <div key={k} className="bg-card p-2.5">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</div>
