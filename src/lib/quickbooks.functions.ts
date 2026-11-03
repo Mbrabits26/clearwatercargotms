@@ -103,7 +103,16 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
     const real: Record<string, string> = {};
     if (data.docNumber) real.invoice_number = data.docNumber;
     if (data.customer) real.payee = data.customer;
-    const { data: ex } = await admin.from("qb_sync").select("id").eq("load_id", data.loadId).eq("kind", data.entity === "fleet" ? "fleet_invoice" : "invoice").maybeSingle();
+    const kind = data.entity === "fleet" ? "fleet_invoice" : "invoice";
+    // No doubles: one QuickBooks invoice can't be tied to a second load, and a load already tied to another QuickBooks invoice isn't re-pointed silently.
+    const { data: taken } = await admin.from("qb_sync").select("load_id, invoice_number").eq("kind", kind).eq("qb_ref", data.qbId).neq("load_id", data.loadId).limit(1);
+    if (taken?.length) {
+      const { data: other } = await admin.from("loads").select("load_number").eq("id", (taken[0] as { load_id: string }).load_id).maybeSingle();
+      throw new Error(`QuickBooks invoice #${data.docNumber ?? data.qbId} is already linked to load ${(other as { load_number?: string } | null)?.load_number ?? "another load"}.`);
+    }
+    const { data: ex } = await admin.from("qb_sync").select("id, qb_ref, invoice_number").eq("load_id", data.loadId).eq("kind", kind).maybeSingle();
+    const exRow = ex as { id: string; qb_ref: string | null; invoice_number: string | null } | null;
+    if (exRow?.qb_ref && exRow.qb_ref !== data.qbId) throw new Error(`This load is already linked to QuickBooks invoice #${exRow.invoice_number ?? exRow.qb_ref}. If that one is the double, void it in QuickBooks and remove it from the Sync log first.`);
     if (ex) await admin.from("qb_sync").update({ ...real, qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
     else {
       const { data: ins, error } = await admin.from("qb_sync").insert({ ...real, load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never).select("id").single();
