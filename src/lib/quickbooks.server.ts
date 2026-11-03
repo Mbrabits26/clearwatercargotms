@@ -167,10 +167,11 @@ export async function deliverQueued(admin: Admin, ids?: string[], force = false)
   if (ids?.length) q = q.in("id", ids);
   const { data: rows } = await q.limit(100);
   const list = (rows ?? []) as SyncRow[];
-  if (!list.length) return { sent: 0, failed: 0 };
+  if (!list.length) return { sent: 0, failed: 0, linked: [] as string[] };
   const { data: loads } = await admin.from("loads").select("id, load_number, origin_city, origin_state, dest_city, dest_state, delivery_at, customer_ref, ship_ref").in("id", list.map((r) => r.load_id));
   const byId = new Map(((loads ?? []) as LoadLite[]).map((l) => [l.id, l]));
   let sent = 0, failed = 0;
+  const linked: string[] = [];
   // Each row goes to its own company's QuickBooks (connections are opened lazily, once per company).
   const conns = new Map<QbEntity, Promise<Qb | null>>();
   const qbFor = (e: QbEntity) => {
@@ -212,7 +213,6 @@ export async function deliverQueued(admin: Admin, ids?: string[], force = false)
       const txnDate = (l.delivery_at ?? new Date().toISOString()).slice(0, 10);
       let ref: string;
       let realDoc: string | undefined;
-      let note: string | null = null;
       if (r.kind === "bill") {
         const doc = l.load_number.slice(0, 21);
         const vendor = await party(qb, "Vendor", r.payee || "Unknown carrier");
@@ -239,7 +239,7 @@ export async function deliverQueued(admin: Admin, ids?: string[], force = false)
         else if (hit?.kind === "same") {
           // Someone already invoiced this load in QuickBooks: link to it and keep its real number.
           ref = hit.invoice.id; realDoc = hit.invoice.docNumber ?? undefined;
-          note = `Linked to existing QuickBooks invoice #${hit.invoice.docNumber ?? hit.invoice.id} (${hit.why}) — no new invoice made.`;
+          linked.push(`${l.load_number} → QuickBooks #${hit.invoice.docNumber ?? hit.invoice.id} (${hit.why})`);
         } else if (hit?.kind === "maybe" && !force) {
           throw new Error(`Possible duplicate: QuickBooks invoice #${hit.invoice.docNumber ?? hit.invoice.id} (${hit.invoice.customer}, $${hit.invoice.total.toFixed(2)}, ${hit.invoice.date ?? ""}) has the ${hit.why}. Link it in "Match QuickBooks invoices", or press "Send anyway" if it's a different load.`);
         } else {
@@ -260,14 +260,14 @@ export async function deliverQueued(admin: Admin, ids?: string[], force = false)
         }
       }
       if (r.kind !== "bill") made.set(`${r.kind}:` + (r.invoice_number ?? l.load_number).slice(0, 21), { ref, doc: realDoc });
-      await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: note, sent_at: new Date().toISOString(), ...(realDoc ? { invoice_number: realDoc } : {}) }).eq("id", r.id);
+      await admin.from("qb_sync").update({ status: "sent", qb_ref: ref, error: null, sent_at: new Date().toISOString(), ...(realDoc ? { invoice_number: realDoc } : {}) }).eq("id", r.id);
       sent++;
     } catch (e) {
       await admin.from("qb_sync").update({ status: "error", error: (e as Error).message.slice(0, 500) }).eq("id", r.id);
       failed++;
     }
   }
-  return { sent, failed };
+  return { sent, failed, linked };
 }
 
 type PodRow = { id: string; kind: string; load_id: string; invoice_number: string | null; attachments: unknown; attachments_sent: unknown };

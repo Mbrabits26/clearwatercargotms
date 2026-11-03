@@ -67,13 +67,14 @@ export const qbDisconnect = createServerFn({ method: "POST" })
 
 export const qbSyncNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ ids: z.array(z.string().uuid()).optional() }).parse(d ?? {}))
+  .inputValidator((d) => z.object({ ids: z.array(z.string().uuid()).optional(), force: z.boolean().optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const admin = await requireStaff(context as never);
+    if (data.force && !data.ids?.length) throw new Error("Pick the invoice to send anyway.");
     const { deliverQueued, sendAttachments, autoAttachPods } = await import("./quickbooks.server");
     // PODs already on a load ride along with its customer invoice automatically.
     const podsAdded = await autoAttachPods(admin, data.ids);
-    const r = await deliverQueued(admin, data.ids);
+    const r = await deliverQueued(admin, data.ids, !!data.force);
     // Then upload any picked documents onto the invoices/bills now in QuickBooks.
     return { ...r, podsAdded, ...(await sendAttachments(admin, data.ids)) };
   });
@@ -112,4 +113,58 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
     }
     const { error: le } = await context.supabase.from("loads").update({ status: data.paid ? "paid" : "invoiced" }).eq("id", data.loadId).in("status", ["booked", "dispatched", "rolling", "delivered", "issue", "invoiced"]);
     return { ok: true, statusNote: le?.message ?? null };
+  });
+
+const entityZ = z.enum(["brokerage", "fleet"]);
+
+/** Lists files attached to QuickBooks invoices — by invoice id, or every invoice linked to a load. Read-only. */
+export const qbInvoiceFiles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ loadId: z.string().uuid().optional(), entity: entityZ.optional(), qbIds: z.array(z.string().min(1).max(40)).max(25).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireStaff(context as never);
+    const { listInvoiceFiles, entityForKind } = await import("./quickbooks.server");
+    const groups = new Map<"brokerage" | "fleet", string[]>();
+    if (data.loadId) {
+      // RLS check: the caller must be able to see this load.
+      const { data: vis } = await context.supabase.from("loads").select("id").eq("id", data.loadId).maybeSingle();
+      if (!vis) throw new Error("Load not found.");
+      const { data: rows } = await admin.from("qb_sync").select("kind, qb_ref").eq("load_id", data.loadId).in("kind", ["invoice", "fleet_invoice"]).not("qb_ref", "is", null);
+      for (const r of (rows ?? []) as { kind: string; qb_ref: string }[]) { const e = entityForKind(r.kind); groups.set(e, [...(groups.get(e) ?? []), r.qb_ref]); }
+    } else if (data.entity && data.qbIds?.length) groups.set(data.entity, data.qbIds);
+    const files = [];
+    for (const [e, ids] of groups) files.push(...(await listInvoiceFiles(admin, e, ids)).map((f) => ({ ...f, entity: e })));
+    return { files, linked: groups.size > 0 };
+  });
+
+/** Copies a QuickBooks invoice attachment onto a load (as POD or another type); optionally marks POD received and closes the load out. */
+export const qbImportFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ loadId: z.string().uuid(), entity: entityZ, attachableId: z.string().min(1).max(40), type: z.enum(["pod", "bol", "other"]), markPod: z.boolean(), closeout: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireStaff(context as never);
+    const { data: load } = await context.supabase.from("loads").select("id, status, closed_at").eq("id", data.loadId).maybeSingle();
+    if (!load) throw new Error("Load not found.");
+    const { downloadInvoiceFile } = await import("./quickbooks.server");
+    // Same QuickBooks file never copied twice onto a load.
+    const tag = `qb${data.attachableId.replace(/[^\w]/g, "")}`;
+    const { data: existing } = await admin.storage.from("load-docs").list(data.loadId, { limit: 500 });
+    let path = (existing ?? []).map((f) => `${data.loadId}/${f.name}`).find((p) => p.includes(`-${tag}-`));
+    if (!path) {
+      const f = await downloadInvoiceFile(admin, data.entity, data.attachableId);
+      path = `${data.loadId}/${data.type}-${tag}-${Date.now()}-${f.name.replace(/[^\w.\-]+/g, "_")}`;
+      const { error } = await admin.storage.from("load-docs").upload(path, f.bytes, { contentType: f.contentType });
+      if (error) throw new Error(error.message);
+    }
+    const notes: string[] = [];
+    if (data.markPod) {
+      const { error } = await context.supabase.from("loads").update({ pod_received: true }).eq("id", data.loadId);
+      if (error) notes.push(`POD box not ticked: ${error.message}`);
+    }
+    if (data.closeout && !load.closed_at) {
+      const { data: res, error } = await context.supabase.rpc("batch_load_action", { _ids: [data.loadId], _action: "closeout", _note: "POD reviewed from QuickBooks invoice" });
+      const r = (res as { ok: boolean; error?: string }[] | null)?.[0];
+      if (error || (r && !r.ok)) notes.push(`Not closed out: ${error?.message ?? r?.error}`);
+    }
+    return { path, notes };
   });
