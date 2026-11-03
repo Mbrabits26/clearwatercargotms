@@ -84,7 +84,7 @@ function SearchBox({ onChange, seed }: { onChange: (v: string) => void; seed?: {
     const t = setTimeout(() => startTransition(() => onChange(v)), v ? 250 : 0);
     return () => clearTimeout(t);
   }, [v, onChange]);
-  return <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
+  return <Input className="pl-8" placeholder="Search load #, invoice #, customer, carrier, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
 }
 
 const WORK_VIEWS = ["delivery", "pod", "invoice", "closeout", "closed"];
@@ -256,9 +256,23 @@ function Dispatch() {
   const kName = useMemo(() => new Map(carriers.map((c) => [c.id, `${c.legal_name} ${c.mc_number ?? ""} ${c.dot_number ?? ""}`])), [carriers]);
   const hayById = useMemo(() => new Map(loads.map((l) => [l.id, [l.load_number, l.external_ref, l.origin_city, l.origin_state, l.dest_city, l.dest_state, l.commodity, l.ship_ref, l.dest_ref, l.customer_ref,
     cName.get(l.customer_id ?? ""), cName.get(l.shipper_id ?? ""), cName.get(l.consignee_id ?? ""), kName.get(l.carrier_id ?? "")].join(" ").toLowerCase()])), [loads, cName, kName]);
+  // Invoice # search: typing an invoice number (INV-…, FF-…, a QuickBooks number or a carrier invoice #) finds its load.
+  const invNeedle = dq.trim().replace(/[%,()]/g, "");
+  const { data: invLoadIds } = useQuery({
+    queryKey: ["dispatch-invoice-search", invNeedle.toLowerCase()],
+    enabled: invNeedle.length >= 3 && /\d/.test(invNeedle),
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("qb_sync").select("load_id")
+        .or(`invoice_number.ilike.%${invNeedle}%,carrier_invoice_number.ilike.%${invNeedle}%`).limit(200);
+      return new Set((data ?? []).map((r) => r.load_id));
+    },
+  });
   const filtered = useMemo(() => {
     const needle = dq.trim().toLowerCase();
     return sortForBoard(loads.filter((l) => {
+      const invHit = !!needle && !!invLoadIds?.has(l.id);
+      if (invHit) return broker === "all" || (broker === "none" ? !l.broker_id : l.broker_id === broker);
       if (["delivery", "pod", "invoice", "closeout", "closed"].includes(status)) {
         if (!workData || !needsWork(l, status as WorkFilter, workData.invoiceIds)) return false;
       } else {
@@ -270,7 +284,7 @@ function Dispatch() {
       if (!needle) return true;
       return (hayById.get(l.id) ?? "").includes(needle);
     }));
-  }, [loads, dq, status, broker, hayById, workData]);
+  }, [loads, dq, status, broker, hayById, workData, invLoadIds]);
   // Only draw the first rows; "Show more" adds the rest so long lists don't lock up the page.
   const [limit, setLimit] = useState(ROW_STEP);
   useEffect(() => { setLimit(ROW_STEP); }, [dq, status, broker, showAll]);
@@ -280,6 +294,10 @@ function Dispatch() {
     const i = selectedId ? filtered.findIndex((l) => l.id === selectedId) : -1;
     if (i >= limit) setLimit(i + 1);
   }, [selectedId, filtered, limit]);
+  // An invoice # that matches exactly one load opens it right away.
+  useEffect(() => {
+    if (invLoadIds?.size === 1 && filtered.length === 1 && invLoadIds.has(filtered[0]!.id)) setSelectedId(filtered[0]!.id);
+  }, [invLoadIds, filtered]);
   const pickSet = useMemo(() => new Set(pick), [pick]);
   const selectLoad = useCallback((id: string) => { setSelectedId(id); setMobileDetail(true); }, []);
   const togglePick = useCallback((id: string, on: boolean) => setPick((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id))), []);
