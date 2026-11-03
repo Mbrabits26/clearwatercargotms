@@ -14,6 +14,16 @@ export type LoadDocType = (typeof LOAD_DOC_TYPES)[number]["value"];
 export const loadDocPath = (loadId: string, type: LoadDocType, file: File) =>
   `${loadId}/${type}-${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
 
+const typePrefix = new RegExp(`^(${LOAD_DOC_TYPES.map((t) => t.label).join("|")})\\s+[–-]\\s+`, "i");
+/** Re-label an already-stored file: its display name becomes "<Type> – <name>" (any earlier type prefix is replaced). */
+export const retypedName = (type: LoadDocType, name: string) =>
+  `${LOAD_DOC_TYPES.find((t) => t.value === type)!.label} – ${name.replace(typePrefix, "")}`;
+/** The type a person picked for a stored file, read back from its display name. */
+export const typeFromName = (name: string): LoadDocType | null => {
+  const m = name.match(typePrefix);
+  return m ? LOAD_DOC_TYPES.find((t) => t.label.toLowerCase() === m[1]!.toLowerCase())!.value : null;
+};
+
 /** Shown after a file is picked or dropped: one tap on a type uploads it; Cancel drops it. */
 export function DocTypePicker({ file, busy, onPick, onCancel }: { file: File | null; busy?: boolean; onPick: (t: LoadDocType) => void; onCancel: () => void }) {
   if (!file) return null;
