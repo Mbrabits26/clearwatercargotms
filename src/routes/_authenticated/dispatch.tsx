@@ -660,7 +660,7 @@ const Cockpit = memo(function Cockpit({
           ].map(([k, v]) => (
             <div key={k} className="bg-card p-2.5">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</div>
-              <div className={cn("truncate font-medium", k === "POD" && (load.pod_received ? "text-success" : "text-destructive"))} title={v}>{v}</div>
+              <div className={cn("line-clamp-2 break-words font-medium", k === "POD" && (load.pod_received ? "text-success" : "text-destructive"))} title={v}>{v}</div>
             </div>
           ))}
         </div>

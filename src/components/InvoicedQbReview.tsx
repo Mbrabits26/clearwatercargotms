@@ -97,7 +97,7 @@ export function InvoicedQbReview() {
                 {data.map(({ l, state, customer, invoice }) => (
                   <TableRow key={l.id}>
                     <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={sel.has(l.id)} onCheckedChange={(v) => sel.toggle(l.id, v === true)} /></TableCell>
-                    <TableCell className="font-mono text-gold">{l.load_number}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-gold">{l.load_number}</TableCell>
                     <TableCell>{customer}</TableCell>
                     <TableCell className="whitespace-nowrap">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
                     <TableCell>{fmtDate(l.delivery_at)}</TableCell>
