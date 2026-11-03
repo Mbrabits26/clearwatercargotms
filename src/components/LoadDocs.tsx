@@ -9,7 +9,7 @@ import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 
 const label = (n: string) => {
   const k = n.split("-")[0]!.toLowerCase();
-  return ({ pod: "POD", bol: "BOL", ratecon: "Rate con", invoice: "Invoice", carrier_invoice: "Carrier invoice" } as Record<string, string>)[k] ?? "File";
+  return ({ pod: "POD", bol: "BOL", ratecon: "Rate con", invoice: "Invoice", carrier_invoice: "Carrier invoice", lumper: "Lumper receipt", scale: "Scale ticket", other: "Other" } as Record<string, string>)[k] ?? "File";
 };
 
 /** Every file stored for a load (driver POD/BOL, signed rate con, invoices, uploads) with in-page preview. */
@@ -17,6 +17,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
   const qc = useQueryClient();
   const key = ["load-docs", loadId];
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<File | null>(null);
   const { data: files = [] } = useQuery({
     queryKey: key,
     queryFn: async () => (await supabase.storage.from("load-docs").list(loadId, { sortBy: { column: "created_at", order: "desc" } })).data ?? [],
@@ -26,12 +27,13 @@ export function LoadDocs({ loadId }: { loadId: string }) {
   const { nameOf, rename } = useLoadDocNames(stored.map((f) => `${loadId}/${f.name}`));
   const items: (DocItem & { path: string; file: string })[] = stored
     .map((f) => ({ file: f.name, name: nameOf(`${loadId}/${f.name}`, f.name), bucket: "load-docs", path: `${loadId}/${f.name}` }));
-  const upload = async (file?: File) => {
-    if (!file) return;
+  const upload = async (type: LoadDocType) => {
+    if (!pending) return;
     setBusy(true);
-    const { error } = await supabase.storage.from("load-docs").upload(`${loadId}/file-${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file);
+    const { error } = await supabase.storage.from("load-docs").upload(loadDocPath(loadId, type, pending), pending);
     setBusy(false);
     if (error) return toast.error(error.message);
+    setPending(null);
     toast.success("File attached to load");
     qc.invalidateQueries({ queryKey: key });
   };
