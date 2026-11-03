@@ -58,7 +58,7 @@ export const Route = createFileRoute("/_authenticated/dispatch")({
   }),
   validateSearch: (s: Record<string, unknown>): { load?: string; work?: WorkFilter; owner?: string } => ({
     load: typeof s.load === "string" ? s.load : undefined,
-    work: ["delivery", "invoice", "closeout", "closed"].includes(String(s.work)) ? s.work as WorkFilter : undefined,
+    work: ["delivery", "pod", "invoice", "closeout", "closed"].includes(String(s.work)) ? s.work as WorkFilter : undefined,
     owner: typeof s.owner === "string" ? s.owner : undefined,
   }),
   loader: ({ context }) =>
@@ -87,7 +87,7 @@ function SearchBox({ onChange, seed }: { onChange: (v: string) => void; seed?: {
   return <Input className="pl-8" placeholder="Search load #, customer, carrier, shipper, lane, ref" value={v} onChange={(e) => setV(e.target.value)} />;
 }
 
-const WORK_VIEWS = ["delivery", "invoice", "closeout", "closed"];
+const WORK_VIEWS = ["delivery", "pod", "invoice", "closeout", "closed"];
 const BOARD_VIEWS = ["active", "all", ...WORK_VIEWS, ...STATUSES.map((s) => s.value)];
 
 /** One row on the board. Memoized so typing in search only redraws rows that changed. */
@@ -246,7 +246,7 @@ function Dispatch() {
     setSelectedId(focusId);
     setMobileDetail(true);
     const hiddenByActive = !!target.closed_at || ["paid", "cancelled"].includes(target.status);
-    if ((status === "active" && hiddenByActive) || (status !== "active" && status !== "all" && target.status !== status) || ["delivery", "invoice", "closeout", "closed"].includes(status)) setStatus("all");
+    if ((status === "active" && hiddenByActive) || (status !== "active" && status !== "all" && target.status !== status) || ["delivery", "pod", "invoice", "closeout", "closed"].includes(status)) setStatus("all");
     if (broker !== "all") setBroker("all");
     setQ("");
     setFocusId(null);
@@ -259,7 +259,7 @@ function Dispatch() {
   const filtered = useMemo(() => {
     const needle = dq.trim().toLowerCase();
     return sortForBoard(loads.filter((l) => {
-      if (["delivery", "invoice", "closeout", "closed"].includes(status)) {
+      if (["delivery", "pod", "invoice", "closeout", "closed"].includes(status)) {
         if (!workData || !needsWork(l, status as WorkFilter, workData.invoiceIds)) return false;
       } else {
       if (l.closed_at && status === "active") return false;
