@@ -94,7 +94,7 @@ export async function sendDueOutreach() {
     let q = supabaseAdmin.from("outreach_messages").select("*, leads!inner(id, email, outreach_status, do_not_contact, company_name)").eq("sender_id", snd.id).eq("status", "pending").lte("send_after", today).order("step").order("send_after").limit(1);
     if (snd.require_approval) q = q.eq("approved", true);
     const { data: rows } = await q;
-    const m = rows?.[0] as unknown as { id: string; step: number; subject: string; body: string; leads: { id: string; email: string | null; outreach_status: string; do_not_contact: boolean; company_name: string } } | undefined;
+    const m = rows?.[0] as unknown as { id: string; step: number; subject: string; body: string; send_attempts: number | null; leads: { id: string; email: string | null; outreach_status: string; do_not_contact: boolean; company_name: string } } | undefined;
     if (!m) continue;
     const lead = m.leads;
     if (lead.do_not_contact || lead.outreach_status !== "active" || !lead.email) {
@@ -106,15 +106,29 @@ export async function sendDueOutreach() {
     const body = `${m.body}\n\n${signature(snd)}`;
     const raw = [`To: ${lead.email}`, `Subject: ${m.subject}`, "MIME-Version: 1.0", 'Content-Type: text/plain; charset="UTF-8"', "", body].join("\r\n");
     const encoded = Buffer.from(raw, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    const res = await callAsAppUser({
-      gatewayBaseUrl: "https://connector-gateway.lovable.dev", connectionAPIKey: key, connectorId: "google_mail",
-      path: "/gmail/v1/users/me/messages/send",
-      requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
-      init: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: encoded }) },
-    });
+    // A failed send must move the email out of the front of the queue (retry tomorrow or skip), or it blocks every later email.
+    const fail = async (status: number | null) => {
+      const plan = sendFailurePlan(status, m.send_attempts ?? 0, today);
+      await supabaseAdmin.from("outreach_messages").update(plan).eq("id", m.id);
+      report.push(`${snd.from_email} → ${lead.company_name}: ${plan.error}`);
+    };
+    let res: Response;
+    try {
+      res = await callAsAppUser({
+        gatewayBaseUrl: "https://connector-gateway.lovable.dev", connectionAPIKey: key, connectorId: "google_mail",
+        path: "/gmail/v1/users/me/messages/send",
+        requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
+        init: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: encoded }) },
+      });
+    } catch (e) {
+      console.error("outreach send failed", e);
+      await fail(null);
+      continue;
+    }
     if (await appUserReconnectRequired(res)) { report.push(`${snd.from_email}: reconnect Gmail`); continue; }
     if (!res.ok) {
-      await supabaseAdmin.from("outreach_messages").update({ error: `Gmail ${res.status}` }).eq("id", m.id);
+      console.error(`outreach Gmail send failed [${res.status}]: ${await res.text().catch(() => "")}`);
+      await fail(res.status);
       continue;
     }
     const sentAt = new Date().toISOString();

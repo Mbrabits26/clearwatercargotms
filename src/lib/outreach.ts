@@ -43,6 +43,28 @@ export function addDays(date: string, n: number) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Tries before a temporarily failing cold email is set aside. */
+export const MAX_SEND_ATTEMPTS = 3;
+
+/**
+ * What to do with a queued cold email Gmail didn't send, so one bad email never blocks the sender's queue.
+ * status null = network error. Temporary failures (timeouts, rate limits, Gmail outages) retry tomorrow;
+ * anything else (e.g. a bad address) is skipped right away.
+ */
+export function sendFailurePlan(status: number | null, attempts: number, today: string) {
+  const tries = attempts + 1;
+  const label = status === null ? "network error" : `Gmail ${status}`;
+  const temporary = status === null || status === 408 || status === 429 || status >= 500;
+  if (temporary && tries < MAX_SEND_ATTEMPTS) {
+    return { status: "pending" as const, send_attempts: tries, send_after: addDays(today, 1), error: `${label} — will retry tomorrow (try ${tries} of ${MAX_SEND_ATTEMPTS})` };
+  }
+  return {
+    status: "skipped" as const,
+    send_attempts: tries,
+    error: temporary ? `${label} — not sent after ${tries} tries` : `${label} — not sent; check the lead's email address`,
+  };
+}
+
 // ---------- Automatic reply reading ----------
 
 /** What a shipper's reply means. bounce = the address doesn't exist. */
