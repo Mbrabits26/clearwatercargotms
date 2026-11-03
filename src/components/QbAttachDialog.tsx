@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { markPodReceived, marksPod } from "@/lib/podMark";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { FileText, Upload } from "lucide-react";
@@ -21,6 +22,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
   const [onSend, setOnSend] = useState(true);
   const [busy, setBusy] = useState(false);
   const sync = useServerFn(qbSyncNow);
+  const qc = useQueryClient();
   const ids = row ? [...new Set([row.load_id, ...loads.map((l) => l.id)])] : [];
   useEffect(() => { if (row) { setPicked(parseAttachments(row.attachments)); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
 
@@ -55,9 +57,12 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
     const path = loadDocPath(row.load_id, type, file);
     setBusy(true);
     const { error } = await supabase.storage.from("load-docs").upload(path, file);
-    if (!error) setPending(null);
+    if (error) { setBusy(false); return toast.error(error.message); }
+    setPending(null);
+    const podErr = marksPod(type) ? await markPodReceived(row.load_id, qc) : null;
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (podErr) toast.error(`File saved, but the load couldn't be marked "Signed POD received": ${podErr}`);
+    else if (marksPod(type)) toast.success("Signed POD attached — load marked POD received");
     setPicked((x) => [...x, { path, name: path.split("/").pop()! }]);
     refetch();
   };
