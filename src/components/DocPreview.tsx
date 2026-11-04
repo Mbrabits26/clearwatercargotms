@@ -98,7 +98,7 @@ function MarkPodButton({ path, name }: { path: string; name: string }) {
   const go = async () => {
     setBusy(true);
     const base = name.replace(/^Signed POD\s*[–-]\s*/i, "");
-    await supabase.from("load_doc_names").upsert({ path, name: `Signed POD – ${base}` } as never, { onConflict: "path" });
+    await supabase.from("load_doc_names").upsert({ path, display_name: `Signed POD – ${base}`, updated_at: new Date().toISOString() }, { onConflict: "path" });
     const err = await markPodReceived(loadId, qc);
     qc.invalidateQueries({ queryKey: ["load-docs", loadId] });
     qc.invalidateQueries({ queryKey: ["load-doc-names"] });
