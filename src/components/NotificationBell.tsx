@@ -76,14 +76,16 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
   }, [key]);
 
   useEffect(() => {
-    const push = (title: string, body: string, to: string, search?: Record<string, unknown>, opts?: { id?: string; at?: number }) => {
+    /** Adds an alert. A fixed `id` is shown only once ever; `quiet` skips the chime and pop-ups. Returns false if it was a repeat. */
+    const push = (title: string, body: string, to: string, search?: Record<string, unknown>, opts?: { id?: string; at?: number; quiet?: boolean }) => {
       const a: Alert = { id: opts?.id ?? crypto.randomUUID(), title, body, to, search, at: opts?.at ?? Date.now(), read: false };
-      let dup = false;
-      setAlerts((prev) => {
-        if (prev.some((x) => x.id === a.id)) { dup = true; return prev; }
-        const n = [a, ...prev].sort((x, y) => y.at - x.at).slice(0, 50); localStorage.setItem(key, JSON.stringify(n)); return n;
-      });
-      if (dup || (opts?.id && JSON.parse(localStorage.getItem(key) || "[]").some((x: Alert) => x.id === a.id && x.read))) return;
+      let stored: Alert[] = [];
+      try { stored = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* */ }
+      if (opts?.id && stored.some((x) => x.id === a.id)) return false;
+      const n = [a, ...stored.filter((x) => x.id !== a.id)].sort((x, y) => y.at - x.at).slice(0, 50);
+      localStorage.setItem(key, JSON.stringify(n));
+      setAlerts(n);
+      if (opts?.quiet) return true;
       if (soundRef.current) chime();
       toast(title, { description: body, action: { label: "View", onClick: () => go(to, search) } });
       if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
