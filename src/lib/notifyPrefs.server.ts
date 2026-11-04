@@ -1,4 +1,4 @@
-export type EmailPref = "email_driver_status" | "email_driver_docs" | "email_ratecon_signed";
+export type EmailPref = "email_driver_status" | "email_driver_docs" | "email_ratecon_signed" | "email_mentions";
 
 /** True unless the user turned this email alert off (no saved row = all on). */
 export async function wantsEmail(supabaseAdmin: any, userId: string | null | undefined, pref: EmailPref): Promise<boolean> {
