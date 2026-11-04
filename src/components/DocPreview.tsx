@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AttachToQbButton, DeleteDocButton } from "@/components/DocActions";
 
 /** A document stored in a private bucket, or a generated in-memory file. */
-export type DocItem = { name: string; bucket?: "carrier-docs" | "load-docs"; path?: string; blob?: Blob };
+export type DocItem = { name: string; bucket?: "carrier-docs" | "load-docs"; path?: string; blob?: Blob; /** Hide file actions (delete / attach / mark POD) — e.g. signed rate con links. */ readOnly?: boolean };
 
 const ext = (n: string) => n.toLowerCase().split(".").pop() ?? "";
 const kindOf = (d: DocItem): "pdf" | "image" | "other" => {
@@ -80,7 +81,11 @@ export function DocViewer({ items, index, onClose }: { items: DocItem[]; index: 
             </>)}
           </div>
           <div className="flex gap-2">
-            {d?.bucket === "load-docs" && d.path && <MarkPodButton path={d.path} name={d.name} />}
+            {d?.bucket === "load-docs" && d.path && !d.readOnly && <>
+              <DeleteDocButton key={`del-${d.path}`} path={d.path} name={d.name} onDeleted={onClose} />
+              <AttachToQbButton key={`qb-${d.path}`} path={d.path} name={d.name} />
+              <MarkPodButton path={d.path} name={d.name} />
+            </>}
             {url && <Button size="sm" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-4 w-4" />Open in new tab</a></Button>}
             {d && url && <Button size="sm" onClick={() => download(d, url)}><Download className="mr-1 h-4 w-4" />Download</Button>}
           </div>

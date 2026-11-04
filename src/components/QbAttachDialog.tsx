@@ -24,7 +24,7 @@ export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { ro
   const sync = useServerFn(qbSyncNow);
   const qc = useQueryClient();
   const ids = row ? [...new Set([row.load_id, ...loads.map((l) => l.id)])] : [];
-  useEffect(() => { if (row) { setPicked(parseAttachments(row.attachments)); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
+  useEffect(() => { if (row) { const base = parseAttachments(row.attachments); setPicked(preselect && !isSent(preselect.path, row.attachments_sent) && !base.some((a) => a.path === preselect.path) ? [...base, preselect] : base); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
 
   const { data: raw = [], refetch } = useQuery({
     queryKey: ["qb-attach-files", ...ids],
