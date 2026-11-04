@@ -4,3 +4,5 @@
 - [x] Carrier packet link mobile/tablet friendly
 - [x] Rate con signing link mobile/tablet friendly
 - [x] Outreach: read shipper replies from Gmail automatically and act on them
+- [x] Document viewer: Attach to QuickBooks + Delete buttons
+- [ ] Load notes: @tags (@team/@everyone/@person) must alert the tagged people
