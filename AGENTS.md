@@ -43,6 +43,8 @@
 - Invoiced status may be set without an invoice (paid still needs one); `qbReviewState` (invoiceReview.ts) drives the finance-only InvoicedQbReview list + bell alert until the invoice is sent to QuickBooks.
 - Doc renames never move storage objects (paths are referenced by loads/qb_sync/ratecons): carrier docs edit carrier_documents.file_name (staff, that column only); load-docs names live in load_doc_names keyed by path.
 - Per-user alert choices live in notification_prefs (own-row RLS; missing row = all on); server emails check them via notifyPrefs.server.ts, the bell filters in-app alerts.
+- @tags: saveMentions writes chat_mentions with client-made ids (authors can't read them back); the bell alerts on them live and catches up unread ones on open; load-note tags are also emailed by `emailNoteMentions` (email_mentions pref).
+- Load doc deletes go only through `deleteLoadDoc` (staff, server-side): refuses signed rate cons and bill carrier invoices, logs to deletion_log, drops unsent QB picks, clears pod_received when no POD remains.
 - Agent integrations (MCP): see `src/lib/AGENTS.md`.
 - Accounting buttons: hint + warning box before data changes via `ActionGuard` (provider in __root); read-only buttons hint only.
 - Shipper quote acceptance: public /quote/$token (quotes.accept_token) via token-validated quoteAccept.functions.ts; accept marks won, creates the load and posts a Team chat notice.
