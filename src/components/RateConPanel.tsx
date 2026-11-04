@@ -165,7 +165,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
           <Mail className="mr-1 h-3.5 w-3.5" />{load.ratecon_signed ? "Send revised rate con" : pending ? "Resend for signature" : "Send for signature"}
         </Button>
         {load.ratecon_pdf_path && (
-          <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>
+          <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path, readOnly: true }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>
         )}
         {hasSigned && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setVoidOpen(true)}><Trash2 className="mr-1 h-3.5 w-3.5" />Delete signed rate con</Button>}
       </div>

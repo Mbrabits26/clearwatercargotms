@@ -34,7 +34,7 @@ export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { ro
   });
   const { nameOf, rename } = useLoadDocNames(raw.map((f) => f.path));
   const files = raw.map((f) => ({ ...f, file: f.name, name: nameOf(f.path, f.name) }));
-  const items: DocItem[] = files.map((f) => ({ name: f.name, bucket: "load-docs", path: f.path }));
+  const items: DocItem[] = files.map((f) => ({ name: f.name, bucket: "load-docs", path: f.path, readOnly: true }));
   const renameFile = async (path: string, n: string) => {
     const err = await rename(path, n);
     if (!err) setPicked((x) => x.map((a) => (a.path === path ? { ...a, name: n } : a)));
