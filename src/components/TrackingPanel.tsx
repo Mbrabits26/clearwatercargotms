@@ -86,6 +86,19 @@ export function TrackingPanel({ load }: { load: Load }) {
                 <a href={`sms:${active.driver_phone.replace(/[^\d+]/g, "")}?&body=${encodeURIComponent(message())}`}><MessageSquare className="mr-1 h-3.5 w-3.5" />Text driver</a>
               </Button>
             )}
+            {active.driver_phone && (
+              <Button size="sm" variant="outline" title="Copies the message and opens Google Voice to this driver — paste with Cmd+V and send"
+                onClick={async () => {
+                  const digits = active.driver_phone!.replace(/\D/g, "");
+                  const num = digits.length === 10 ? `1${digits}` : digits;
+                  try { await navigator.clipboard.writeText(message()); } catch { /* ignore */ }
+                  window.open(`https://voice.google.com/u/0/messages?itemId=t.%2B${num}`, "_blank", "noopener");
+                  toast.success("Message copied — paste with Cmd+V in Google Voice and send");
+                }}>
+                <MessageSquare className="mr-1 h-3.5 w-3.5" />Google Voice
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={async () => { await navigator.clipboard.writeText(message()); toast.success("Text message copied"); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy text</Button>
             <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
             <Button size="sm" variant="outline" onClick={email}><Mail className="mr-1 h-3.5 w-3.5" />Email</Button>
             <Button size="sm" variant="ghost" onClick={() => revoke(active.id)}><Ban className="mr-1 h-3.5 w-3.5" />Revoke</Button>
