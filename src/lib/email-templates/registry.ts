@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { template as rateconSigned } from './ratecon-signed'
 import { template as driverUpdate } from './driver-update'
 import { template as carrierRemoved } from './carrier-removed'
+import { template as noteMention } from './note-mention'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -24,4 +25,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'ratecon-signed': rateconSigned,
   'driver-update': driverUpdate,
   'carrier-removed': carrierRemoved,
+  'note-mention': noteMention,
 }
