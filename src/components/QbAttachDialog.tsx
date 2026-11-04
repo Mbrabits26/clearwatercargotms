@@ -17,7 +17,7 @@ import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTy
 export type AttachRow = { id: string; kind: string; load_id: string; invoice_number: string | null; qb_ref: string | null; attachments?: unknown; attachments_sent?: unknown; attach_on_send?: boolean };
 
 /** Pick load documents (POD, BOL, rate con, lumper receipts…) to attach to the QuickBooks invoice or bill. */
-export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRow | null; loads: { id: string; load_number: string }[]; onClose: () => void; onSaved: () => void }) {
+export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { row: AttachRow | null; loads: { id: string; load_number: string }[]; preselect?: QbAttachment; onClose: () => void; onSaved: () => void }) {
   const [picked, setPicked] = useState<QbAttachment[]>([]);
   const [onSend, setOnSend] = useState(true);
   const [busy, setBusy] = useState(false);
