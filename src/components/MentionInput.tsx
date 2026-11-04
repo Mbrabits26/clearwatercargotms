@@ -22,9 +22,15 @@ export function findMentions(text: string, people: Person[], groupPool: Person[]
   return [...ids];
 }
 
-export async function saveMentions(ids: string[], body: string, extra: { source: "chat" | "note"; channel?: string; load_id?: string }, self: string) {
-  const rows = ids.filter((id) => id !== self).map((user_id) => ({ user_id, body: body.slice(0, 500), ...extra }));
-  if (rows.length) await supabase.from("chat_mentions").insert(rows);
+/**
+ * Saves one tag per person (never the author). Ids are made here because the author can't read
+ * the saved rows back (each person only sees their own tags). Returns the ids, or an error message.
+ */
+export async function saveMentions(ids: string[], body: string, extra: { source: "chat" | "note"; channel?: string; load_id?: string }, self: string): Promise<{ ids: string[]; error: string | null }> {
+  const rows = ids.filter((id) => id !== self).map((user_id) => ({ id: crypto.randomUUID(), user_id, author_id: self, body: body.slice(0, 500), ...extra }));
+  if (!rows.length) return { ids: [], error: null };
+  const { error } = await supabase.from("chat_mentions").insert(rows);
+  return { ids: error ? [] : rows.map((r) => r.id), error: error?.message ?? null };
 }
 
 export function MentionInput({ value, onChange, people, onEnter, placeholder, rows = 2 }: {

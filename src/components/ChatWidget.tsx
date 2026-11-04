@@ -37,9 +37,8 @@ export function ChatWidget({ userId }: { userId: string }) {
   useEffect(() => {
     const ch = supabase
       .channel("mentions-live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, (p) => {
-        const m = p.new as { author_id: string; body: string; source: string };
-        toast(`${name(m.author_id)} tagged you${m.source === "note" ? " on a load note" : ""}`, { description: m.body.slice(0, 120) });
+      // The bell shows the pop-up/chime for tags; this just refreshes the "You were tagged" list.
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, () => {
         qc.invalidateQueries({ queryKey: ["chat-mentions"] });
       })
       .subscribe();

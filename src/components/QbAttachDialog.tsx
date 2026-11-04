@@ -17,14 +17,14 @@ import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTy
 export type AttachRow = { id: string; kind: string; load_id: string; invoice_number: string | null; qb_ref: string | null; attachments?: unknown; attachments_sent?: unknown; attach_on_send?: boolean };
 
 /** Pick load documents (POD, BOL, rate con, lumper receipts…) to attach to the QuickBooks invoice or bill. */
-export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRow | null; loads: { id: string; load_number: string }[]; onClose: () => void; onSaved: () => void }) {
+export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { row: AttachRow | null; loads: { id: string; load_number: string }[]; preselect?: QbAttachment; onClose: () => void; onSaved: () => void }) {
   const [picked, setPicked] = useState<QbAttachment[]>([]);
   const [onSend, setOnSend] = useState(true);
   const [busy, setBusy] = useState(false);
   const sync = useServerFn(qbSyncNow);
   const qc = useQueryClient();
   const ids = row ? [...new Set([row.load_id, ...loads.map((l) => l.id)])] : [];
-  useEffect(() => { if (row) { setPicked(parseAttachments(row.attachments)); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
+  useEffect(() => { if (row) { const base = parseAttachments(row.attachments); setPicked(preselect && !isSent(preselect.path, row.attachments_sent) && !base.some((a) => a.path === preselect.path) ? [...base, preselect] : base); setOnSend(row.attach_on_send ?? true); } }, [row?.id]);
 
   const { data: raw = [], refetch } = useQuery({
     queryKey: ["qb-attach-files", ...ids],
@@ -34,7 +34,7 @@ export function QbAttachDialog({ row, loads, onClose, onSaved }: { row: AttachRo
   });
   const { nameOf, rename } = useLoadDocNames(raw.map((f) => f.path));
   const files = raw.map((f) => ({ ...f, file: f.name, name: nameOf(f.path, f.name) }));
-  const items: DocItem[] = files.map((f) => ({ name: f.name, bucket: "load-docs", path: f.path }));
+  const items: DocItem[] = files.map((f) => ({ name: f.name, bucket: "load-docs", path: f.path, readOnly: true }));
   const renameFile = async (path: string, n: string) => {
     const err = await rename(path, n);
     if (!err) setPicked((x) => x.map((a) => (a.path === path ? { ...a, name: n } : a)));

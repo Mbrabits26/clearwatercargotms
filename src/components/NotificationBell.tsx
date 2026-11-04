@@ -15,6 +15,8 @@ const PREF_ROWS: { key: string; label: string; group: "Email" | "In-app" }[] = [
   { key: "email_driver_status", label: "Driver status updates (from tracking link)", group: "Email" },
   { key: "email_driver_docs", label: "Driver POD / BOL uploads", group: "Email" },
   { key: "email_ratecon_signed", label: "Rate con signed", group: "Email" },
+  { key: "email_mentions", label: "Someone tags me (or @team) in a load note", group: "Email" },
+  { key: "app_mentions", label: "Someone tags me (@name, @team, @everyone)", group: "In-app" },
   { key: "app_driver", label: "Driver check-ins and updates", group: "In-app" },
   { key: "app_ratecon", label: "Rate con signed", group: "In-app" },
   { key: "app_carrier_packet", label: "Carrier onboarding packet submitted", group: "In-app" },
@@ -74,9 +76,16 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
   }, [key]);
 
   useEffect(() => {
-    const push = (title: string, body: string, to: string, search?: Record<string, unknown>) => {
-      const a: Alert = { id: crypto.randomUUID(), title, body, to, search, at: Date.now(), read: false };
-      setAlerts((prev) => { const n = [a, ...prev].slice(0, 50); localStorage.setItem(key, JSON.stringify(n)); return n; });
+    /** Adds an alert. A fixed `id` is shown only once ever; `quiet` skips the chime and pop-ups. Returns false if it was a repeat. */
+    const push = (title: string, body: string, to: string, search?: Record<string, unknown>, opts?: { id?: string; at?: number; quiet?: boolean }) => {
+      const a: Alert = { id: opts?.id ?? crypto.randomUUID(), title, body, to, search, at: opts?.at ?? Date.now(), read: false };
+      let stored: Alert[] = [];
+      try { stored = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* */ }
+      if (opts?.id && stored.some((x) => x.id === a.id)) return false;
+      const n = [a, ...stored.filter((x) => x.id !== a.id)].sort((x, y) => y.at - x.at).slice(0, 50);
+      localStorage.setItem(key, JSON.stringify(n));
+      setAlerts(n);
+      if (opts?.quiet) return true;
       if (soundRef.current) chime();
       toast(title, { description: body, action: { label: "View", onClick: () => go(to, search) } });
       if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
@@ -89,6 +98,29 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       return data;
     };
     const mine = (brokerId?: string | null) => isAdmin || brokerId === userId;
+    // Someone tagged me — in a load note (links to the load) or in chat.
+    const mentionAlert = async (m: { id: string; author_id: string; body: string; source: string; load_id: string | null; created_at: string }, quiet = false) => {
+      const who = names.current[m.author_id] ?? "A teammate";
+      const group = /@(team|everyone)\b/i.test(m.body);
+      const opts = { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet };
+      if (m.source === "note" && m.load_id) {
+        const l = await loadInfo(m.load_id);
+        return push(`${who} tagged ${group ? "the team" : "you"} — ${l?.load_number ?? "load note"}`, String(m.body).slice(0, 140), "/dispatch", { load: m.load_id }, opts);
+      }
+      return push(`${who} tagged ${group ? "the team" : "you"} in chat`, String(m.body).slice(0, 140), "/dispatch", undefined, opts);
+    };
+    // Tags that came in while I was away land in the bell (one pop-up, no chime per tag) when I open the app.
+    const names0 = supabase.from("profiles").select("id, full_name, email").then(({ data }) => {
+      (data ?? []).forEach((p) => { names.current[p.id] = p.full_name || p.email || "Teammate"; });
+    });
+    supabase.from("chat_mentions").select("id, author_id, body, source, load_id, created_at").eq("user_id", userId).eq("read", false)
+      .gte("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString()).order("created_at").limit(20)
+      .then(async ({ data }) => {
+        await names0;
+        if (!on("app_mentions") || !data?.length) return;
+        const added = (await Promise.all(data.map((m) => mentionAlert(m, true)))).filter(Boolean).length;
+        if (added) toast(`You were tagged ${added} time${added === 1 ? "" : "s"} while away`, { description: "Open the bell to see each one." });
+      });
 
     const ch = supabase.channel(`alerts-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ratecon_requests" }, async (p: any) => {
@@ -119,6 +151,9 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         const l = await loadInfo(p.new.load_id); if (!l) return;
         const who = names.current[p.new.author_id] ?? "A teammate";
         push(`Load invoiced — ${l.load_number}`, `${who} moved it to Invoiced · review and sync with QuickBooks`, "/quickbooks", { q: l.load_number, review: true });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, (p: any) => {
+        if (on("app_mentions")) mentionAlert(p.new);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (p: any) => {
         const m = p.new; if (m.author_id === userId || !on("app_chat")) return;

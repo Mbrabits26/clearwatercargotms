@@ -8,10 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AttachToQbButton, DeleteDocButton } from "@/components/DocActions";
 
 /** A document stored in a private bucket, or a generated in-memory file. */
-export type DocItem = { name: string; bucket?: "carrier-docs" | "load-docs"; path?: string; blob?: Blob };
+export type DocItem = { name: string; bucket?: "carrier-docs" | "load-docs"; path?: string; blob?: Blob; /** Hide file actions (delete / attach / mark POD) — e.g. signed rate con links. */ readOnly?: boolean };
 
+const fileOf = (p: string) => p.split("/").pop() ?? "";
+/** Rate cons (sent or signed) are never a POD; signed ones are voided, never deleted. */
+const isRateCon = (p: string) => /^ratecon-/i.test(fileOf(p));
+const isSignedRateCon = (p: string) => /^ratecon-.*-signed/i.test(fileOf(p));
 const ext = (n: string) => n.toLowerCase().split(".").pop() ?? "";
 const kindOf = (d: DocItem): "pdf" | "image" | "other" => {
   const t = d.blob?.type ?? "";
@@ -66,7 +71,7 @@ export function DocViewer({ items, index, onClose }: { items: DocItem[]; index: 
   const { url, err } = useDocUrl(d);
   return (
     <Dialog open={index != null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl sm:max-w-5xl">
         <DialogHeader><DialogTitle className="truncate pr-8 text-base">{d?.name}</DialogTitle></DialogHeader>
         <div className="min-h-40">
           {err ? <p className="text-sm text-destructive">{err}</p> : d && url ? <Frame d={d} url={url} /> : <Loader2 className="mx-auto mt-10 h-6 w-6 animate-spin text-muted-foreground" />}
@@ -79,8 +84,12 @@ export function DocViewer({ items, index, onClose }: { items: DocItem[]; index: 
               <Button size="sm" variant="outline" disabled={i >= items.length - 1} onClick={() => setI(i + 1)}><ChevronRight className="h-4 w-4" /></Button>
             </>)}
           </div>
-          <div className="flex gap-2">
-            {d?.bucket === "load-docs" && d.path && <MarkPodButton path={d.path} name={d.name} />}
+          <div className="flex flex-wrap justify-end gap-2">
+            {d?.bucket === "load-docs" && d.path && !d.readOnly && <>
+              {!isSignedRateCon(d.path) && <DeleteDocButton key={`del-${d.path}`} path={d.path} name={d.name} onDeleted={onClose} />}
+              <AttachToQbButton key={`qb-${d.path}`} path={d.path} name={d.name} />
+              {!isRateCon(d.path) && <MarkPodButton path={d.path} name={d.name} />}
+            </>}
             {url && <Button size="sm" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-4 w-4" />Open in new tab</a></Button>}
             {d && url && <Button size="sm" onClick={() => download(d, url)}><Download className="mr-1 h-4 w-4" />Download</Button>}
           </div>

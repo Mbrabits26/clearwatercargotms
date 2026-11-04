@@ -40,6 +40,8 @@ const DialogContent = React.forwardRef<
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 grid max-h-[95dvh] w-full gap-4 overflow-auto border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:p-6 sm:pb-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:rounded-lg",
         className,
+        // A width like "max-w-5xl" must also beat the desktop default (sm:max-w-lg), or wide windows stay cramped.
+        className?.split(/\s+/).filter((c) => /^max-w-/.test(c)).map((c) => `sm:${c}`).join(" "),
       )}
       {...props}
     >

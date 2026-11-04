@@ -1531,9 +1531,11 @@ export type Database = {
           app_chat: boolean
           app_driver: boolean
           app_invoiced: boolean
+          app_mentions: boolean
           app_ratecon: boolean
           email_driver_docs: boolean
           email_driver_status: boolean
+          email_mentions: boolean
           email_ratecon_signed: boolean
           updated_at: string
           user_id: string
@@ -1543,9 +1545,11 @@ export type Database = {
           app_chat?: boolean
           app_driver?: boolean
           app_invoiced?: boolean
+          app_mentions?: boolean
           app_ratecon?: boolean
           email_driver_docs?: boolean
           email_driver_status?: boolean
+          email_mentions?: boolean
           email_ratecon_signed?: boolean
           updated_at?: string
           user_id: string
@@ -1555,9 +1559,11 @@ export type Database = {
           app_chat?: boolean
           app_driver?: boolean
           app_invoiced?: boolean
+          app_mentions?: boolean
           app_ratecon?: boolean
           email_driver_docs?: boolean
           email_driver_status?: boolean
+          email_mentions?: boolean
           email_ratecon_signed?: boolean
           updated_at?: string
           user_id?: string

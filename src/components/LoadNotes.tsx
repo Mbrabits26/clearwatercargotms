@@ -5,9 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MentionInput, findMentions, saveMentions } from "@/components/MentionInput";
+import { useServerFn } from "@tanstack/react-start";
+import { emailNoteMentions } from "@/lib/mentions.functions";
 
 export function LoadNotes({ loadId }: { loadId: string }) {
   const qc = useQueryClient();
+  const emailTags = useServerFn(emailNoteMentions);
   const key = ["load_notes", loadId];
   const [text, setText] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -60,10 +63,20 @@ export function LoadNotes({ loadId }: { loadId: string }) {
     if (!body) return;
     const { error } = await supabase.from("load_notes").insert({ load_id: loadId, body });
     if (error) return toast.error(error.message);
-    const { data: u } = await supabase.auth.getUser();
-    if (u.user) await saveMentions(findMentions(body, people), body, { source: "note", load_id: loadId }, u.user.id);
     setText("");
     qc.invalidateQueries({ queryKey: key });
+    const { data: u } = await supabase.auth.getUser();
+    const tagged = findMentions(body, people).filter((id) => id !== u.user?.id);
+    if (!u.user || !tagged.length) return;
+    const saved = await saveMentions(tagged, body, { source: "note", load_id: loadId }, u.user.id);
+    if (saved.error) return toast.error(`Note saved, but the tag alerts didn't go out: ${saved.error}`);
+    const who = tagged.length === 1 ? (people.find((p) => p.id === tagged[0])?.full_name ?? "1 person") : `${tagged.length} people`;
+    try {
+      const r = await emailTags({ data: { ids: saved.ids } });
+      toast.success(`Tagged ${who} — alert sent${r.sent ? ` and ${r.sent} email${r.sent === 1 ? "" : "s"}` : ""}`);
+    } catch {
+      toast.warning(`Tagged ${who} in the app, but the email alert couldn't be sent.`);
+    }
   };
   return (
     <div className="space-y-2 text-sm">

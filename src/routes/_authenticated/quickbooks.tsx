@@ -602,7 +602,7 @@ function Accounting() {
                     <TableCell>
                       {tab === "bill" ? (
                         <div className="flex flex-col gap-1 text-xs">
-                          {s?.carrier_invoice_path ? <DocLink items={[{ name: "Carrier invoice", bucket: "load-docs", path: s.carrier_invoice_path }]}><FileText className="mr-1 inline h-3 w-3" />{s.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "View"}{s.carrier_invoice_number ? ` · #${s.carrier_invoice_number}` : ""}</DocLink> : null}
+                          {s?.carrier_invoice_path ? <DocLink items={[{ name: "Carrier invoice", bucket: "load-docs", path: s.carrier_invoice_path, readOnly: true }]}><FileText className="mr-1 inline h-3 w-3" />{s.carrier_invoice_amount != null ? usd(Number(s.carrier_invoice_amount)) : "View"}{s.carrier_invoice_number ? ` · #${s.carrier_invoice_number}` : ""}</DocLink> : null}
                           {mismatch && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Differs from rate con {usd(bm!.gross)}</span>}
                           {extra.length > 0 && <span className="flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" />Not on rate con: {extra.map((x) => x.description).join(", ")}</span>}
                           <Hint text="Upload the carrier's own invoice. The TMS reads it and checks it against the signed rate con. Nothing is sent to QuickBooks.">
