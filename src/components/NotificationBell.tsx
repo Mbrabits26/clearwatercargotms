@@ -99,21 +99,28 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
     };
     const mine = (brokerId?: string | null) => isAdmin || brokerId === userId;
     // Someone tagged me — in a load note (links to the load) or in chat.
-    const mentionAlert = async (m: { id: string; author_id: string; body: string; source: string; load_id: string | null; created_at: string }) => {
+    const mentionAlert = async (m: { id: string; author_id: string; body: string; source: string; load_id: string | null; created_at: string }, quiet = false) => {
       const who = names.current[m.author_id] ?? "A teammate";
       const group = /@(team|everyone)\b/i.test(m.body);
-      const opts = { id: `mention-${m.id}`, at: new Date(m.created_at).getTime() };
+      const opts = { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet };
       if (m.source === "note" && m.load_id) {
         const l = await loadInfo(m.load_id);
-        push(`${who} tagged ${group ? "the team" : "you"} — ${l?.load_number ?? "load note"}`, String(m.body).slice(0, 140), "/dispatch", { load: m.load_id }, opts);
-      } else {
-        push(`${who} tagged ${group ? "the team" : "you"} in chat`, String(m.body).slice(0, 140), "/dispatch", undefined, opts);
+        return push(`${who} tagged ${group ? "the team" : "you"} — ${l?.load_number ?? "load note"}`, String(m.body).slice(0, 140), "/dispatch", { load: m.load_id }, opts);
       }
+      return push(`${who} tagged ${group ? "the team" : "you"} in chat`, String(m.body).slice(0, 140), "/dispatch", undefined, opts);
     };
-    // Tags that came in while I was away still show up when I open the app.
+    // Tags that came in while I was away land in the bell (one pop-up, no chime per tag) when I open the app.
+    const names0 = supabase.from("profiles").select("id, full_name, email").then(({ data }) => {
+      (data ?? []).forEach((p) => { names.current[p.id] = p.full_name || p.email || "Teammate"; });
+    });
     supabase.from("chat_mentions").select("id, author_id, body, source, load_id, created_at").eq("user_id", userId).eq("read", false)
       .gte("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString()).order("created_at").limit(20)
-      .then(({ data }) => { if (on("app_mentions")) (data ?? []).forEach((m) => mentionAlert(m)); });
+      .then(async ({ data }) => {
+        await names0;
+        if (!on("app_mentions") || !data?.length) return;
+        const added = (await Promise.all(data.map((m) => mentionAlert(m, true)))).filter(Boolean).length;
+        if (added) toast(`You were tagged ${added} time${added === 1 ? "" : "s"} while away`, { description: "Open the bell to see each one." });
+      });
 
     const ch = supabase.channel(`alerts-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ratecon_requests" }, async (p: any) => {
