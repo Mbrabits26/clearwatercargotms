@@ -283,17 +283,14 @@ export async function autoAttachPods(admin: Admin, ids?: string[]) {
   if (ids?.length) q = q.in("id", ids);
   // Invoices already in QuickBooks whose load now has a signed POD: the POD is uploaded onto
   // that same QuickBooks invoice (never a new invoice); files already sent are skipped.
-  let sq = admin.from("qb_sync").select(cols)
-    .in("kind", ["invoice", "fleet_invoice"]).eq("status", "sent").not("qb_ref", "is", null);
+  // Filtered on the load's POD flag in the query itself, so older invoices are never cut off by a row cap.
+  let sq = admin.from("qb_sync").select(`${cols}, loads!inner(pod_received)`)
+    .in("kind", ["invoice", "fleet_invoice"]).eq("status", "sent").not("qb_ref", "is", null)
+    .eq("loads.pod_received", true);
   if (ids?.length) sq = sq.in("id", ids);
-  const [{ data }, { data: sentData }] = await Promise.all([q.limit(100), sq.order("sent_at", { ascending: false }).limit(300)]);
-  const sentRows = (sentData ?? []) as unknown as PodRow[];
-  let sentWithPod: PodRow[] = [];
-  if (sentRows.length) {
-    const { data: podLoads } = await admin.from("loads").select("id").eq("pod_received", true).in("id", [...new Set(sentRows.map((r) => r.load_id))]);
-    const ok = new Set(((podLoads ?? []) as { id: string }[]).map((l) => l.id));
-    sentWithPod = sentRows.filter((r) => ok.has(r.load_id));
-  }
+  const [{ data }, { data: sentData, error: sentErr }] = await Promise.all([q.limit(100), sq.order("sent_at", { ascending: false }).limit(1000)]);
+  if (sentErr) console.error("autoAttachPods sent-invoice lookup failed", sentErr.message);
+  const sentWithPod = (sentData ?? []) as unknown as PodRow[];
   const rows = [...((data ?? []) as unknown as PodRow[]), ...sentWithPod];
   if (!rows.length) return 0;
   // Paths already used by any row on the same invoice number.
