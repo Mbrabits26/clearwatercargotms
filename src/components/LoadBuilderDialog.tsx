@@ -23,6 +23,7 @@ import { FmcsaButton, FmcsaSummary } from "@/components/FmcsaLookup";
 import type { FmcsaCarrier } from "@/lib/fmcsa.functions";
 import { drivingMiles } from "@/lib/places.functions";
 import { BuyBox } from "@/components/BuyBox";
+import { CustomerCreditWarning } from "@/components/CustomerCreditWarning";
 import { postLowMarginNotice } from "@/lib/buyBox";
 import { FLEET_CARRIER_ID, isFleetLoad } from "@/lib/tms";
 
@@ -344,7 +345,7 @@ export function LoadBuilderDialog({
           {hint && <div className="w-full rounded bg-muted p-2 text-xs">{hint}</div>}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <L label="Customer (bill-to)">{combo("customer")}</L>
+          <L label="Customer (bill-to)">{combo("customer")}<CustomerCreditWarning customerId={parties.customer?.id} /></L>
           <L label="Shipper">{combo("shipper")}</L>
           <L label="Consignee">{combo("consignee")}</L>
           <L label="Carrier (optional — only compliant carriers attach)">

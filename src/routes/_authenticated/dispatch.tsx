@@ -1,3 +1,4 @@
+import { CheckCallDialog } from "@/components/CheckCallDialog";
 import { LoadDocs } from "@/components/LoadDocs";
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -631,9 +632,7 @@ const Cockpit = memo(function Cockpit({
           <CopyLoadDialog load={load} />
           <CopyLoadString load={load} companies={companies} withLabel className="border-border bg-card px-2.5 py-1.5 hover:bg-muted" />
           <BolDialog load={load} shipper={shipper} consignee={consignee} carrier={carrier} />
-          <Button size="sm" variant="outline" onClick={() => update({ last_check_call: new Date().toISOString() }, "Check call logged")}>
-            <Phone className="mr-1 h-3.5 w-3.5" />Log check call
-          </Button>
+          <CheckCallDialog loadId={load.id} />
           <LoadCancelDelete load={load} canDelete={isAdmin || load.broker_id === user.id} onDeleted={() => {}} />
         </div>
       </div>

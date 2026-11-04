@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { markPodReceived } from "@/lib/podMark";
+import { BadgeCheck, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -77,6 +80,7 @@ export function DocViewer({ items, index, onClose }: { items: DocItem[]; index: 
             </>)}
           </div>
           <div className="flex gap-2">
+            {d?.bucket === "load-docs" && d.path && <MarkPodButton path={d.path} name={d.name} />}
             {url && <Button size="sm" variant="outline" asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-4 w-4" />Open in new tab</a></Button>}
             {d && url && <Button size="sm" onClick={() => download(d, url)}><Download className="mr-1 h-4 w-4" />Download</Button>}
           </div>
@@ -84,6 +88,24 @@ export function DocViewer({ items, index, onClose }: { items: DocItem[]; index: 
       </DialogContent>
     </Dialog>
   );
+}
+
+/** From the viewer, mark a reviewed load document as the Signed POD (sets the load's POD flag and names it). */
+function MarkPodButton({ path, name }: { path: string; name: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const loadId = path.split("/")[0]!;
+  const go = async () => {
+    setBusy(true);
+    const base = name.replace(/^Signed POD\s*[–-]\s*/i, "");
+    await supabase.from("load_doc_names").upsert({ path, display_name: `Signed POD – ${base}`, updated_at: new Date().toISOString() }, { onConflict: "path" });
+    const err = await markPodReceived(loadId, qc);
+    qc.invalidateQueries({ queryKey: ["load-docs", loadId] });
+    qc.invalidateQueries({ queryKey: ["load-doc-names"] });
+    setBusy(false);
+    if (err) toast.error(err); else toast.success("Marked as Signed POD — load is now POD received");
+  };
+  return <Button size="sm" variant="outline" disabled={busy} onClick={go} title="Tag this file as the signed POD and mark the load POD received"><BadgeCheck className="mr-1 h-4 w-4" />Mark as Signed POD</Button>;
 }
 
 function HoverPreview({ d }: { d: DocItem }) {
