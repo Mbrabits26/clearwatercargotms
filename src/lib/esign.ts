@@ -28,6 +28,7 @@ export type CertInfo = {
   document: string; reference: string; parties: string;
   signer: string; signerTitle?: string | null; sentTo?: string | null;
   signedAt: string; ip?: string | null; device?: string | null;
+  location?: string | null;
   consent: string; termsSha256: string;
 };
 
@@ -52,6 +53,7 @@ export function addSignatureCertificate(doc: jsPDF, c: CertInfo) {
     ["Signed (UTC)", when.toISOString()],
     ["Time source", "Clearwater Cargo server clock (not the signer's device)"],
     ["IP address", c.ip || "Not recorded"],
+    ...(c.location ? [["IP country / network", c.location] as [string, string]] : []),
     ["Device / browser", c.device || "Not recorded"],
     ["Consent given", `"${c.consent}"`],
     ["Terms fingerprint (SHA-256)", c.termsSha256, true],

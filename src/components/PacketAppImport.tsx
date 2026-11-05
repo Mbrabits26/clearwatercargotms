@@ -18,6 +18,8 @@ export function SignatureRecords({ carrierId }: { carrierId: string }) {
           <span>Signed: {fmtDate(s.signed_at)} {s.signed_at && new Date(s.signed_at).toLocaleTimeString()}</span>
           <span>IP address: {s.signer_ip ?? "Not recorded"}</span>
           <span>Reference: {s.external_ref}</span>
+          {(s.ip_country || s.ip_network) && <span className="sm:col-span-2">Location: {[s.ip_country, s.ip_network].filter(Boolean).join(" · ")}</span>}
+          {s.ip_risk && <span className="sm:col-span-2 font-semibold text-destructive">⚠ {s.ip_risk} — call the FMCSA phone number to confirm this carrier.</span>}
           <span className="sm:col-span-2 truncate text-muted-foreground">Device: {s.user_agent ?? "Not recorded"}</span>
           {s.doc_sha256 && <span className="sm:col-span-2 truncate font-mono text-muted-foreground">Fingerprint: {s.doc_sha256}</span>}
           {s.source === "carrier portal" && !s.signer_ip && (

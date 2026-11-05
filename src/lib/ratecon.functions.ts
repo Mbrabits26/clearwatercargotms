@@ -89,7 +89,8 @@ export const signRateCon = createServerFn({ method: "POST" })
     const { addSignatureCertificate, sha256Hex, stableJson, ESIGN_CONSENT } = await import("./esign");
     const { requestSigner } = await import("./esign.server");
     const signedAt = new Date().toISOString();
-    const { ip, ua } = requestSigner();
+    const { ip, ua, country, network, risk } = requestSigner();
+    const location = [country, network].filter(Boolean).join(" · ") || null;
     const termsSha = await sha256Hex(stableJson(rc));
     const title = data.title || undefined;
     const doc = buildRateConPdf(rc, { name: data.name, title, signedAt });
@@ -98,7 +99,7 @@ export const signRateCon = createServerFn({ method: "POST" })
       reference: `RC-${rc.rc}-${req.id.slice(0, 8).toUpperCase()}`,
       parties: `Clearwater Cargo LLC (broker) and ${rc.carrier}${rc.carrierMc ? ` (${rc.carrierMc})` : ""} (carrier)`,
       signer: data.name, signerTitle: title, sentTo: req.carrier_email,
-      signedAt, ip, device: ua, consent: ESIGN_CONSENT, termsSha256: termsSha,
+      signedAt, ip, device: ua, location, consent: ESIGN_CONSENT, termsSha256: termsSha,
     });
     const bytes = new Uint8Array(doc.output("arraybuffer"));
     const docSha = await sha256Hex(bytes);
@@ -110,7 +111,13 @@ export const signRateCon = createServerFn({ method: "POST" })
     await supabaseAdmin.from("ratecon_requests").update({
       status: "signed", signer_name: data.name, signer_title: title ?? null, signed_at: signedAt, pdf_path: path,
       signer_ip: ip, user_agent: ua, consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha,
+      ip_country: country, ip_network: network, ip_risk: risk,
     }).eq("id", req.id);
+    if (risk) {
+      const { data: ld } = await supabaseAdmin.from("loads").select("broker_id").eq("id", req.load_id).maybeSingle();
+      const { postIpRiskNotice } = await import("./esign.server");
+      await postIpRiskNotice(supabaseAdmin, ld?.broker_id ?? req.created_by, `Rate con RC #${rc.rc} (${rc.carrier})`, risk, ip);
+    }
     await supabaseAdmin.from("loads").update({ ratecon_signed: true, ratecon_pdf_path: path }).eq("id", req.load_id);
     await sendSignedEmails(supabaseAdmin, req, rc, data.name, title, signedAt);
     const { data: s } = await supabaseAdmin.storage.from("load-docs").createSignedUrl(path, 60 * 60);
