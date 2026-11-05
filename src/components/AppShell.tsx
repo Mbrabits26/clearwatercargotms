@@ -72,11 +72,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto hidden shrink-0 md:block"><QuickOnboardButton label="Onboard" /></div>
-        <div className="shrink-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
+        <div className="ml-auto hidden shrink-0 2xl:block"><QuickOnboardButton label="Onboard" /></div>
+        <div className="ml-auto shrink-0 2xl:ml-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
         <div className="hidden shrink-0 items-center gap-2 text-sm lg:flex">
           <ConnectGmail />
-          <LandingPicker />
           <select
             value={mail}
             onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }}
