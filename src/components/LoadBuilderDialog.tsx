@@ -208,6 +208,8 @@ export function LoadBuilderDialog({
     if (cr < 0 || pr < 0) return toast.error("Rates can't be negative.");
     const warns = [cr === 0 ? "Customer rate is $0." : "", pr > cr && cr > 0 ? `Carrier pay ($${pr}) is more than the customer rate ($${cr}) — this load loses money.` : ""].filter(Boolean);
     if (warns.length && !window.confirm(`${warns.join("\n")}\n\nSave anyway?`)) return;
+    const dups = await findRefDuplicates({ customer_ref: f.customer_ref, ship_ref: f.ship_ref, dest_ref: f.dest_ref }, editLoad?.id).catch(() => []);
+    if (dups.length && !window.confirm(`Possible duplicate load:\n\n${dups.slice(0, 6).join("\n")}\n\nSave this load anyway?`)) return;
     setSaving(true);
     try {
       const [customer_id, shipper_id, consignee_id] = await Promise.all([
