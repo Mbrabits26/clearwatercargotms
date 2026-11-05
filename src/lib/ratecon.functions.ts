@@ -111,7 +111,7 @@ export const signRateCon = createServerFn({ method: "POST" })
     await supabaseAdmin.from("ratecon_requests").update({
       status: "signed", signer_name: data.name, signer_title: title ?? null, signed_at: signedAt, pdf_path: path,
       signer_ip: ip, user_agent: ua, consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha,
-      ip_country: country, ip_network: network, ip_risk: risk,
+      ...({ ip_country: country, ip_network: network, ip_risk: risk } as Record<string, never>),
     }).eq("id", req.id);
     if (risk) {
       const { data: ld } = await supabaseAdmin.from("loads").select("broker_id").eq("id", req.load_id).maybeSingle();

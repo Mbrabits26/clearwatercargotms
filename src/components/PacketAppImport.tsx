@@ -12,7 +12,7 @@ export function SignatureRecords({ carrierId }: { carrierId: string }) {
   return (
     <div className="rounded border bg-card p-4 text-sm">
       <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold uppercase tracking-widest text-gold"><ShieldCheck className="h-4 w-4" />Signed online</h3>
-      {data.map((s) => (
+      {(data as (typeof data[number] & { ip_country?: string | null; ip_network?: string | null; ip_risk?: string | null })[]).map((s) => (
         <div key={s.id} className="grid grid-cols-1 gap-x-4 text-xs sm:grid-cols-2">
           <span>Signer: <b>{s.signer_name ?? "—"}</b>{s.signer_title ? `, ${s.signer_title}` : ""}</span>
           <span>Signed: {fmtDate(s.signed_at)} {s.signed_at && new Date(s.signed_at).toLocaleTimeString()}</span>

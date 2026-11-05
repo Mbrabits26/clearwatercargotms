@@ -158,7 +158,7 @@ export const submitPacket = createServerFn({ method: "POST" })
       carrier_id: carrierId, external_ref: reference, source: "carrier portal", signer_name: data.signer_name,
       signed_at: signedAt, signer_ip: ip, user_agent: ua, pay_type: data.pay_terms,
       consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha, file_path: agreementPath || null,
-      ip_country: country, ip_network: network, ip_risk: risk,
+      ...({ ip_country: country, ip_network: network, ip_risk: risk } as Record<string, never>),
     });
     if (risk) {
       const { postIpRiskNotice } = await import("./esign.server");

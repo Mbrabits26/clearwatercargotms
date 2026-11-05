@@ -177,7 +177,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
                 <FileSignature className="mr-1 inline h-3 w-3" />{r.status === "sent" ? "Awaiting signature" : r.status === "void" && r.void_reason ? "deleted" : r.status}
               </span>{" "}
               · sent {fmtDate(r.created_at)}{r.signed_at && ` · signed by ${r.signer_name} ${fmtDate(r.signed_at)}`}
-              {r.ip_risk && <span className="block font-semibold text-destructive">⚠ Signed from risky IP {r.signer_ip}: {r.ip_risk}</span>}
+              {(r as { ip_risk?: string | null }).ip_risk && <span className="block font-semibold text-destructive">⚠ Signed from risky IP {r.signer_ip}: {(r as { ip_risk?: string | null }).ip_risk}</span>}
               {r.void_reason && <span className="block text-muted-foreground">Deleted {fmtDate(r.voided_at)} — {r.void_reason}: {r.void_note}</span>}
             </span>
             {r.status === "sent" && (
