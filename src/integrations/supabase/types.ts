@@ -467,6 +467,9 @@ export type Database = {
           external_ref: string
           file_path: string | null
           id: string
+          ip_country: string | null
+          ip_network: string | null
+          ip_risk: string | null
           pay_type: string | null
           signed_at: string | null
           signer_ip: string | null
@@ -484,6 +487,9 @@ export type Database = {
           external_ref: string
           file_path?: string | null
           id?: string
+          ip_country?: string | null
+          ip_network?: string | null
+          ip_risk?: string | null
           pay_type?: string | null
           signed_at?: string | null
           signer_ip?: string | null
@@ -501,6 +507,9 @@ export type Database = {
           external_ref?: string
           file_path?: string | null
           id?: string
+          ip_country?: string | null
+          ip_network?: string | null
+          ip_risk?: string | null
           pay_type?: string | null
           signed_at?: string | null
           signer_ip?: string | null
@@ -2042,6 +2051,9 @@ export type Database = {
           doc_sha256: string | null
           expires_at: string
           id: string
+          ip_country: string | null
+          ip_network: string | null
+          ip_risk: string | null
           load_id: string
           pdf_path: string | null
           signed_at: string | null
@@ -2066,6 +2078,9 @@ export type Database = {
           doc_sha256?: string | null
           expires_at?: string
           id?: string
+          ip_country?: string | null
+          ip_network?: string | null
+          ip_risk?: string | null
           load_id: string
           pdf_path?: string | null
           signed_at?: string | null
@@ -2090,6 +2105,9 @@ export type Database = {
           doc_sha256?: string | null
           expires_at?: string
           id?: string
+          ip_country?: string | null
+          ip_network?: string | null
+          ip_risk?: string | null
           load_id?: string
           pdf_path?: string | null
           signed_at?: string | null
