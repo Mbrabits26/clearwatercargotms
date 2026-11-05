@@ -37,7 +37,7 @@ export function findDuplicates(invoices: AuditInvoice[]): DupPair[] {
     // TMS-linked first, then oldest, so the one to keep sorts first.
     g.sort((a, b) => Number(!!b.loadNumber) - Number(!!a.loadNumber) || String(a.date).localeCompare(String(b.date)));
     for (let x = 0; x < g.length; x++) for (let y = x + 1; y < g.length; y++) {
-      const a = g[x], b = g[y];
+      const a = g[x]!, b = g[y]!;
       if (used.has(a.id + a.entity) || used.has(b.id + b.entity)) continue;
       let kind: DupPair["kind"] | null = null, ref: string | null = null;
       if (a.docNumber && b.docNumber && norm(a.docNumber) === norm(b.docNumber)) { kind = "same-doc"; ref = a.docNumber; }

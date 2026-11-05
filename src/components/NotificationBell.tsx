@@ -127,7 +127,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ratecon_requests" }, async (p: any) => {
         if (!on("app_ratecon") || p.new.status !== "signed" || p.old?.status === "signed") return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
-        push(`Rate con signed — ${l.load_number}`, `Signed by ${p.new.signer_name ?? "carrier"}`, "/dispatch");
+        push(`Rate con signed — ${l.load_number}`, `Signed by ${p.new.signer_name ?? "carrier"}`, "/dispatch", { load: p.new.load_id });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "carrier_invites" }, async (p: any) => {
         if (!on("app_carrier_packet")) return;
