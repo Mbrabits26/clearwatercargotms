@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { lookupFmcsa, type FmcsaCarrier } from "@/lib/fmcsa.functions";
 import { contactRisk } from "@/lib/fraudCheck";
