@@ -145,6 +145,9 @@ export function BulkLoadsDialog({ open, onOpenChange, companies }: { open: boole
           ship_ref: r.ship_ref || null, dest_ref: r.dest_ref || null, accessorials: [],
         });
       }
+      const dupWarn: string[] = [];
+      for (const r of list) dupWarn.push(...(await findRefDuplicates({ ship_ref: r.ship_ref, dest_ref: r.dest_ref }).catch(() => [])));
+      if (dupWarn.length && !window.confirm(`Possible duplicate loads:\n\n${[...new Set(dupWarn)].slice(0, 8).join("\n")}\n\nCreate these loads anyway?`)) throw new Error("Not saved — duplicate reference numbers found");
       const { data, error } = await supabase.from("loads").insert(inserts as any).select("load_number");
       if (error) throw new Error(error.message);
       const nums = (data ?? []).map((d) => d.load_number);
