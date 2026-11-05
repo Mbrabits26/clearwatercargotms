@@ -28,8 +28,8 @@ export function CarrierPicker({ carriers, currentId, onPick, onAdded, isAdmin }:
     if (error) return toast.error(error.message);
     const { data: inv, error: e2 } = await supabase.from("carrier_invites").insert({ carrier_id: c.id, email: email || null }).select("token").single();
     if (e2) return toast.error(e2.message);
-    draftInviteEmail(inv.token, email, v.name.trim());
-    toast.success("Carrier added as pending — they can be booked once their packet is in and you mark them vetted");
+    const sent = await draftInviteEmail(inv.token, email, v.name.trim());
+    toast.success((sent ? `Packet link emailed to ${email} from your Gmail. ` : "") + "Carrier added as pending — they can be booked once their packet is in and you mark them vetted");
     onAdded();
     setV({ id: null, name: "" }); setMc(""); setEmail("");
   };
