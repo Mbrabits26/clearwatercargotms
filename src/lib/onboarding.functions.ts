@@ -130,7 +130,8 @@ export const submitPacket = createServerFn({ method: "POST" })
     const { addSignatureCertificate, sha256Hex, stableJson, ESIGN_CONSENT } = await import("./esign");
     const { requestSigner } = await import("./esign.server");
     const { agreementLegalHtml } = await import("@/content/agreement-legal");
-    const { ip, ua } = requestSigner();
+    const { ip, ua, country, network, risk } = requestSigner();
+    const location = [country, network].filter(Boolean).join(" · ") || null;
     const reference = `CWA-${inv.id.slice(0, 8).toUpperCase()}`;
     const termsSha = await sha256Hex(stableJson({ agreement: agreementLegalHtml, carrier: i, pay_terms: data.pay_terms }));
     let agreementPath = "";
@@ -141,7 +142,7 @@ export const submitPacket = createServerFn({ method: "POST" })
       addSignatureCertificate(pdf, {
         document: "Broker-Carrier Agreement", reference,
         parties: `Clearwater Cargo LLC (broker) and ${i.legal_name}${i.mc_number ? ` (MC ${i.mc_number})` : ""} (carrier)`,
-        signer: data.signer_name, sentTo: inv.email, signedAt, ip, device: ua, consent: ESIGN_CONSENT, termsSha256: termsSha,
+        signer: data.signer_name, sentTo: inv.email, signedAt, ip, device: ua, location, consent: ESIGN_CONSENT, termsSha256: termsSha,
       });
       const bytes = new Uint8Array(pdf.output("arraybuffer"));
       docSha = await sha256Hex(bytes);
@@ -157,7 +158,12 @@ export const submitPacket = createServerFn({ method: "POST" })
       carrier_id: carrierId, external_ref: reference, source: "carrier portal", signer_name: data.signer_name,
       signed_at: signedAt, signer_ip: ip, user_agent: ua, pay_type: data.pay_terms,
       consent_text: ESIGN_CONSENT, terms_sha256: termsSha, doc_sha256: docSha, file_path: agreementPath || null,
+      ...({ ip_country: country, ip_network: network, ip_risk: risk } as unknown as Record<string, never>),
     });
+    if (risk) {
+      const { postIpRiskNotice } = await import("./esign.server");
+      await postIpRiskNotice(supabaseAdmin, inv.created_by, `Carrier packet for ${i.legal_name}${i.mc_number ? ` (MC ${i.mc_number})` : ""}`, risk, ip);
+    }
     await supabaseAdmin.from("carrier_invites").update({ status: "submitted", submitted_at: new Date().toISOString(), carrier_id: carrierId }).eq("id", inv.id);
     return { ok: true as const };
   });
