@@ -161,8 +161,8 @@ export function InvitePanel({ c }: { c: Carrier }) {
   const create = async () => {
     const { data, error } = await supabase.from("carrier_invites").insert({ carrier_id: c.id, email: c.email }).select("token").single();
     if (error) return toast.error(error.message);
-    draftInviteEmail(data.token, c.email, c.contact_name ?? c.legal_name);
-    toast.success("Invite email drafted and link copied");
+    const sent = await draftInviteEmail(data.token, c.email, c.contact_name ?? c.legal_name);
+    toast.success(sent ? `Packet link emailed to ${c.email} from your Gmail (link also copied)` : "Invite email drafted and link copied");
     qc.invalidateQueries({ queryKey: key });
   };
   const revoke = async (id: string) => {
@@ -185,7 +185,7 @@ export function InvitePanel({ c }: { c: Carrier }) {
             </span>
             {i.status === "sent" && (
               <span className="flex gap-1">
-                <Button size="sm" variant="ghost" title="Email" onClick={() => draftInviteEmail(i.token, i.email ?? c.email, c.contact_name ?? c.legal_name)}><Mail className="h-3.5 w-3.5" /></Button>
+                <Button size="sm" variant="ghost" title="Email" onClick={async () => { const to = i.email ?? c.email; const sent = await draftInviteEmail(i.token, to, c.contact_name ?? c.legal_name); if (sent) toast.success(`Packet link emailed to ${to} from your Gmail`); }}><Mail className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(link(i.token)).then(() => toast.success("Link copied"))}><Copy className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => revoke(i.id)}>Cancel</Button>
               </span>
@@ -198,11 +198,11 @@ export function InvitePanel({ c }: { c: Carrier }) {
 }
 
 /** Copies the packet link and opens a pre-written email to the carrier. */
-export function draftInviteEmail(token: string, email?: string | null, name?: string | null) {
+export async function draftInviteEmail(token: string, email?: string | null, name?: string | null) {
   const url = `${window.location.origin}/onboard/${token}`;
   navigator.clipboard.writeText(url).catch(() => {});
   const body = `Hello${name ? ` ${name}` : ""},\n\nThank you for your interest in hauling with Clearwater Cargo LLC. Please complete our carrier onboarding packet (company info, W-9, certificate of insurance, factoring NOA if applicable, and the broker-carrier agreement) at the secure link below:\n\n${url}\n\nThe link is good for 14 days. Questions? Call us at 252-497-7916.\n\nClearwater Cargo LLC\nP.O Box 100, Staley, NC 27355`;
-  composeEmail(email ?? "", "Clearwater Cargo — Carrier Onboarding Packet", body);
+  return composeEmail(email ?? "", "Clearwater Cargo — Carrier Onboarding Packet", body);
 }
 
 export function NewCarrierInvite() {
@@ -210,9 +210,9 @@ export function NewCarrierInvite() {
   const create = async (mail: boolean) => {
     const { data, error } = await supabase.from("carrier_invites").insert({ email: email || null }).select("token").single();
     if (error) return toast.error(error.message);
-    if (mail) draftInviteEmail(data.token, email);
-    else await navigator.clipboard.writeText(`${window.location.origin}/onboard/${data.token}`).catch(() => {});
-    toast.success(mail ? "Email drafted and link copied" : "Link copied — the carrier is added as pending when they submit");
+    const sent = mail ? await draftInviteEmail(data.token, email) : false;
+    if (!mail) await navigator.clipboard.writeText(`${window.location.origin}/onboard/${data.token}`).catch(() => {});
+    toast.success(mail ? (sent ? `Packet link emailed to ${email} from your Gmail (link also copied)` : "Email drafted and link copied") : "Link copied — the carrier is added as pending when they submit");
     setEmail("");
   };
   return (

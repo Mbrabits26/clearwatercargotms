@@ -56,9 +56,9 @@ export function QuickOnboardDialog({ open, onOpenChange }: { open: boolean; onOp
       }
       const { data: inv, error: e2 } = await supabase.from("carrier_invites").insert({ carrier_id: id, email: email || null }).select("token").single();
       if (e2) throw e2;
-      if (mail) draftInviteEmail(inv.token, email, name.trim());
-      else await navigator.clipboard.writeText(`${window.location.origin}/onboard/${inv.token}`).catch(() => {});
-      toast.success(`${existing ? `${existing.legal_name} is already saved — ` : `${name.trim()} added as pending — `}${mail ? "packet email drafted" : "packet link copied"}`);
+      const sent = mail ? await draftInviteEmail(inv.token, email, name.trim()) : false;
+      if (!mail) await navigator.clipboard.writeText(`${window.location.origin}/onboard/${inv.token}`).catch(() => {});
+      toast.success(`${existing ? `${existing.legal_name} is already saved — ` : `${name.trim()} added as pending — `}${mail ? (sent ? `packet link emailed to ${email} from your Gmail` : "packet email drafted") : "packet link copied"}`);
       qc.invalidateQueries({ queryKey: ["carriers"] });
       onOpenChange(false);
     } catch (e) {
