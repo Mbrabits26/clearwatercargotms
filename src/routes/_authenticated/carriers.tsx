@@ -8,7 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { findMatch, mergeFill, duplicateGroups } from "@/lib/carrierMerge";
 import { mergeCarriers } from "@/lib/carriers.functions";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Ban, Copy as CopyIcon, Pencil, Plus, Search } from "lucide-react";
 import { EditCarrierDialog } from "@/components/EditCarrierDialog";
@@ -317,6 +317,8 @@ function DuplicatesButton({ carriers, onDone }: { carriers: Carrier[]; onDone: (
 function AddCarrier({ carriers, open, onOpenChange, onDone }: { carriers: Carrier[]; open: boolean; onOpenChange: (o: boolean) => void; onDone: (id: string) => void }) {
   const [f, setF] = useState<Record<string, string>>({ authority_status: "Authorized" });
   const [fm, setFm] = useState<FmcsaCarrier | null>(null);
+  // Always start blank — never carry over the last carrier's details.
+  useEffect(() => { if (open) { setF({ authority_status: "Authorized" }); setFm(null); } }, [open]);
   const fields = [
     ["legal_name", "Legal name"], ["dba", "DBA"], ["mc_number", "MC #"], ["dot_number", "DOT #"],
     ["address", "Street address"], ["city", "City"], ["state", "State"], ["zip", "ZIP"],

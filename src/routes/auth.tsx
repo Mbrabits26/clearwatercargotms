@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { oauthReturnPath } from "@/lib/oauth-return-path";
+import { landingFor } from "@/lib/landing";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): { access?: "pending"; next?: string } => ({
@@ -51,7 +52,11 @@ function AuthPage() {
     const { data: approved } = await supabase.rpc("is_approved", { _uid: u.user.id });
     if (approved) {
       if (next) navigate({ href: next });
-      else navigate({ to: "/dispatch" });
+      else {
+        const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+        const r = { isAdmin: !!roles?.some((x) => x.role === "admin"), isAccountant: !!roles?.some((x) => x.role === "accountant") };
+        navigate({ to: landingFor(u.user.id, r) });
+      }
     }
     else {
       await supabase.auth.signOut();
