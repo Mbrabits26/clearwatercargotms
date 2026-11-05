@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { MentionInput, findMentions, saveMentions } from "@/components/MentionInput";
+import { LoadText } from "@/components/LoadText";
 
 type Msg = { id: string; channel: string; author_id: string; body: string; created_at: string };
 const dmKey = (a: string, b: string) => `dm:${[a, b].sort().join(":")}`;
@@ -159,7 +160,7 @@ export function ChatWidget({ userId }: { userId: string }) {
             {mentions.length > 0 && (
               <div className="max-h-28 space-y-1 overflow-auto border-b bg-gold/10 p-2 text-xs">
                 <div className="flex justify-between font-semibold text-gold"><span>You were tagged ({mentions.length})</span><button onClick={clearMentions} className="underline">Mark read</button></div>
-                {mentions.map((m) => <div key={m.id}><b>{name(m.author_id)}</b>{m.source === "note" ? " (load note)" : ""}: {m.body}</div>)}
+                {mentions.map((m) => <div key={m.id}><b>{name(m.author_id)}</b>{m.source === "note" ? " (load note)" : ""}: <LoadText text={m.body} /></div>)}
               </div>
             )}
             <div className="flex-1 space-y-2 overflow-auto p-3 text-sm">
@@ -171,7 +172,7 @@ export function ChatWidget({ userId }: { userId: string }) {
                     <div className="text-[10px] text-muted-foreground">
                       {mine ? "You" : name(m.author_id)} · {new Date(m.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </div>
-                    <div className={`inline-block max-w-[90%] whitespace-pre-wrap break-words rounded-md px-2 py-1 text-left [overflow-wrap:anywhere] ${mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>{m.body}</div>
+                    <div className={`inline-block max-w-[90%] whitespace-pre-wrap break-words rounded-md px-2 py-1 text-left [overflow-wrap:anywhere] ${mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}><LoadText text={m.body} /></div>
                   </div>
                 );
               })}
