@@ -6,3 +6,7 @@
 - [x] Outreach: read shipper replies from Gmail automatically and act on them
 - [x] Document viewer: Attach to QuickBooks + Delete buttons
 - [x] Load notes: @tags (@team/@everyone/@person) must alert the tagged people
+- [x] Add Carrier form always opens blank
+- [x] Home cockpit + per-person start screen (role defaults)
+- [x] Quick carrier onboard from any screen
+- [x] Load creation: warn on duplicate customer/shipper/delivery ref and ask first

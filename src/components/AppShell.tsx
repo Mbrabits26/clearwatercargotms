@@ -5,11 +5,14 @@ import { LoadWorkNotice } from "@/components/LoadWorkNotice";
 import { InvoicedQbReview } from "@/components/InvoicedQbReview";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal, Gavel } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal, Gavel, Home } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
+import { QuickOnboardButton } from "@/components/QuickOnboard";
+import { LandingPicker } from "@/components/LandingPicker";
+import { landingFor, type Landing } from "@/lib/landing";
 import { AppWindowsProvider } from "@/lib/appWindows";
 import { AppWindowHost } from "@/components/AppWindowHost";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -30,7 +33,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     navigate({ to: "/auth", search: { access: undefined }, replace: true });
   };
+  const [home, setHome] = useState<Landing>("/dispatch");
+  useEffect(() => setHome(landingFor(user.id, { isAdmin, isAccountant })), [user.id, isAdmin, isAccountant]);
   const nav = [
+    { to: "/home", label: "Home", icon: Home, p: "" },
     { to: "/dispatch", label: "Dispatch Board", icon: Truck, p: "dispatch" },
     { to: "/directory", label: "Directory", icon: Building2, p: "directory" },
     { to: "/carriers", label: "Carriers", icon: ShieldCheck, p: "carriers" },
@@ -46,7 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <AppWindowsProvider>
     <div className="flex h-dvh flex-col print:block print:h-auto">
       <header className="flex h-14 print:hidden shrink-0 items-center gap-4 border-b bg-sidebar px-3 lg:px-4">
-        <Link to="/dispatch" className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+        <Link to={home} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <img src={logo.url} alt="Clearwater Cargo" className="h-9 w-9 shrink-0 rounded-sm bg-foreground object-contain lg:h-10 lg:w-10" />
           <div className="leading-none">
             <div className="font-display text-base font-bold uppercase tracking-wider text-gold sm:text-lg">Clearwater Cargo</div>
@@ -66,7 +72,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto shrink-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
+        <div className="ml-auto hidden shrink-0 2xl:block"><QuickOnboardButton label="Onboard" /></div>
+        <div className="ml-auto shrink-0 2xl:ml-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
         <div className="hidden shrink-0 items-center gap-2 text-sm lg:flex">
           <ConnectGmail />
           <select
@@ -103,6 +110,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <SheetClose key={n.to} asChild><Link to={n.to} className="flex min-h-11 items-center gap-3 rounded border px-3 text-sm"><n.icon className="h-5 w-5 text-gold" />{n.label}</Link></SheetClose>
               ))}
               <div className="mt-2 border-t pt-3"><ConnectGmail /></div>
+              <QuickOnboardButton className="min-h-11 justify-start" label="Onboard a carrier" />
+              <LandingPicker className="h-11 w-full rounded border bg-background px-2 text-sm" />
               <label className="text-xs text-muted-foreground">Email service<select value={mail} onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }} className="mt-1 h-11 w-full rounded border bg-background px-2 text-sm"><option value="gmail">Gmail</option><option value="default">Default app</option></select></label>
               <div className="text-xs text-muted-foreground">{user.email} · {[isAdmin && "Admin", isAccountant && "Accountant"].filter(Boolean).join(" / ") || "Broker"}</div>
               <Button variant="outline" className="min-h-11 justify-start" onClick={signOut}><LogOut className="mr-2 h-4 w-4" />Sign out</Button>
