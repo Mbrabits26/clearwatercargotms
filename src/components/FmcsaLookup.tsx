@@ -27,8 +27,26 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
     }
   };
   return (
-    <Button type="button" size="sm" variant="secondary" disabled={busy || (!mc && !dot)} onClick={run}>
-      {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1 h-4 w-4" />}{label}
+    <>
+      <Button type="button" size="sm" variant="secondary" disabled={busy || (!mc && !dot)} onClick={run}>
+        {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1 h-4 w-4" />}{label}
+      </Button>
+      <MotusButton dot={dot} />
+    </>
+  );
+}
+
+/** Opens the carrier's record in FMCSA MOTUS (new tab) and copies the DOT # as a fallback. */
+export function MotusButton({ dot }: { dot?: string | null }) {
+  const d = (dot ?? "").replace(/\D/g, "");
+  const open = () => {
+    if (d) navigator.clipboard.writeText(d).catch(() => {});
+    window.open(d ? `https://motus.dot.gov/customer/${d}/account` : "https://motus.dot.gov/public/search", "_blank", "noopener");
+    if (d) toast.success(`DOT ${d} copied — paste it into MOTUS search if needed`);
+  };
+  return (
+    <Button type="button" size="sm" variant="outline" onClick={open} title="Verify this carrier in FMCSA MOTUS">
+      <ExternalLink className="mr-1 h-4 w-4" />MOTUS
     </Button>
   );
 }
