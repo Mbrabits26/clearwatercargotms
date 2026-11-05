@@ -1,3 +1,4 @@
+import { firstLoadNumber, loadIdByNumber } from "@/components/LoadText";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Bell, Volume2, VolumeX, MonitorUp, Settings2 } from "lucide-react";
@@ -141,7 +142,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         if (!on("app_driver")) return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
         const what = p.new.kind === "pod" || p.new.kind === "doc" ? "Document uploaded" : p.new.status ? `Status: ${p.new.status}` : "Location check-in";
-        push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch");
+        push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch", { load: p.new.load_id });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_notes" }, async (p: any) => {
         // Admins/accountants: a load moved to Invoiced → review it and sync with QuickBooks.
@@ -155,12 +156,15 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, (p: any) => {
         if (on("app_mentions")) mentionAlert(p.new);
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (p: any) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, async (p: any) => {
         const m = p.new; if (m.author_id === userId || !on("app_chat")) return;
         const isDm = m.channel.startsWith("dm:");
         if (isDm && !m.channel.includes(userId)) return;
         const who = names.current[m.author_id] ?? "Teammate";
-        push(isDm ? `Message from ${who}` : `Team chat — ${who}`, String(m.body).slice(0, 140), "/dispatch");
+        // Notices naming a load (rate con signed, signing warnings, low margin…) open that load.
+        const num = firstLoadNumber(String(m.body));
+        const id = num ? await loadIdByNumber(num) : null;
+        push(isDm ? `Message from ${who}` : `Team chat — ${who}`, String(m.body).slice(0, 140), "/dispatch", id ? { load: id } : undefined);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
