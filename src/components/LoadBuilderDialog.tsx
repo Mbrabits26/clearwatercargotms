@@ -440,7 +440,7 @@ export function LoadBuilderDialog({
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {!editLoad && <Button variant="ghost" onClick={discardDraft}>Discard draft</Button>}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close (keeps draft)</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{editLoad ? "Cancel" : "Close (keeps draft)"}</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
