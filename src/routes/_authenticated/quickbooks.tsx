@@ -462,6 +462,7 @@ function Accounting() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
         <div className="flex flex-wrap gap-2">
+          {isFinance && <ActionButton variant="outline" hint="Read-only: finds duplicate invoices in both QuickBooks companies, and checks an uploaded check stub or remittance against your QuickBooks invoices." onClick={() => setQbAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />QB duplicates & payments</ActionButton>}
           {(tab === "invoice" || tab === "fleet_invoice") && (
             <ActionButton variant="outline" hint="Opens a window to create invoice numbers for the ticked loads — one per load or one combined. You review it before anything is saved." onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</ActionButton>
           )}
@@ -470,7 +471,6 @@ function Accounting() {
           )}
           {tab === "bill" && <>
             <ActionButton variant="outline" hint="Compares every carrier invoice on this tab with its signed rate con: over/under billing, charges not on the rate con, missing invoices. Read-only." onClick={() => setAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />Bill audit</ActionButton>
-            {isFinance && <ActionButton variant="outline" hint="Read-only: finds duplicate invoices in both QuickBooks companies, and checks an uploaded check stub or remittance against your QuickBooks invoices." onClick={() => setQbAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />QB duplicates & payments</ActionButton>}
             <ActionButton variant="outline" hint="Unpaid loads for factored carriers, grouped by factoring company, with the NOA remit-to address and a printable remittance schedule." onClick={() => setFactorOpen(true)}><Landmark className="mr-1 h-4 w-4" />Factoring remittance</ActionButton>
           </>}
           {tab !== "log" && <ActionButton hint={tab === "bill" ? "Queues the ticked carrier bills and sends them to Clearwater QuickBooks. Does not pay the carrier." : "Queues the ticked invoices, moves delivered loads to Invoiced, and sends them to QuickBooks. Asks you first."} confirm={sendSpec} onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</ActionButton>}
