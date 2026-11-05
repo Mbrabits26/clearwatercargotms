@@ -120,6 +120,23 @@ export function LoadBuilderDialog({
     setCarrier(car ? { id: car.id, name: car.legal_name } : { id: null, name: "" });
     setFound([]); setHint("");
   }, [open, editLoad?.id]);
+  // New-load draft: restore on open, auto-save every change, cleared on create/discard.
+  const DRAFT_KEY = "cw-load-draft";
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => {
+    if (!open || editLoad) { setDraftReady(false); return; }
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (d?.f) { setF(d.f); if (d.parties) setParties(d.parties); if (d.carrier) setCarrier(d.carrier); toast.info("Restored your unfinished load"); }
+    } catch { /* ignore bad draft */ }
+    setDraftReady(true);
+  }, [open, editLoad?.id]);
+  useEffect(() => {
+    if (!open || editLoad || !draftReady) return;
+    const empty = Object.keys(f).every((k) => k === "equipment" || !f[k as keyof F]) && !parties.customer.name && !parties.shipper.name && !parties.consignee.name && !carrier.name;
+    try { if (empty) localStorage.removeItem(DRAFT_KEY); else localStorage.setItem(DRAFT_KEY, JSON.stringify({ f, parties, carrier })); } catch { /* storage full */ }
+  }, [f, parties, carrier, open, editLoad, draftReady]);
+  const discardDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ } reset(); };
   const set = (k: string) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
 
   const match = (kind: Kind, name: string | null) => {
@@ -278,6 +295,7 @@ export function LoadBuilderDialog({
       const next = foundIdx + 1;
       if (next < found.length) { setFoundIdx(next); apply(found[next]!); return; }
       setFound([]);
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       reset();
       onOpenChange(false);
     } catch (e) {
@@ -421,7 +439,8 @@ export function LoadBuilderDialog({
           </div>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          {!editLoad && <Button variant="ghost" onClick={discardDraft}>Discard draft</Button>}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close (keeps draft)</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
