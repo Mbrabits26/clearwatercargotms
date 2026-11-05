@@ -5,12 +5,15 @@ import { Loader2, ShieldCheck, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { lookupFmcsa, type FmcsaCarrier } from "@/lib/fmcsa.functions";
 import { contactRisk } from "@/lib/fraudCheck";
+import { getCarrierCheck } from "@/lib/carrierCheck.functions";
+import { CarrierCheckButton } from "@/components/CarrierCheckDialog";
 
 /** Button that pulls carrier data from FMCSA/SAFER by MC or DOT. */
 export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
   mc?: string | null; dot?: string | null; onResult: (r: FmcsaCarrier) => void; label?: string;
 }) {
   const fn = useServerFn(lookupFmcsa);
+  const checkFn = useServerFn(getCarrierCheck);
   const [busy, setBusy] = useState(false);
   const run = async () => {
     setBusy(true);
@@ -18,6 +21,8 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
       const r = await fn({ data: { mc: mc || null, dot: dot || null } });
       if (r.source === "blocked") { toast.warning(r.warnings[0], { action: { label: "Open in SAFER", onClick: () => window.open(r.safer_url, "_blank") } }); return; }
       onResult(r);
+      // Build the detailed Carrier Checks report in the background so it's ready to open.
+      if (r.dot_number) checkFn({ data: { mc: r.mc_number, dot: r.dot_number } }).catch(() => {});
       if (r.warnings.length) toast.warning(`FMCSA: ${r.warnings.join(" · ")}`);
       else toast.success(`FMCSA: ${r.legal_name} · ${r.authority_status}`);
     } catch (e) {
@@ -32,6 +37,7 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
         {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1 h-4 w-4" />}{label}
       </Button>
       <MotusButton dot={dot} />
+      <CarrierCheckButton mc={mc} dot={dot} />
     </>
   );
 }
