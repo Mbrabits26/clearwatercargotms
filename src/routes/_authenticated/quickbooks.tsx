@@ -42,6 +42,7 @@ import { packetDefault } from "@/lib/invoicePacket";
 import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoiceDialog";
 import { BillAuditDialog } from "@/components/BillAuditDialog";
 import { FactoringRemittanceDialog } from "@/components/FactoringRemittanceDialog";
+import { QbAuditDialog } from "@/components/QbAuditDialog";
 import { auditBill, parseChargeLines } from "@/lib/billAudit";
 import type { PayCarrier } from "@/lib/carrierPay";
 
@@ -244,6 +245,7 @@ function Accounting() {
   const [billTarget, setBillTarget] = useState<BillTarget | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [factorOpen, setFactorOpen] = useState(false);
+  const [qbAuditOpen, setQbAuditOpen] = useState(false);
   const billTargetFor = (l: Load): BillTarget => { const b = billMath(l); return { load: l, bill: synced(l.id, "bill"), payee: payee(l, "bill"), net: b.net, gross: b.gross, fee: b.fee }; };
   const invoicedIds = useMemo(() => new Set(sync.filter((s) => s.kind !== "bill").map((s) => s.load_id)), [sync]);
 
@@ -468,6 +470,7 @@ function Accounting() {
           )}
           {tab === "bill" && <>
             <ActionButton variant="outline" hint="Compares every carrier invoice on this tab with its signed rate con: over/under billing, charges not on the rate con, missing invoices. Read-only." onClick={() => setAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />Bill audit</ActionButton>
+            {isFinance && <ActionButton variant="outline" hint="Read-only: finds duplicate invoices in both QuickBooks companies, and checks an uploaded check stub or remittance against your QuickBooks invoices." onClick={() => setQbAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />QB duplicates & payments</ActionButton>}
             <ActionButton variant="outline" hint="Unpaid loads for factored carriers, grouped by factoring company, with the NOA remit-to address and a printable remittance schedule." onClick={() => setFactorOpen(true)}><Landmark className="mr-1 h-4 w-4" />Factoring remittance</ActionButton>
           </>}
           {tab !== "log" && <ActionButton hint={tab === "bill" ? "Queues the ticked carrier bills and sends them to Clearwater QuickBooks. Does not pay the carrier." : "Queues the ticked invoices, moves delivered loads to Invoiced, and sends them to QuickBooks. Asks you first."} confirm={sendSpec} onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</ActionButton>}
@@ -645,6 +648,7 @@ function Accounting() {
         onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => setPacketRow(null)} />
       <CarrierInvoiceDialog target={billTarget} onClose={() => setBillTarget(null)} onSaved={() => { setBillTarget(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <BillAuditDialog open={auditOpen} onOpenChange={setAuditOpen} loads={shown} billOf={(id) => synced(id, "bill")} payeeOf={(l) => payee(l, "bill")} onAttach={(l) => setBillTarget(billTargetFor(l))} />
+      {qbAuditOpen && <QbAuditDialog open={qbAuditOpen} onOpenChange={setQbAuditOpen} />}
       <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
       <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <QbAttachDialog row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
