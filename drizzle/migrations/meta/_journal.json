@@ -421,6 +421,13 @@
       "when": 1793986774407,
       "tag": "0059_fleet_records",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793987512752,
+      "tag": "0060_eld_positions",
+      "breakpoints": true
     }
   ]
 }
