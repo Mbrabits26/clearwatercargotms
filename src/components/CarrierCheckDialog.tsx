@@ -13,7 +13,7 @@ export function CarrierCheckButton({ mc, dot }: { mc?: string | null; dot?: stri
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" size="sm" variant="outline" disabled={!mc && !dot} onClick={() => setOpen(true)} title="Detailed SAFER / FMCSA vetting report">
+      <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={!mc && !dot} onClick={() => setOpen(true)} title="Detailed SAFER / FMCSA vetting report">
         <ClipboardCheck className="mr-1 h-4 w-4" />Carrier Checks
       </Button>
       {open && <CarrierCheckDialog mc={mc ?? null} dot={dot ?? null} onClose={() => setOpen(false)} />}
