@@ -414,6 +414,13 @@
       "when": 1793797054925,
       "tag": "0058_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793986774407,
+      "tag": "0059_fleet_records",
+      "breakpoints": true
     }
   ]
 }

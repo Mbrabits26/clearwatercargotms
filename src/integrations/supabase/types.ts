@@ -858,6 +858,54 @@ export type Database = {
         }
         Relationships: []
       }
+      fleet_records: {
+        Row: {
+          amount: number | null
+          created_at: string
+          created_by: string | null
+          doc_type: string
+          expires_on: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          notes: string | null
+          odometer: number | null
+          owner_id: string
+          owner_kind: string
+          service_date: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          doc_type: string
+          expires_on?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          owner_id: string
+          owner_kind: string
+          service_date?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          expires_on?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          owner_id?: string
+          owner_kind?: string
+          service_date?: string | null
+        }
+        Relationships: []
+      }
       fleet_units: {
         Row: {
           created_at: string
