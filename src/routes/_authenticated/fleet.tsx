@@ -8,6 +8,7 @@ import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } f
 import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { FleetFilesButton } from "@/components/FleetFiles";
+import { EldLive } from "@/components/EldLive";
 import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
 import { BulkStatusBar } from "@/components/BulkStatusBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/fleet")({
   component: Fleet,
 });
 
-type Tab = "truck" | "trailer" | "driver" | "carrier" | "history";
+type Tab = "truck" | "trailer" | "driver" | "eld" | "carrier" | "history";
 
 function StatusDropdown({ value, options, onChange }: { value: string; options: typeof UNIT_STATUSES; onChange: (v: string) => void }) {
   const m = options.find((o) => o.value === value) ?? options[0]!;
@@ -132,6 +133,7 @@ function Fleet() {
           <TabsTrigger value="truck">Trucks</TabsTrigger>
           <TabsTrigger value="trailer">Trailers</TabsTrigger>
           <TabsTrigger value="driver">Drivers</TabsTrigger>
+          <TabsTrigger value="eld">Live ELD</TabsTrigger>
           <TabsTrigger value="carrier">Carrier</TabsTrigger>
           <TabsTrigger value="history">Load history ({history.length})</TabsTrigger>
         </TabsList>
@@ -140,7 +142,7 @@ function Fleet() {
       {tab === "driver" && <BulkActionBar items={drivers.filter((d) => bulk.has(d.id))} total={drivers.length} actions={driverActions} onClear={bulk.clear} invalidate={["drivers"]} noun="drivers" />}
       {(tab === "truck" || tab === "trailer") && <BulkActionBar items={(tab === "truck" ? trucks : trailers).filter((u) => bulk.has(u.id))} total={(tab === "truck" ? trucks : trailers).length} actions={unitActions} onClear={bulk.clear} invalidate={["fleet"]} noun="units" />}
       <div className="overflow-x-auto rounded-md border bg-card">
-        {tab === "carrier" ? (
+        {tab === "eld" ? <EldLive units={units} drivers={drivers} /> : tab === "carrier" ? (
           fc ? (
             <div className="grid gap-3 p-4 text-sm sm:grid-cols-3">
               {([
