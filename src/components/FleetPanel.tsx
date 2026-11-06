@@ -16,7 +16,12 @@ export function FleetPanel({ load }: { load: Load }) {
     const { error } = await supabase.from("loads").update({ [key]: id } as Partial<Load>).eq("id", load.id);
     if (error) return toast.error(error.message);
     if (key === "driver_id") {
-      if (prev) await supabase.from("drivers").update({ status: "available" }).eq("id", prev);
+      if (prev && prev !== id) {
+        // Only free the driver when no other active load still uses them.
+        const { count } = await supabase.from("loads").select("id", { count: "exact", head: true })
+          .eq("driver_id", prev).neq("id", load.id).in("status", ["available", "vetting", "booked", "dispatched", "rolling", "issue"]);
+        if (!count) await supabase.from("drivers").update({ status: "available" }).eq("id", prev);
+      }
       if (id) await supabase.from("drivers").update({ status: "on_load" }).eq("id", id);
     } else {
       if (prev) await supabase.from("fleet_units").update({ status: "available" }).eq("id", prev);
@@ -29,8 +34,8 @@ export function FleetPanel({ load }: { load: Load }) {
   };
 
   const row = (label: string, key: "truck_id" | "trailer_id" | "driver_id", opts: { id: string; label: string; status: string }[], free: string) => {
-    // Trucks & trailers can run several loads at once; only drivers lock to one load.
-    const multi = key !== "driver_id";
+    // Trucks, trailers and drivers can all be on several loads at once.
+    const multi = true;
     return (
       <div className="flex items-center justify-between gap-3 py-1 text-sm">
         <span className="text-muted-foreground">{label}</span>
