@@ -190,7 +190,7 @@ function Fleet() {
                   <TableCell className={soon(d.cdl_expires) ? "text-warning" : ""}>{d.cdl_state} {d.cdl_number}<div className="text-xs text-muted-foreground">exp {d.cdl_expires ?? "—"}</div></TableCell>
                   <TableCell className={soon(d.medical_expires) ? "text-warning" : ""}>exp {d.medical_expires ?? "—"}</TableCell>
                   <TableCell><StatusDropdown value={d.status} options={DRIVER_STATUSES} onChange={(v) => setDriver(d.id, v)} /></TableCell>
-                  <TableCell className="text-sm">{lane(loadFor("driver_id", d.id)) ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-sm">{(() => { const ls = active.filter((l) => l.driver_id === d.id); return ls.length ? <div className="space-y-0.5">{ls.map((l) => <div key={l.id}>{lane(l)}</div>)}</div> : <span className="text-muted-foreground">—</span>; })()}</TableCell>
                   <TableCell className="w-10"><FleetFilesButton kind="driver" id={d.id} label={d.full_name} /></TableCell>
                   <TableCell className="w-10"><ConfirmDelete table="drivers" id={d.id} label={d.full_name} what="Driver" invalidate={["drivers"]} linked={loadFor("driver_id", d.id) ? "This driver is on an active load — the load will show no driver." : null} /></TableCell>
                 </TableRow>
