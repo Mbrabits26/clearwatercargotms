@@ -118,7 +118,7 @@ export function buildRateConPdf(r: RateConData, sig?: Signature): jsPDF {
   const cw = [W * 0.36, W * 0.3, W * 0.34];
   const cx = [L - 4, L - 4 + cw[0]!, L - 4 + cw[0]! + cw[1]!];
   const top = y, bodyH = 106;
-  ["Bill To", "Load / Carrier", "Rate Summary"].forEach((t, i) => {
+  ["Broker", "Load / Carrier", "Rate Summary"].forEach((t, i) => {
     box(cx[i]!, top, cw[i]! + (i === 2 ? 8 : 0), 20, true);
     font(8.5, true); ink(); doc.text(t, cx[i]! + 6, top + 13);
     box(cx[i]!, top + 20, cw[i]! + (i === 2 ? 8 : 0), bodyH);
@@ -133,9 +133,7 @@ export function buildRateConPdf(r: RateConData, sig?: Signature): jsPDF {
   kv("Carrier:", "", c2, by); font(8.5); doc.text(doc.splitTextToSize(r.carrier, c2w - 36)[0] ?? "", c2 + 36, by);
   kv("Equipment:", r.equipment, c2, by + 12);
   font(8.5); doc.setTextColor(...gray);
-  const cust = doc.splitTextToSize(`Customer: ${r.customer}`, c2w);
-  doc.text(cust, c2, by + 24, { lineHeightFactor: 1.35 });
-  let cy = by + 24 + cust.length * 11.5;
+  let cy = by + 24;
   doc.text(`RC #: ${r.rc}`, c2, cy); cy += 11.5;
   doc.text(`Terms: ${r.terms}`, c2, cy); cy += 11.5;
   doc.text(doc.splitTextToSize(`Remit to: ${r.remitTo}`, c2w), c2, cy, { lineHeightFactor: 1.35 });
