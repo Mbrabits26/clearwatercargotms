@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, driversQuery, fleetQuery, loadsQuery } from "@/lib/queries";
 import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { FleetFilesButton } from "@/components/FleetFiles";
 import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
 import { BulkStatusBar } from "@/components/BulkStatusBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -177,7 +178,7 @@ function Fleet() {
           </Table>
         ) : tab === "driver" ? (
           <Table>
-            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={drivers.map((d) => d.id)} sel={bulk} /></TableHead><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={drivers.map((d) => d.id)} sel={bulk} /></TableHead><TableHead>Driver</TableHead><TableHead>Phone</TableHead><TableHead>CDL</TableHead><TableHead>Medical card</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /><TableHead /></TableRow></TableHeader>
             <TableBody>
               {drivers.map((d) => (
                 <TableRow key={d.id}>
@@ -188,6 +189,7 @@ function Fleet() {
                   <TableCell className={soon(d.medical_expires) ? "text-warning" : ""}>exp {d.medical_expires ?? "—"}</TableCell>
                   <TableCell><StatusDropdown value={d.status} options={DRIVER_STATUSES} onChange={(v) => setDriver(d.id, v)} /></TableCell>
                   <TableCell className="text-sm">{lane(loadFor("driver_id", d.id)) ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="w-10"><FleetFilesButton kind="driver" id={d.id} label={d.full_name} /></TableCell>
                   <TableCell className="w-10"><ConfirmDelete table="drivers" id={d.id} label={d.full_name} what="Driver" invalidate={["drivers"]} linked={loadFor("driver_id", d.id) ? "This driver is on an active load — the load will show no driver." : null} /></TableCell>
                 </TableRow>
               ))}
@@ -195,7 +197,7 @@ function Fleet() {
           </Table>
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={(tab === "truck" ? trucks : trailers).map((u) => u.id)} sel={bulk} /></TableHead><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={(tab === "truck" ? trucks : trailers).map((u) => u.id)} sel={bulk} /></TableHead><TableHead>Unit</TableHead><TableHead>Make / model</TableHead><TableHead>Plate</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Current load</TableHead><TableHead /><TableHead /></TableRow></TableHeader>
             <TableBody>
               {(tab === "truck" ? trucks : trailers).map((u) => {
                 const l = loadFor(tab === "truck" ? "truck_id" : "trailer_id", u.id);
@@ -208,6 +210,7 @@ function Fleet() {
                     <TableCell>{u.equipment}</TableCell>
                     <TableCell><StatusDropdown value={u.status} options={UNIT_STATUSES} onChange={(v) => setUnit(u.id, v)} /></TableCell>
                     <TableCell className="text-sm">{l ? <>{lane(l)}<div className="text-xs text-muted-foreground">Delivers {fmtDate(l.delivery_at)}</div></> : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="w-10"><FleetFilesButton kind="unit" id={u.id} label={u.unit_number} /></TableCell>
                     <TableCell className="w-10"><ConfirmDelete table="fleet_units" id={u.id} label={u.unit_number} what={tab === "truck" ? "Truck" : "Trailer"} invalidate={["fleet"]} linked={l ? "This unit is on an active load — the load will show no unit." : null} /></TableCell>
                   </TableRow>
                 );
