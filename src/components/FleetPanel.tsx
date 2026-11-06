@@ -19,7 +19,7 @@ export function FleetPanel({ load }: { load: Load }) {
       if (prev && prev !== id) {
         // Only free the driver when no other active load still uses them.
         const { count } = await supabase.from("loads").select("id", { count: "exact", head: true })
-          .eq("driver_id", prev).neq("id", load.id).in("status", ["available", "vetting", "booked", "dispatched", "rolling", "issue"]);
+          .eq("driver_id", prev).neq("id", load.id).in("status", ["vetting", "booked", "dispatched", "rolling", "issue"]);
         if (!count) await supabase.from("drivers").update({ status: "available" }).eq("id", prev);
       }
       if (id) await supabase.from("drivers").update({ status: "on_load" }).eq("id", id);
