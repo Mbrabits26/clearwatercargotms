@@ -32,13 +32,13 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
     }
   };
   return (
-    <>
-      <Button type="button" size="sm" variant="secondary" disabled={busy || (!mc && !dot)} onClick={run}>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" size="sm" variant="secondary" className="shrink-0" disabled={busy || (!mc && !dot)} onClick={run}>
         {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-1 h-4 w-4" />}{label}
       </Button>
       <MotusButton dot={dot} />
       <CarrierCheckButton mc={mc} dot={dot} />
-    </>
+    </div>
   );
 }
 
@@ -51,7 +51,7 @@ export function MotusButton({ dot }: { dot?: string | null }) {
     if (d) toast.success(`DOT ${d} copied — paste it into MOTUS search if needed`);
   };
   return (
-    <Button type="button" size="sm" variant="outline" onClick={open} title="Verify this carrier in FMCSA MOTUS">
+    <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={open} title="Verify this carrier in FMCSA MOTUS">
       <ExternalLink className="mr-1 h-4 w-4" />MOTUS
     </Button>
   );

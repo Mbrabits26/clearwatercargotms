@@ -176,7 +176,7 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
       <CarrierPayments c={c} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-gold">Authority & safety</h3>
             <FmcsaButton mc={c.mc_number} dot={c.dot_number} label="Re-check FMCSA" onResult={(r) => {
               setFm(r);
@@ -364,8 +364,8 @@ function AddCarrier({ carriers, open, onOpenChange, onDone }: { carriers: Carrie
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-auto">
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Add carrier</DialogTitle></DialogHeader>
-        <div className="flex items-center gap-2">
-          <p className="flex-1 text-xs text-muted-foreground">Enter the MC # or DOT #, then pull the carrier's details straight from FMCSA / SAFER.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">Enter the MC # or DOT #, then pull the carrier's details straight from FMCSA / SAFER.</p>
           <FmcsaButton mc={f.mc_number} dot={f.dot_number} onResult={fill} />
         </div>
         {fm && <FmcsaSummary r={fm} />}
