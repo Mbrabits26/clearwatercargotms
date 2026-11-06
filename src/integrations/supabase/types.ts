@@ -822,6 +822,7 @@ export type Database = {
           cdl_number: string | null
           cdl_state: string | null
           created_at: string
+          eld_id: string | null
           email: string | null
           full_name: string
           home_city: string | null
@@ -835,6 +836,7 @@ export type Database = {
           cdl_number?: string | null
           cdl_state?: string | null
           created_at?: string
+          eld_id?: string | null
           email?: string | null
           full_name: string
           home_city?: string | null
@@ -848,6 +850,7 @@ export type Database = {
           cdl_number?: string | null
           cdl_state?: string | null
           created_at?: string
+          eld_id?: string | null
           email?: string | null
           full_name?: string
           home_city?: string | null
@@ -857,6 +860,81 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      eld_positions: {
+        Row: {
+          created_at: string
+          cycle_left_min: number | null
+          drive_left_min: number | null
+          driver_id: string | null
+          duty_status: string | null
+          eld_driver: string | null
+          eld_unit: string | null
+          heading: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          odometer: number | null
+          recorded_at: string
+          shift_left_min: number | null
+          source: string
+          speed_mph: number | null
+          unit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          cycle_left_min?: number | null
+          drive_left_min?: number | null
+          driver_id?: string | null
+          duty_status?: string | null
+          eld_driver?: string | null
+          eld_unit?: string | null
+          heading?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          odometer?: number | null
+          recorded_at?: string
+          shift_left_min?: number | null
+          source?: string
+          speed_mph?: number | null
+          unit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          cycle_left_min?: number | null
+          drive_left_min?: number | null
+          driver_id?: string | null
+          duty_status?: string | null
+          eld_driver?: string | null
+          eld_unit?: string | null
+          heading?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          odometer?: number | null
+          recorded_at?: string
+          shift_left_min?: number | null
+          source?: string
+          speed_mph?: number | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_positions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_positions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fleet_records: {
         Row: {
@@ -909,6 +987,7 @@ export type Database = {
       fleet_units: {
         Row: {
           created_at: string
+          eld_id: string | null
           equipment: string | null
           id: string
           kind: string
@@ -922,6 +1001,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          eld_id?: string | null
           equipment?: string | null
           id?: string
           kind: string
@@ -935,6 +1015,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          eld_id?: string | null
           equipment?: string | null
           id?: string
           kind?: string
