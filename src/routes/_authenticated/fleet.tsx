@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/fleet")({
   component: Fleet,
 });
 
-type Tab = "truck" | "trailer" | "driver" | "carrier" | "history";
+type Tab = "truck" | "trailer" | "driver" | "eld" | "carrier" | "history";
 
 function StatusDropdown({ value, options, onChange }: { value: string; options: typeof UNIT_STATUSES; onChange: (v: string) => void }) {
   const m = options.find((o) => o.value === value) ?? options[0]!;
