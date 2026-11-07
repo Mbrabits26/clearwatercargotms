@@ -23,8 +23,12 @@ const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/gmail.send",
 ];
-/** Asked for at connect: also lets outreach read shipper replies. Not required for sending, so older connections keep sending. */
-const CONNECT_SCOPES = [...GMAIL_SCOPES, "https://www.googleapis.com/auth/gmail.readonly"];
+/** Asked for at connect: also lets outreach read shipper replies and lets sends append the sender's saved Gmail signature. Not required for sending, so older connections keep sending. */
+const CONNECT_SCOPES = [
+  ...GMAIL_SCOPES,
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+];
 
 function clientKey(): string {
   const k = process.env['GOOGLE_MAIL_APP_USER_CONNECTOR_CLIENT_API_KEY'];
@@ -117,12 +121,16 @@ export const sendGmail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const connectionAPIKey = await getConnectionKeyForUser(context.userId, CONNECTOR_ID);
     if (!connectionAPIKey) return { sent: false as const, reason: "not_connected" as const };
+    // Gmail only adds the saved signature to mail composed in Gmail itself; API sends must append it.
+    const { getGmailSignatureText } = await import("@/lib/gmailSignature.server");
+    const sig = await getGmailSignatureText(context.userId).catch(() => null);
+    const body = sig && !data.body.includes(sig) ? `${data.body}\n\n${sig}` : data.body;
     const raw = [
       `To: ${data.to}`,
       ...(data.cc ? [`Cc: ${data.cc}`] : []),
       `Subject: ${mimeHeader(data.subject)}`,
       "MIME-Version: 1.0",
-      ...(data.attachments?.length ? multipart(data.body, data.attachments) : ['Content-Type: text/plain; charset="UTF-8"', "", data.body]),
+      ...(data.attachments?.length ? multipart(body, data.attachments) : ['Content-Type: text/plain; charset="UTF-8"', "", body]),
     ].join("\r\n");
     const encoded = b64(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const res = await callAsAppUser({
