@@ -12,4 +12,6 @@
 - [x] Load creation: warn on duplicate customer/shipper/delivery ref and ask first
 - [x] Accounting: QB duplicate audit + payment document check
 - [x] Chat/alerts naming a load are clickable
+- [x] QB duplicate check: shared customer ref # on two different TMS loads is not a duplicate
+- [x] Ideas for bringing in new shipper customers
 - [ ] Core ELD: receiver + Live ELD tab built; waiting on Core ELD to send data (or give pull API docs)
