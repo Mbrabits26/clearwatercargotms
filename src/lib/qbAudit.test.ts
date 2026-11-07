@@ -38,3 +38,14 @@ describe("matchPayment", () => {
     expect(matchPayment({ payer: "Nobody", check_number: null, date: null, total: null, lines: [{ ref: "ZZ-9", amount: 5 }] }, book)[0]!.status).toBe("not-found");
   });
 });
+
+describe("shared customer ref on different loads", () => {
+  it("is not flagged as a duplicate", () => {
+    const base = { entity: "fleet" as const, customer: "Madison Wood", total: 800, balance: 800, text: "PO 386287", lines: [{ amount: 800, description: "Freight" }] };
+    const r = findDuplicates([
+      { ...base, id: "5140", docNumber: "FF-1036", date: "2026-10-26", loadId: "a", loadNumber: "CW-10520" },
+      { ...base, id: "5170", docNumber: "FF-1069", date: "2026-10-30", loadId: "b", loadNumber: "CW-15487", lines: [{ amount: 800, description: "Freight 2" }] },
+    ]);
+    expect(r).toHaveLength(0);
+  });
+});

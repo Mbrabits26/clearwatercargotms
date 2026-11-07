@@ -48,7 +48,9 @@ export function findDuplicates(invoices: AuditInvoice[]): DupPair[] {
         if (a.docNumber) { ta.delete(norm(a.docNumber)); tb.delete(norm(a.docNumber)); }
         if (b.docNumber) { ta.delete(norm(b.docNumber)); tb.delete(norm(b.docNumber)); }
         const hit = [...ta].find((t) => tb.has(t));
-        if (hit) { kind = "same-ref"; ref = hit.toUpperCase(); }
+        // A shared customer ref # (standing PO) on two different TMS loads = two real shipments, not a double.
+        const twoLoads = !!a.loadId && !!b.loadId && a.loadId !== b.loadId;
+        if (hit && !twoLoads) { kind = "same-ref"; ref = hit.toUpperCase(); }
       }
       if (!kind) continue;
       // Both linked to different TMS loads under one PO = possibly two real shipments; still listed for review.
