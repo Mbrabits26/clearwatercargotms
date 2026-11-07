@@ -15,3 +15,5 @@
 - [x] QB duplicate check: shared customer ref # on two different TMS loads is not a duplicate
 - [x] Ideas for bringing in new shipper customers
 - [ ] Core ELD: receiver + Live ELD tab built; waiting on Core ELD to send data (or give pull API docs)
+
+- [x] Queue 10 first-touch shipper emails (Jordan Lumber + Culpeper excluded per user); send Mon 8am ET window
