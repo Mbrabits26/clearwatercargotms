@@ -103,7 +103,10 @@ export async function sendDueOutreach() {
     }
     const key = await getConnectionKeyForUser(snd.user_id, "google_mail");
     if (!key) { report.push(`${snd.from_email}: Gmail not connected`); continue; }
-    const body = `${m.body}\n\n${signature(snd)}`;
+    // Prefer the sender's own saved Gmail signature; fall back to the one built from their sender profile.
+    const { getGmailSignatureText } = await import("@/lib/gmailSignature.server");
+    const gmailSig = await getGmailSignatureText(snd.user_id).catch(() => null);
+    const body = `${m.body}\n\n${gmailSig ?? signature(snd)}`;
     const raw = [`To: ${lead.email}`, `Subject: ${m.subject}`, "MIME-Version: 1.0", 'Content-Type: text/plain; charset="UTF-8"', "", body].join("\r\n");
     const encoded = Buffer.from(raw, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     // A failed send must move the email out of the front of the queue (retry tomorrow or skip), or it blocks every later email.
