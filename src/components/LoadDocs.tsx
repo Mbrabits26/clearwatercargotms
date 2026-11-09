@@ -9,6 +9,9 @@ import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 import { QbFilesPanel } from "@/components/QbFilesPanel";
 import { DocTypePicker, LOAD_DOC_TYPES, loadDocPath, retypedName, typeFromName, type LoadDocType } from "@/components/DocTypePicker";
 import { markPodReceived, marksPod } from "@/lib/podMark";
+import { useRouteContext } from "@tanstack/react-router";
+import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoiceDialog";
+import { effectivePayTerms, loadTotals, type Load } from "@/lib/tms";
 
 const label = (n: string) => {
   const k = n.split("-")[0]!.toLowerCase();
@@ -17,6 +20,10 @@ const label = (n: string) => {
 
 /** Every file stored for a load (driver POD/BOL, signed rate con, invoices, uploads) with in-page preview. */
 export function LoadDocs({ loadId }: { loadId: string }) {
+  const { isFinance } = useRouteContext({ from: "/_authenticated" });
+  const [invoiceTarget, setInvoiceTarget] = useState<BillTarget | null>(null);
+  const [invoiceKind, setInvoiceKind] = useState<"regular" | "factoring">("regular");
+  const [invoiceFile, setInvoiceFile] = useState<File | undefined>();
   const qc = useQueryClient();
   const key = ["load-docs", loadId];
   const [busy, setBusy] = useState(false);
@@ -25,16 +32,35 @@ export function LoadDocs({ loadId }: { loadId: string }) {
     queryKey: key,
     queryFn: async () => (await supabase.storage.from("load-docs").list(loadId, { sortBy: { column: "created_at", order: "desc" } })).data ?? [],
   });
-  // Invoices and carrier bills live only in the Accounting (billing) section.
-  const stored = files.filter((f) => f.id && !/^(invoice|carrier_invoice)-/i.test(f.name));
+  const stored = files.filter((f) => f.id && !/^invoice-/i.test(f.name));
   const { nameOf, rename } = useLoadDocNames(stored.map((f) => `${loadId}/${f.name}`));
   const items: (DocItem & { path: string; file: string })[] = stored
-    .map((f) => ({ file: f.name, name: nameOf(`${loadId}/${f.name}`, f.name), bucket: "load-docs", path: `${loadId}/${f.name}` }));
-  const upload = async (type: LoadDocType) => {
+    .map((f) => ({ file: f.name, name: nameOf(`${loadId}/${f.name}`, f.name), bucket: "load-docs", path: `${loadId}/${f.name}`, readOnly: /^carrier_invoice-/i.test(f.name) }));
+  const upload = async (type: LoadDocType, custom?: string) => {
     if (!pending) return;
+    if ((type === "carrier_invoice" || type === "factoring_invoice") && isFinance) {
+      setBusy(true);
+      try {
+        const { data: load, error } = await supabase.from("loads").select("*").eq("id", loadId).single();
+        if (error || !load) throw new Error(error?.message ?? "Load unavailable");
+        if (!load.carrier_id) throw new Error("Assign a carrier to this load first.");
+        const { data: carrier, error: carrierError } = await supabase.from("carriers").select("*").eq("id", load.carrier_id).single();
+        if (carrierError || !carrier) throw new Error(carrierError?.message ?? "Carrier unavailable");
+        const { data: bill, error: billError } = await supabase.from("qb_sync").select("*").eq("load_id", loadId).eq("kind", "bill").order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (billError) throw billError;
+        const gross = loadTotals(load as Load).cost;
+        const fee = gross * effectivePayTerms(load, carrier).fee;
+        setInvoiceFile(pending); setInvoiceKind(type === "factoring_invoice" ? "factoring" : "regular");
+        setInvoiceTarget({ load, bill: bill ?? undefined, gross, fee, net: gross - fee, payee: carrier.factoring_company ?? carrier.legal_name });
+      } catch (e) { toast.error((e as Error).message); }
+      setBusy(false); return;
+    }
     setBusy(true);
-    const { error } = await supabase.storage.from("load-docs").upload(loadDocPath(loadId, type, pending), pending);
+    const path = loadDocPath(loadId, type, pending);
+    const { error } = await supabase.storage.from("load-docs").upload(path, pending);
     if (error) { setBusy(false); return toast.error(error.message); }
+    const nameError = await rename(path, retypedName(type, pending.name, custom));
+    if (nameError) toast.error(`File saved; name not saved: ${nameError}`);
     const podErr = marksPod(type) ? await markPodReceived(loadId, qc) : null;
     setBusy(false);
     setPending(null);
@@ -56,7 +82,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
       <ul className="divide-y text-sm">
         {items.map((d, i) => {
           const picked = typeFromName(d.name);
-          const shown = picked ? LOAD_DOC_TYPES.find((t) => t.value === picked)!.label : label(d.file);
+          const shown = picked ? LOAD_DOC_TYPES.find((t) => t.value === picked)?.label : d.name.includes(" – ") ? d.name.split(" – ")[0] : label(d.file);
           return (
             <li key={d.path} className="flex items-center gap-2 py-1.5">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -64,7 +90,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
                 className="h-7 shrink-0 rounded border border-border bg-background px-1 text-xs font-bold uppercase text-gold"
                 value={picked ?? ""} disabled={busy} onChange={(e) => e.target.value && retype(d.path, d.name, e.target.value as LoadDocType)}>
                 <option value="" disabled>{shown}</option>
-                {LOAD_DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {LOAD_DOC_TYPES.filter((t) => !t.value.endsWith("invoice")).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
               <DocLink items={items} index={i} className="min-w-0 truncate">{d.name}</DocLink>
               <RenameDoc name={d.name} original={d.file} onSave={(n) => rename(d.path, n)} />
@@ -83,6 +109,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
       </div>
       <DocTypePicker file={pending} busy={busy} onPick={upload} onCancel={() => setPending(null)} />
       <QbFilesPanel loadId={loadId} />
+      <CarrierInvoiceDialog target={invoiceTarget} initialFile={invoiceFile} initialKind={invoiceKind} onClose={() => { setInvoiceTarget(null); setInvoiceFile(undefined); }} onSaved={() => { setInvoiceTarget(null); setInvoiceFile(undefined); setPending(null); qc.invalidateQueries({ queryKey: key }); }} />
     </div>
   );
 }

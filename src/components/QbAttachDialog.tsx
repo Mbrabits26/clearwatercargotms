@@ -12,7 +12,7 @@ import { RenameDoc, useLoadDocNames } from "@/components/RenameDoc";
 import { isPodDoc, isSent, parseAttachments, qbContentType, type QbAttachment } from "@/lib/qbAttachments";
 import { qbSyncNow } from "@/lib/quickbooks.functions";
 import { ActionButton, Hint } from "@/components/ActionGuard";
-import { DocTypePicker, loadDocPath, type LoadDocType } from "@/components/DocTypePicker";
+import { DocTypePicker, loadDocPath, retypedName, type LoadDocType } from "@/components/DocTypePicker";
 
 export type AttachRow = { id: string; kind: string; load_id: string; invoice_number: string | null; qb_ref: string | null; attachments?: unknown; attachments_sent?: unknown; attach_on_send?: boolean };
 
@@ -51,19 +51,22 @@ export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { ro
     if (!qbContentType(file.name)) return toast.error("QuickBooks only accepts PDF, JPG, PNG, GIF, TIFF, Word, Excel, CSV or text files.");
     setPending(file);
   };
-  const upload = async (type: LoadDocType) => {
+  const upload = async (type: LoadDocType, custom?: string) => {
     const file = pending;
     if (!file || !row) return;
     const path = loadDocPath(row.load_id, type, file);
     setBusy(true);
     const { error } = await supabase.storage.from("load-docs").upload(path, file);
     if (error) { setBusy(false); return toast.error(error.message); }
+    const name = retypedName(type, file.name, custom);
+    const nameError = await rename(path, name);
+    if (nameError) toast.error(`File uploaded; name not saved: ${nameError}`);
     setPending(null);
     const podErr = marksPod(type) ? await markPodReceived(row.load_id, qc) : null;
     setBusy(false);
     if (podErr) toast.error(`File saved, but the load couldn't be marked "Signed POD received": ${podErr}`);
     else if (marksPod(type)) toast.success("Signed POD attached — load marked POD received");
-    setPicked((x) => [...x, { path, name: path.split("/").pop()! }]);
+    setPicked((x) => [...x, { path, name }]);
     refetch();
   };
 
@@ -121,7 +124,7 @@ export function QbAttachDialog({ row, loads, preselect, onClose, onSaved }: { ro
             </label>
           )}
         </div>
-        <DocTypePicker file={pending} busy={busy} onPick={upload} onCancel={() => setPending(null)} />
+        <DocTypePicker file={pending} busy={busy} invoices={false} onPick={upload} onCancel={() => setPending(null)} />
         <ActionButton className="w-full" hintClassName="flex w-full" disabled={busy}
           hint={row?.qb_ref ? "Saves your picks and uploads the new files to this QuickBooks entry right now." : "Saves your picks. The files go to QuickBooks when this is sent."}
           confirm={() => {
