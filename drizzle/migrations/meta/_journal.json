@@ -435,6 +435,13 @@
       "when": 1794236874371,
       "tag": "0061_carrier_invoice_review",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794237037091,
+      "tag": "0062_carrier_invoice_review_totals",
+      "breakpoints": true
     }
   ]
 }
