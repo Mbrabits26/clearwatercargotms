@@ -6,7 +6,6 @@ import { Search, Link2 } from "lucide-react";
 import { qbFindExistingInvoice, qbAssignExistingInvoice } from "@/lib/quickbooks.functions";
 import type { QbInvoice } from "@/lib/qbMatch";
 import { usd, fmtDate } from "@/lib/tms";
-import { invoiceNet } from "@/lib/invoiceDeductions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
