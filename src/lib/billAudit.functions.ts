@@ -13,19 +13,24 @@ Return null for anything not on the document — never guess.
 - invoice_number: the carrier's own invoice number.
 - load_ref: the broker load #, rate con #, or PRO the invoice references.
 - total: the total amount due on the invoice in dollars (the invoice's own total, before any quick pay discount the broker takes).
-- lines: every charge line as {description, amount}: linehaul/freight, fuel, detention, lumper, layover, TONU, extra stops, etc. Use negative amounts for credits or deductions.`;
+- lines: every charge line as {description, amount}: linehaul/freight, fuel, detention, lumper, layover, TONU, extra stops, etc. Use negative amounts for credits or deductions.
+- factoring_company and factoring_address: the explicitly named factoring company and its remit-to address, not the broker/customer address. Null unless clearly identified as a factor.
+- remit_email: the factor's payment/remittance email, if explicitly shown. Never infer bank details or a notice of assignment.`;
 
 const SCHEMA = {
-  type: "object", additionalProperties: false, required: ["invoice_number", "load_ref", "carrier_name", "total", "lines"],
+  type: "object", additionalProperties: false, required: ["invoice_number", "load_ref", "carrier_name", "total", "lines", "factoring_company", "factoring_address", "remit_email"],
   properties: {
     invoice_number: { type: ["string", "null"] },
     load_ref: { type: ["string", "null"] },
     carrier_name: { type: ["string", "null"] },
+    factoring_company: { type: ["string", "null"] },
+    factoring_address: { type: ["string", "null"] },
+    remit_email: { type: ["string", "null"] },
     total: { type: ["number", "null"] },
     lines: { type: "array", items: { type: "object", additionalProperties: false, required: ["description", "amount"], properties: { description: { type: "string" }, amount: { type: "number" } } } },
   },
 };
-export type CarrierInvoiceRead = { invoice_number: string | null; load_ref: string | null; carrier_name: string | null; total: number | null; lines: { description: string; amount: number }[] };
+export type CarrierInvoiceRead = { invoice_number: string | null; load_ref: string | null; carrier_name: string | null; total: number | null; lines: { description: string; amount: number }[]; factoring_company: string | null; factoring_address: string | null; remit_email: string | null };
 
 /** Reads a carrier's invoice (PDF/photo) so the bill can be audited against the rate con. Read-only. */
 export const readCarrierInvoice = createServerFn({ method: "POST" })
