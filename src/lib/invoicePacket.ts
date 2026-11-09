@@ -6,7 +6,7 @@ export type PacketDocKind = "pod" | "bol" | "ratecon" | "invoice" | "carrier_inv
 
 export function packetDocKind(fileName: string, displayName?: string | null): PacketDocKind {
   const base = fileName.split("/").pop() ?? "";
-  if (/^carrier_invoice-/i.test(base)) return "carrier_invoice";
+  if (/^(carrier_invoice|factoring_invoice)-/i.test(base)) return "carrier_invoice";
   if (/^invoice-/i.test(base)) return "invoice";
   if (/^ratecon-/i.test(base)) return "ratecon";
   if (isPodDoc(fileName, displayName)) return "pod";
