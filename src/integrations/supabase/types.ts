@@ -1979,6 +1979,7 @@ export type Database = {
           attachments: Json
           attachments_sent: Json
           carrier_invoice_amount: number | null
+          carrier_invoice_kind: string | null
           carrier_invoice_lines: Json
           carrier_invoice_number: string | null
           carrier_invoice_path: string | null
@@ -2007,6 +2008,7 @@ export type Database = {
           attachments?: Json
           attachments_sent?: Json
           carrier_invoice_amount?: number | null
+          carrier_invoice_kind?: string | null
           carrier_invoice_lines?: Json
           carrier_invoice_number?: string | null
           carrier_invoice_path?: string | null
@@ -2035,6 +2037,7 @@ export type Database = {
           attachments?: Json
           attachments_sent?: Json
           carrier_invoice_amount?: number | null
+          carrier_invoice_kind?: string | null
           carrier_invoice_lines?: Json
           carrier_invoice_number?: string | null
           carrier_invoice_path?: string | null
@@ -2366,6 +2369,20 @@ export type Database = {
           status: Database["public"]["Enums"]["load_status"]
           weight_lbs: number
         }[]
+      }
+      save_carrier_invoice_review: {
+        Args: {
+          p_account?: Json
+          p_amount: number
+          p_bill: string
+          p_factor?: Json
+          p_kind: string
+          p_lines: Json
+          p_load: string
+          p_number: string
+          p_path: string
+        }
+        Returns: string
       }
       set_invoice_company: {
         Args: { p_id: string; p_kind: string }
