@@ -363,6 +363,18 @@ export async function sendAttachments(admin: Admin, ids?: string[]) {
 }
 
 type RawInv = { Id: string; CustomField?: { StringValue?: string }[]; DocNumber?: string; TxnDate?: string; TotalAmt?: number; Balance?: number; CustomerRef?: { name?: string }; PrivateNote?: string; CustomerMemo?: { value?: string }; ShipAddr?: Record<string, string>; Line?: { Amount?: number; Description?: string; DetailType?: string }[] };
+/** Exact lookup, including old invoices outside reconciliation's date range. Never creates an invoice. */
+export async function lookupExistingInvoice(admin: Admin, entity: QbEntity, value: string, by: "number" | "id") {
+  const conn = await getConn(admin, entity);
+  if (!conn) throw new Error("This QuickBooks company isn't connected.");
+  const qb = new Qb(conn);
+  if (by === "id") {
+    const result = await qb.req<{ Invoice?: RawInv }>(`invoice/${encodeURIComponent(value)}`);
+    if (!result.Invoice) throw new Error("Invoice not found in this QuickBooks company.");
+    return [toQbInvoice(result.Invoice)];
+  }
+  return (await qb.query<RawInv>("Invoice", `where DocNumber = '${esc(value)}'`)).map(toQbInvoice);
+}
 /** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
 export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean, entity: QbEntity = "brokerage") {
   const c = await getConn(admin, entity);

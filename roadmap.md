@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Accounting: manually link/relink queued or errored invoices to verified existing QuickBooks invoices; verify FF-1017 / 2088
+- [ ] Review permission-controlled manual corrections throughout TMS (documents, numbers, assignments); implement confirmed gaps without bypassing safeguards
+- [ ] Tracking: copy driver's phone number for Google Voice alongside tracking text
+
 - [x] Shipper prospect finder + cold outreach (sender micheal@clearwatercargo.com, multi-sender, sister-domain ready)
 - [x] Carrier packet link mobile/tablet friendly
 - [x] Rate con signing link mobile/tablet friendly

@@ -126,6 +126,55 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
 
 const entityZ = z.enum(["brokerage", "fleet"]);
 
+export const qbFindExistingInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ rowId: z.string().uuid(), value: z.string().trim().min(1).max(40), by: z.enum(["number", "id"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context as never);
+    const { data: row, error } = await context.supabase.from("qb_sync").select("kind").eq("id", data.rowId).single();
+    if (error || !row || row.kind === "bill") throw new Error("Customer invoice not found.");
+    const { lookupExistingInvoice, entityForKind } = await import("./quickbooks.server");
+    return { invoices: await lookupExistingInvoice(admin, entityForKind(row.kind), data.value, data.by) };
+  });
+
+export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ rowId: z.string().uuid(), qbId: z.string().min(1).max(40), previousRef: z.string().nullable() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context as never);
+    const { data: row, error } = await context.supabase.from("qb_sync").select("id, kind, invoice_number, qb_ref").eq("id", data.rowId).single();
+    if (error || !row || row.kind === "bill") throw new Error("Customer invoice not found.");
+    if (row.qb_ref !== data.previousRef) throw new Error("The invoice link changed. Close this window and try again.");
+    const { lookupExistingInvoice, entityForKind, listInvoiceFiles } = await import("./quickbooks.server");
+    const { manualInvoiceLinkPatch } = await import("./qbManualLink");
+    const entity = entityForKind(row.kind);
+    const [invoice] = await lookupExistingInvoice(admin, entity, data.qbId, "id");
+    if (!invoice?.docNumber) throw new Error("QuickBooks didn't return an invoice number.");
+    let groupQuery = context.supabase.from("qb_sync").select("id, qb_ref, attachments").eq("kind", row.kind);
+    groupQuery = row.invoice_number ? groupQuery.eq("invoice_number", row.invoice_number) : groupQuery.eq("id", row.id);
+    const { data: group, error: groupError } = await groupQuery;
+    if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
+    if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before assigning.");
+    const ids = group.map((g) => g.id);
+    const { data: used, error: usedError } = await context.supabase.from("qb_sync").select("id, invoice_number").eq("kind", row.kind).eq("qb_ref", invoice.id);
+    if (usedError) throw new Error(usedError.message);
+    if (used?.some((u) => !ids.includes(u.id))) throw new Error("This QuickBooks invoice is already assigned to another TMS invoice. Review that link first.");
+    // Retain files already present on the replacement invoice, so the next sync won't upload them twice.
+    const { parseAttachments } = await import("./qbAttachments");
+    const patch = manualInvoiceLinkPatch(row.qb_ref, invoice, new Date().toISOString());
+    if (row.qb_ref !== invoice.id) {
+      const files = await listInvoiceFiles(admin, entity, [invoice.id]);
+      const names = new Set(files.map((f) => f.name));
+      patch.attachments_sent = group.flatMap((g) => parseAttachments(g.attachments).filter((a) => names.has(a.name)).map((a) => a.path));
+    }
+    let update = context.supabase.from("qb_sync").update(patch).in("id", ids).eq("kind", row.kind);
+    update = row.qb_ref ? update.eq("qb_ref", row.qb_ref) : update.is("qb_ref", null);
+    const { data: updated, error: saveError } = await update.select("id");
+    if (saveError) throw new Error(saveError.message);
+    if (updated?.length !== ids.length) throw new Error("The invoice changed while saving. Refresh and review its link.");
+    return { invoiceNumber: invoice.docNumber, count: ids.length };
+  });
+
 /** Lists files attached to QuickBooks invoices — by invoice id, or every invoice linked to a load. Read-only. */
 export const qbInvoiceFiles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

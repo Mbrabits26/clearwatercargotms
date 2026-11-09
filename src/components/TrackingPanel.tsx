@@ -10,6 +10,7 @@ import { composeEmail } from "@/lib/email";
 import { fmtDate, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { trackingCopyText } from "@/lib/trackingCopy";
 
 export function TrackingPanel({ load }: { load: Load }) {
   const qc = useQueryClient();
@@ -89,7 +90,9 @@ export function TrackingPanel({ load }: { load: Load }) {
             {active.driver_phone && (
               <Button size="sm" variant="outline" title="Copies the message and opens Google Voice to this driver — paste with Cmd+V and send"
                 onClick={async () => {
-                  const digits = active.driver_phone!.replace(/\D/g, "");
+                  const driverPhone = active.driver_phone;
+                  if (!driverPhone) return;
+                  const digits = driverPhone.replace(/\D/g, "");
                   const num = digits.length === 10 ? `1${digits}` : digits;
                   try { await navigator.clipboard.writeText(message()); } catch { /* ignore */ }
                   window.open(`https://voice.google.com/u/0/messages?itemId=t.%2B${num}`, "_blank", "noopener");
@@ -99,6 +102,10 @@ export function TrackingPanel({ load }: { load: Load }) {
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={async () => { await navigator.clipboard.writeText(message()); toast.success("Text message copied"); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy text</Button>
+            {active.driver_phone && <>
+              <Button size="sm" variant="outline" title="Copy the driver's phone number for the Google Voice recipient field" onClick={async () => { try { await navigator.clipboard.writeText(active.driver_phone ?? ""); toast.success("Driver phone copied"); } catch { toast.error("Couldn't copy the phone number."); } }}><Copy className="mr-1 h-3.5 w-3.5" />Copy phone</Button>
+              <Button size="sm" variant="outline" title="Copy the driver's phone number and tracking message together" onClick={async () => { try { await navigator.clipboard.writeText(trackingCopyText(message(), active.driver_phone, true)); toast.success("Phone number and tracking text copied"); } catch { toast.error("Couldn't copy the tracking text."); } }}><Copy className="mr-1 h-3.5 w-3.5" />Copy phone + text</Button>
+            </>}
             <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
             <Button size="sm" variant="outline" onClick={email}><Mail className="mr-1 h-3.5 w-3.5" />Email</Button>
             <Button size="sm" variant="ghost" onClick={() => revoke(active.id)}><Ban className="mr-1 h-3.5 w-3.5" />Revoke</Button>
