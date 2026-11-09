@@ -46,7 +46,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
         if (!load.carrier_id) throw new Error("Assign a carrier to this load first.");
         const { data: carrier, error: carrierError } = await supabase.from("carriers").select("*").eq("id", load.carrier_id).single();
         if (carrierError || !carrier) throw new Error(carrierError?.message ?? "Carrier unavailable");
-        const { data: bill, error: billError } = await supabase.from("qb_sync").select("*").eq("load_id", loadId).eq("kind", "bill").order("queued_at", { ascending: false }).limit(1).maybeSingle();
+        const { data: bill, error: billError } = await supabase.from("qb_sync").select("*").eq("load_id", loadId).eq("kind", "bill").order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (billError) throw billError;
         const gross = loadTotals(load as Load).cost;
         const fee = gross * effectivePayTerms(load, carrier).fee;
@@ -82,7 +82,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
       <ul className="divide-y text-sm">
         {items.map((d, i) => {
           const picked = typeFromName(d.name);
-          const shown = picked ? LOAD_DOC_TYPES.find((t) => t.value === picked)?.label : label(d.file);
+          const shown = picked ? LOAD_DOC_TYPES.find((t) => t.value === picked)?.label : d.name.includes(" – ") ? d.name.split(" – ")[0] : label(d.file);
           return (
             <li key={d.path} className="flex items-center gap-2 py-1.5">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />

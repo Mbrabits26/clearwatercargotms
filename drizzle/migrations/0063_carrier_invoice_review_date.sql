@@ -1,0 +1,1 @@
+DO $$ DECLARE definition text; BEGIN SELECT pg_get_functiondef('public.save_carrier_invoice_review(uuid,uuid,text,text,text,numeric,jsonb,jsonb,jsonb)'::regprocedure) INTO definition; EXECUTE replace(definition,'ORDER BY queued_at DESC','ORDER BY created_at DESC'); END $$;
