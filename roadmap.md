@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Load uploads: custom typed document labels, regular/factoring carrier invoices, reviewed carrier factoring payment details under finance permissions
+
 - [x] Accounting: finance-only manual invoice linking; verified invoice 2088 / ref 40114919 assigned to CW-15408; removed conflicting CW-10529 link without changing ref 40116298
 - [ ] Accounting CW-10529: held pending verification of its existing QB invoice for customer ref 40116298; do not auto-create a replacement
 - [ ] Review permission-controlled manual corrections throughout TMS (documents, numbers, assignments); implement confirmed gaps without bypassing safeguards
