@@ -1,8 +1,9 @@
 # Roadmap
 
-- [ ] Accounting: manually link/relink queued or errored invoices to verified existing QuickBooks invoices; verify FF-1017 / 2088
+- [x] Accounting: finance-only manual invoice linking; verified invoice 2088 / ref 40114919 assigned to CW-15408; removed conflicting CW-10529 link without changing ref 40116298
+- [ ] Accounting CW-10529: held pending verification of its existing QB invoice for customer ref 40116298; do not auto-create a replacement
 - [ ] Review permission-controlled manual corrections throughout TMS (documents, numbers, assignments); implement confirmed gaps without bypassing safeguards
-- [ ] Tracking: copy driver's phone number for Google Voice alongside tracking text
+- [x] Tracking: added phone-only and phone + tracking text copy; Google Voice message unchanged; focused tests passed
 
 - [x] Shipper prospect finder + cold outreach (sender micheal@clearwatercargo.com, multi-sender, sister-domain ready)
 - [x] Carrier packet link mobile/tablet friendly
