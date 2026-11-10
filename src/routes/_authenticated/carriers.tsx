@@ -14,7 +14,7 @@ import { ArrowLeft, Ban, Copy as CopyIcon, Pencil, Plus, Search } from "lucide-r
 import { EditCarrierDialog } from "@/components/EditCarrierDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery } from "@/lib/queries";
-import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, type Carrier } from "@/lib/tms";
+import { carrierCompliance, carrierExpiry, DNU_REASONS, PAY_TERMS, payTermsOf, QP_FEE_CHOICES, type Carrier } from "@/lib/tms";
 import { DocumentsPanel, ExpiryBadge, InsurancePanel, InvitePanel, NewCarrierInvite } from "@/components/CarrierOnboarding";
 import { Button } from "@/components/ui/button";
 import { CarrierCheckButton } from "@/components/CarrierCheck";
@@ -218,6 +218,14 @@ function CarrierDetail({ c, refresh }: { c: Carrier; refresh: () => void }) {
             <SelectTrigger className="sm:w-80"><SelectValue /></SelectTrigger>
             <SelectContent>{PAY_TERMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
           </Select>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="text-sm text-muted-foreground">Quick Pay fee %</span>
+          <select aria-label="Carrier Quick Pay fee percent" className="h-9 rounded border bg-background px-2 text-sm sm:w-80" value={c.quickpay_fee_pct == null ? "" : String(c.quickpay_fee_pct)}
+            onChange={(e) => update({ quickpay_fee_pct: e.target.value === "" ? null : Number(e.target.value) }, "Quick Pay fee updated")}>
+            <option value="">Standard (Quick Pay 5%, Factored 2.5%)</option>
+            {QP_FEE_CHOICES.map((n) => <option key={n} value={n}>{n}%</option>)}
+          </select>
         </div>
       </div>
       <div className="rounded border bg-card p-4">
