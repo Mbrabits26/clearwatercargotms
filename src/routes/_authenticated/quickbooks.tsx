@@ -190,8 +190,9 @@ function Accounting() {
   const billMath = (l: Load) => {
     const gross = loadTotals(l).cost;
     const pt = effectivePayTerms(l, carrierOf(l));
-    const fee = Math.round(gross * pt.fee * 100) / 100;
-    return { gross, fee, net: gross - fee, pt };
+    const rate = effectiveFeeRate(l, carrierOf(l));
+    const fee = Math.round(gross * rate * 100) / 100;
+    return { gross, fee, net: gross - fee, pt, rate };
   };
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
@@ -603,7 +604,7 @@ function Accounting() {
                     <TableCell className={cn(age !== null && age > 30 && tab !== "bill" && "text-destructive font-medium")}>{age !== null ? `${age}d` : "—"}</TableCell>
                     <TableCell>
                       {usd(amountFor(l, tab as Kind))}
-                      {bm && bm.fee > 0 && <div className="text-[10px] text-muted-foreground">{usd(bm.gross)} − {usd(bm.fee)} {bm.pt.value === "quickpay" ? "Quick Pay 5%" : "Factored QP 2.5%"}</div>}
+                      {bm && bm.fee > 0 && <div className="text-[10px] text-muted-foreground">{usd(bm.gross)} − {usd(bm.fee)} {bm.pt.value === "quickpay" ? "Quick Pay" : "Factored QP"} {Math.round(bm.rate * 1000) / 10}%</div>}
                     </TableCell>
                     <TableCell>
                       {tab === "bill" ? (
