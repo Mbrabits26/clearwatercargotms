@@ -20,7 +20,7 @@ const LEAD_KEY = "cw_pay_lead_days";
 const day = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const dueText = (n: number) => (n < 0 ? `${-n} day${n === -1 ? "" : "s"} late` : n === 0 ? "due today" : `in ${n} day${n === 1 ? "" : "s"}`);
 
-type Bill = { status: string; qb_ref: string | null; carrier_invoice_path: string | null; carrier_invoice_number: string | null; carrier_invoice_kind: string | null; last_error: string | null };
+type Bill = { status: string; qb_ref: string | null; carrier_invoice_path: string | null; carrier_invoice_number: string | null; carrier_invoice_kind: string | null; error: string | null };
 type Item = { l: Load; c: Carrier | undefined; d: ReturnType<typeof carrierPayDue>; bill?: Bill };
 type Group = { carrier: Carrier | undefined; id: string; items: Item[]; net: number; newest: number; soonest: number; quickPay: boolean };
 
@@ -60,8 +60,10 @@ export function CarrierPayDue() {
       const ids = [...new Set(owed.flatMap((l) => l.carrier_id ? [l.carrier_id] : []))];
       const [cs, bills] = await Promise.all([
         ids.length ? supabase.from("carriers").select("*").in("id", ids) : Promise.resolve({ data: [] as Carrier[] }),
-        owed.length ? supabase.from("qb_sync").select("load_id, status, qb_ref, carrier_invoice_path, carrier_invoice_number, carrier_invoice_kind, last_error").eq("kind", "bill").in("load_id", owed.map((l) => l.id)) : Promise.resolve({ data: [] }),
+        owed.length ? supabase.from("qb_sync").select("load_id, status, qb_ref, carrier_invoice_path, carrier_invoice_number, carrier_invoice_kind, error").eq("kind", "bill").in("load_id", owed.map((l) => l.id)) : Promise.resolve({ data: [], error: null }),
       ]);
+      if ("error" in cs && cs.error) throw cs.error;
+      if (bills.error) throw bills.error;
       return { loads: owed, carriers: (cs.data ?? []) as Carrier[], bills: (bills.data ?? []) as (Bill & { load_id: string })[] };
     },
   });
@@ -168,7 +170,7 @@ export function CarrierPayDue() {
                     <td className={d.daysLeft < 0 ? "p-2 text-destructive" : "p-2"}>{day(d.due)}<p className="text-xs">{dueText(d.daysLeft)}</p><p className="text-xs text-muted-foreground">From {d.fromPod ? "POD" : "delivery"}</p></td>
                     <td className="p-2">{d.pt.terms}</td><td className="p-2"><PaymentPaperwork l={l} bill={bill} /></td>
                     <td className="p-2 text-right">{usd(d.gross)}</td><td className="p-2 text-right">{usd(d.fee)}<p className="text-xs text-muted-foreground">{Number((d.rate * 100).toFixed(2))}%</p></td><td className="p-2 text-right font-semibold">{usd(d.net)}</td>
-                    <td className="p-2 text-xs"><p className="capitalize">{bill?.qb_ref ? "Linked in QuickBooks" : bill?.status ?? "Not queued"}</p>{bill?.last_error && <p className="max-w-48 text-destructive">{bill.last_error}</p>}</td>
+                    <td className="p-2 text-xs"><p className="capitalize">{bill?.qb_ref ? "Linked in QuickBooks" : bill?.status ?? "Not queued"}</p>{bill?.error && <p className="max-w-48 text-destructive">{bill.error}</p>}</td>
                   </tr>)}{!rows.length && <tr><td colSpan={10} className="p-4 text-center text-muted-foreground">No matching loads.</td></tr>}</tbody>
                 </table>
               </div> :
