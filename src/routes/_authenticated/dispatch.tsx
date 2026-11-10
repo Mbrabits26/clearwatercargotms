@@ -11,7 +11,7 @@ import {
   PAY_TERMS, effectivePayTerms,
   STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, FLEET_CARRIER_ID, sortForBoard, latePickup, lateDelivery, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
-, effectiveFeeRate, QP_FEE_CHOICES } from "@/lib/tms";
+  effectiveFeeRate, QP_FEE_CHOICES } from "@/lib/tms";
 import { RateConPanel, tellRemovedCarrier } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
 import { ActionButton, Hint } from "@/components/ActionGuard";
