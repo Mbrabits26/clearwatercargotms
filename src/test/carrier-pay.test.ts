@@ -11,7 +11,7 @@ const load = (o: Partial<Load> = {}) => ({
   delivery_at: pod, created_at: pod, ...o,
 }) as unknown as Load;
 const carrier = (o: Partial<PayCarrier> = {}): PayCarrier => ({
-  id: "c1", legal_name: "Acme Trucking", pay_terms: "net30", factoring_company: null, factoring_remit: null,
+  id: "c1", legal_name: "Acme Trucking", pay_terms: "net30", quickpay_fee_pct: null, factoring_company: null, factoring_remit: null,
   factoring_remit_address: null, noa_received: false, address: "1 Main St", city: "Raleigh", state: "NC", zip: "27601", ...o,
 });
 
