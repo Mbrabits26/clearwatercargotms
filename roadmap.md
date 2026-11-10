@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Expand carrier due-pay window: searchable load detail, due dates, paperwork, fee breakdown and printable detail; preserve payment rules.
+
 - [x] Rate confirmations: email or phone signing-link sharing with Google Voice/texting app and manual phone/text copy.
 
 - [x] Load uploads: custom typed labels and regular/factoring carrier invoice choices; finance-only reviewed remit/payment saving; 25 focused tests passed; custom upload and factoring form browser-verified (no real payment details changed)

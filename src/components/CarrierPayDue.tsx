@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Banknote, Eye, EyeOff, Pencil, Settings2, X } from "lucide-react";
+import { ArrowLeft, Banknote, Eye, EyeOff, Pencil, Search, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { carrierPayDue, maskAccount, owesCarrier, payTo, shouldNotify } from "@/lib/carrierPay";
@@ -20,7 +20,8 @@ const LEAD_KEY = "cw_pay_lead_days";
 const day = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const dueText = (n: number) => (n < 0 ? `${-n} day${n === -1 ? "" : "s"} late` : n === 0 ? "due today" : `in ${n} day${n === 1 ? "" : "s"}`);
 
-type Item = { l: Load; c: Carrier | undefined; d: ReturnType<typeof carrierPayDue>; bill?: { status: string; qb_ref: string | null } };
+type Bill = { status: string; qb_ref: string | null; carrier_invoice_path: string | null; carrier_invoice_number: string | null; carrier_invoice_kind: string | null; last_error: string | null };
+type Item = { l: Load; c: Carrier | undefined; d: ReturnType<typeof carrierPayDue>; bill?: Bill };
 type Group = { carrier: Carrier | undefined; id: string; items: Item[]; net: number; newest: number; soonest: number; quickPay: boolean };
 
 /** Admin/accountant notice: carriers whose pay is due (Quick Pay as soon as the POD is in, Net 30 near its due date). */
@@ -31,6 +32,8 @@ export function CarrierPayDue() {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<"due" | "all">("due");
   const [sel, setSel] = useState<string | null>(null);
+  const [view, setView] = useState<"carriers" | "loads">("loads");
+  const [search, setSearch] = useState("");
 
   const { data } = useQuery({
     queryKey: ["carrier_pay_due"],
@@ -54,12 +57,12 @@ export function CarrierPayDue() {
         if (!byId.has(l.id)) byId.set(l.id, l as Load);
       }
       const owed = [...byId.values()].filter((l) => owesCarrier(l, invoiced.has(l.id)));
-      const ids = [...new Set(owed.map((l) => l.carrier_id!))];
+      const ids = [...new Set(owed.flatMap((l) => l.carrier_id ? [l.carrier_id] : []))];
       const [cs, bills] = await Promise.all([
         ids.length ? supabase.from("carriers").select("*").in("id", ids) : Promise.resolve({ data: [] as Carrier[] }),
-        owed.length ? supabase.from("qb_sync").select("load_id, status, qb_ref").eq("kind", "bill").in("load_id", owed.map((l) => l.id)) : Promise.resolve({ data: [] }),
+        owed.length ? supabase.from("qb_sync").select("load_id, status, qb_ref, carrier_invoice_path, carrier_invoice_number, carrier_invoice_kind, last_error").eq("kind", "bill").in("load_id", owed.map((l) => l.id)) : Promise.resolve({ data: [] }),
       ]);
-      return { loads: owed, carriers: (cs.data ?? []) as Carrier[], bills: (bills.data ?? []) as { load_id: string; status: string; qb_ref: string | null }[] };
+      return { loads: owed, carriers: (cs.data ?? []) as Carrier[], bills: (bills.data ?? []) as (Bill & { load_id: string })[] };
     },
   });
 
@@ -71,10 +74,13 @@ export function CarrierPayDue() {
     });
     const group = (list: Item[]) => {
       const m = new Map<string, Item[]>();
-      for (const it of list) m.set(it.l.carrier_id!, [...(m.get(it.l.carrier_id!) ?? []), it]);
+      for (const it of list) {
+        const id = it.l.carrier_id;
+        if (id) m.set(id, [...(m.get(id) ?? []), it]);
+      }
       return [...m.entries()].map(([id, its]) => {
         const sorted = [...its].sort((a, b) => b.d.podAt - a.d.podAt); // newest to oldest
-        return { id, carrier: sorted[0]!.c, items: sorted, net: sorted.reduce((t, x) => t + x.d.net, 0), newest: sorted[0]!.d.podAt, soonest: Math.min(...sorted.map((x) => x.d.due)), quickPay: sorted.some((x) => x.d.quickPay) };
+        return { id, carrier: sorted[0]?.c, items: sorted, net: sorted.reduce((t, x) => t + x.d.net, 0), newest: sorted[0]?.d.podAt ?? 0, soonest: Math.min(...sorted.map((x) => x.d.due)), quickPay: sorted.some((x) => x.d.quickPay) };
       }).sort((a, b) => b.newest - a.newest);
     };
     return { groups: group(items), dueGroups: group(items.filter((x) => shouldNotify(x.d, lead))) };
@@ -85,6 +91,10 @@ export function CarrierPayDue() {
   const dueNet = dueGroups.reduce((t, g) => t + g.net, 0);
   const qpCount = dueGroups.filter((g) => g.quickPay).length;
   const list = scope === "due" ? dueGroups : groups;
+  const needle = search.trim().toLowerCase();
+  const matches = (x: Item) => !needle || [x.c?.legal_name, payTo(x.c).name, x.l.load_number, x.l.customer_ref, x.l.ship_ref, x.l.origin_city, x.l.dest_city, x.bill?.carrier_invoice_number].join(" ").toLowerCase().includes(needle);
+  const visibleGroups = list.filter((g) => g.items.some(matches));
+  const rows = list.flatMap((g) => g.items).filter(matches).sort((a, b) => a.d.due - b.d.due);
   const current = list.find((g) => g.id === sel) ?? groups.find((g) => g.id === sel);
   const saveLead = (n: number) => { setLead(n); localStorage.setItem(LEAD_KEY, String(n)); };
 
@@ -92,9 +102,9 @@ export function CarrierPayDue() {
     <div className="mx-3 mt-2 flex items-center gap-2 rounded border border-gold/50 bg-gold/10 px-3 py-2 text-sm">
       <Banknote className="h-4 w-4 shrink-0 text-gold" />
       <span className="min-w-0 flex-1">
-        <button type="button" className="font-bold underline" onClick={() => { setSel(null); setScope("due"); setOpen(true); }}>
+        <Button variant="link" className="h-auto whitespace-normal p-0 font-bold text-gold underline" onClick={() => { setSel(null); setScope("due"); setSearch(""); setOpen(true); }}>
           {dueGroups.length} carrier{dueGroups.length > 1 ? "s" : ""} due to be paid
-        </button>{" "}
+        </Button>{" "}
         ({dueLoads} load{dueLoads > 1 ? "s" : ""} · {usd(dueNet)}){qpCount > 0 && <> · <b className="text-gold">{qpCount} Quick Pay</b></>}
       </span>
       <Popover>
@@ -108,19 +118,29 @@ export function CarrierPayDue() {
       <Button size="icon" variant="ghost" aria-label="Dismiss" onClick={() => setDismissed(true)}><X className="h-4 w-4" /></Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex h-[88dvh] w-[96vw] flex-col gap-3 sm:max-w-5xl">
+        <DialogContent className="flex h-[90dvh] w-[96vw] flex-col gap-3 sm:max-w-7xl">
           <DialogHeader className="shrink-0">
             <DialogTitle className="font-display text-2xl uppercase">{current ? current.carrier?.legal_name ?? "Carrier" : "Carriers to pay"}</DialogTitle>
-            <DialogDescription>{current ? "Pay details, payment account and the loads waiting on payment." : "Newest first. Click a carrier to see what to pay and where to send it."}</DialogDescription>
+            <DialogDescription>{current ? `MC ${current.carrier?.mc_number || "—"} · DOT ${current.carrier?.dot_number || "—"}` : "Outstanding carrier balances · Clearwater Cargo"}</DialogDescription>
           </DialogHeader>
           {current ? (
-            <PayDetail group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
+            <PayDetail key={current.id} group={current} onBack={() => setSel(null)} onLeave={() => setOpen(false)} />
           ) : (
             <>
               <div className="flex shrink-0 flex-wrap gap-2">
                 <Button size="sm" variant={scope === "due" ? "default" : "outline"} onClick={() => setScope("due")}>Due now ({dueGroups.length})</Button>
                 <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>All unpaid ({groups.length})</Button>
+                <Button size="sm" variant={view === "loads" ? "secondary" : "outline"} onClick={() => setView("loads")}>By load</Button>
+                <Button size="sm" variant={view === "carriers" ? "secondary" : "outline"} onClick={() => setView("carriers")}>By carrier</Button>
+                <div className="relative w-full sm:w-64"><Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" /><Input aria-label="Search carrier payments" className="h-8 pl-8" placeholder="Carrier, load, reference, invoice" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
                 <ReportExport className="ml-auto" build={(): ReportSpec => {
+                  if (view === "loads") return {
+                    title: scope === "due" ? "Carrier loads due for payment" : "All unpaid carrier loads",
+                    filters: needle ? [`Search: ${search}`] : [],
+                    head: ["Load", "Carrier", "Pay to", "Customer ref", "Delivery", "Due", "Terms", "POD", "Carrier invoice", "Gross", "Fee %", "Fee", "Net"], right: [9, 10, 11, 12],
+                    rows: rows.map(({ l, c, d, bill }) => [l.load_number, c?.legal_name ?? "Unknown", payTo(c).name, l.customer_ref ?? "", l.delivery_at ? day(new Date(l.delivery_at).getTime()) : "—", `${day(d.due)} (${dueText(d.daysLeft)})`, d.pt.terms, l.pod_received ? "Received" : "Missing", bill?.carrier_invoice_path ? bill.carrier_invoice_number || "On file" : "Missing", usd(d.gross), `${Number((d.rate * 100).toFixed(2))}%`, usd(d.fee), usd(d.net)]),
+                  };
+                  const list = visibleGroups;
                   const loadsN = list.reduce((t, g) => t + g.items.length, 0), net = list.reduce((t, g) => t + g.net, 0);
                   return {
                     title: scope === "due" ? "Carriers due to be paid" : "All unpaid carriers",
@@ -135,13 +155,30 @@ export function CarrierPayDue() {
                   };
                 }} />
               </div>
+              <div className="grid shrink-0 grid-cols-2 gap-3 border-y py-3 sm:grid-cols-4">
+                {[ ["Loads", String(rows.length)], ["Gross carrier pay", usd(rows.reduce((t, x) => t + x.d.gross, 0))], ["Quick Pay fees", usd(rows.reduce((t, x) => t + x.d.fee, 0))], ["Net to pay", usd(rows.reduce((t, x) => t + x.d.net, 0))] ].map(([label, value]) => <div key={label}><p className="text-xs uppercase text-muted-foreground">{label}</p><p className="text-lg font-semibold">{value}</p></div>)}
+              </div>
+              {view === "loads" ? <div className="min-h-0 flex-1 overflow-auto rounded border">
+                <table className="w-full min-w-[1180px] text-sm">
+                  <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground"><tr>{["Load / references", "Carrier / pay to", "Delivered", "Due", "Terms", "Paperwork", "Gross", "Fee", "Net", "QuickBooks bill"].map((h) => <th key={h} className="p-2">{h}</th>)}</tr></thead>
+                  <tbody>{rows.map(({ l, c, d, bill }) => <tr key={l.id} className="border-t hover:bg-muted/40">
+                    <td className="p-2"><Button asChild variant="link" className="h-auto p-0 text-gold"><Link to="/dispatch" search={{ load: l.id }} onClick={() => setOpen(false)}>{l.load_number}</Link></Button><p className="text-xs text-muted-foreground">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</p><p className="text-xs">Customer ref: {l.customer_ref || "—"}</p><p className="text-xs">Shipper ref: {l.ship_ref || "—"}</p></td>
+                    <td className="p-2"><Button variant="link" className="h-auto max-w-52 whitespace-normal p-0 text-left text-gold" onClick={() => setSel(c?.id ?? null)}>{c?.legal_name ?? "Unknown carrier"}</Button><p className="text-xs text-muted-foreground">Pay to: {payTo(c).name}</p>{payTo(c).noaMissing && <p className="text-xs text-destructive">NOA missing</p>}</td>
+                    <td className="p-2">{l.delivery_at ? day(new Date(l.delivery_at).getTime()) : "—"}</td>
+                    <td className={d.daysLeft < 0 ? "p-2 text-destructive" : "p-2"}>{day(d.due)}<p className="text-xs">{dueText(d.daysLeft)}</p><p className="text-xs text-muted-foreground">From {d.fromPod ? "POD" : "delivery"}</p></td>
+                    <td className="p-2">{d.pt.terms}</td><td className="p-2"><PaymentPaperwork l={l} bill={bill} /></td>
+                    <td className="p-2 text-right">{usd(d.gross)}</td><td className="p-2 text-right">{usd(d.fee)}<p className="text-xs text-muted-foreground">{Number((d.rate * 100).toFixed(2))}%</p></td><td className="p-2 text-right font-semibold">{usd(d.net)}</td>
+                    <td className="p-2 text-xs"><p className="capitalize">{bill?.qb_ref ? "Linked in QuickBooks" : bill?.status ?? "Not queued"}</p>{bill?.last_error && <p className="max-w-48 text-destructive">{bill.last_error}</p>}</td>
+                  </tr>)}{!rows.length && <tr><td colSpan={10} className="p-4 text-center text-muted-foreground">No matching loads.</td></tr>}</tbody>
+                </table>
+              </div> :
               <div className="min-h-0 flex-1 overflow-auto rounded border">
                 <table className="w-full min-w-[700px] text-sm">
                   <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
                     <tr><th className="p-2">Carrier</th><th className="p-2">Pay to</th><th className="p-2">Terms</th><th className="p-2">Loads</th><th className="p-2">Newest</th><th className="p-2">Next due</th><th className="p-2 text-right">Net to pay</th></tr>
                   </thead>
                   <tbody>
-                    {list.map((g) => {
+                    {visibleGroups.map((g) => {
                       const left = Math.ceil((g.soonest - Date.now()) / 86_400_000);
                       return (
                         <tr key={g.id} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => setSel(g.id)}>
@@ -155,10 +192,10 @@ export function CarrierPayDue() {
                         </tr>
                       );
                     })}
-                    {!list.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nothing waiting.</td></tr>}
+                    {!visibleGroups.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nothing waiting.</td></tr>}
                   </tbody>
                 </table>
-              </div>
+              </div>}
             </>
           )}
         </DialogContent>
@@ -168,6 +205,12 @@ export function CarrierPayDue() {
 }
 
 type Account = { method: string; bank_name: string | null; account_name: string | null; routing_number: string | null; account_number: string | null; account_type: string | null; remit_email: string | null; notes: string | null };
+function PaymentPaperwork({ l, bill }: { l: Load; bill?: Bill }) {
+  return <div className="space-y-1 text-xs">
+    <p className={l.pod_received ? "text-success" : "text-warning"}>Signed POD: {l.pod_received ? "Received" : "Missing"}</p>
+    {bill?.carrier_invoice_path ? <DocLink items={[{ name: `${bill.carrier_invoice_kind === "factoring" ? "Factoring" : "Carrier"} invoice${bill.carrier_invoice_number ? ` #${bill.carrier_invoice_number}` : ""}`, bucket: "load-docs", path: bill.carrier_invoice_path, readOnly: true }]}>{bill.carrier_invoice_kind === "factoring" ? "Factoring" : "Carrier"} invoice {bill.carrier_invoice_number ? `#${bill.carrier_invoice_number}` : "on file"}</DocLink> : <p className="text-warning">Carrier invoice: not reviewed</p>}
+  </div>;
+}
 const EMPTY: Account = { method: "ach", bank_name: "", account_name: "", routing_number: "", account_number: "", account_type: "checking", remit_email: "", notes: "" };
 
 function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => void; onLeave: () => void }) {
@@ -307,7 +350,7 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
           <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="p-2"><Checkbox checked={picked.length === group.items.length} onCheckedChange={(v) => setPicked(v ? group.items.map((x) => x.l.id) : [])} aria-label="Select all" /></th>
-              <th className="p-2">Load</th><th className="p-2">Clock from</th><th className="p-2">Due</th><th className="p-2">Terms</th>
+              <th className="p-2">Load / references</th><th className="p-2">Paperwork</th><th className="p-2">Clock from</th><th className="p-2">Due</th><th className="p-2">Terms</th>
               <th className="p-2 text-right">Carrier pay</th><th className="p-2 text-right">Quick Pay fee</th><th className="p-2 text-right">Net to pay</th><th className="p-2">QuickBooks bill</th><th />
             </tr>
           </thead>
@@ -315,12 +358,13 @@ function PayDetail({ group, onBack, onLeave }: { group: Group; onBack: () => voi
             {group.items.map(({ l, d, bill }) => (
               <tr key={l.id} className="border-t">
                 <td className="p-2"><Checkbox checked={picked.includes(l.id)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, l.id] : p.filter((x) => x !== l.id)))} aria-label={`Select ${l.load_number}`} /></td>
-                <td className="p-2 font-semibold">{l.load_number}<div className="text-xs font-normal text-muted-foreground">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</div></td>
+                <td className="p-2 font-semibold">{l.load_number}<div className="text-xs font-normal text-muted-foreground">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</div><p className="text-xs font-normal">Customer ref: {l.customer_ref || "—"}</p><p className="text-xs font-normal">Shipper ref: {l.ship_ref || "—"}</p></td>
+                <td className="p-2"><PaymentPaperwork l={l} bill={bill} /></td>
                 <td className="p-2">{day(d.podAt)}<div className="text-xs text-muted-foreground">{d.fromPod ? "POD in" : <span className="text-warning">Delivery · no POD</span>}</div></td>
                 <td className={d.daysLeft < 0 ? "p-2 font-semibold text-destructive" : "p-2"}>{day(d.due)}<div className="text-xs">{dueText(d.daysLeft)}</div></td>
                 <td className="p-2">{d.pt.terms}</td>
                 <td className="p-2 text-right">{usd(d.gross)}</td>
-                <td className="p-2 text-right">{d.fee ? `−${usd(d.fee)}` : "—"}</td>
+                <td className="p-2 text-right">{d.fee ? `−${usd(d.fee)}` : "—"}<p className="text-xs text-muted-foreground">{Number((d.rate * 100).toFixed(2))}%</p></td>
                 <td className="p-2 text-right font-semibold">{usd(d.net)}</td>
                 <td className="p-2 text-xs capitalize">{bill ? (bill.qb_ref ? "In QuickBooks" : bill.status) : "Not sent"}</td>
                 <td className="p-2 text-right"><Link to="/dispatch" search={{ load: l.id }} onClick={onLeave} className="text-gold underline">Open load</Link></td>
