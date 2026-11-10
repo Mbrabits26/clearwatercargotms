@@ -560,6 +560,7 @@ export type Database = {
           noa_received: boolean
           pay_terms: string
           phone: string | null
+          quickpay_fee_pct: number | null
           safety_rating: string | null
           state: string | null
           status: Database["public"]["Enums"]["carrier_status"]
@@ -597,6 +598,7 @@ export type Database = {
           noa_received?: boolean
           pay_terms?: string
           phone?: string | null
+          quickpay_fee_pct?: number | null
           safety_rating?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["carrier_status"]
@@ -634,6 +636,7 @@ export type Database = {
           noa_received?: boolean
           pay_terms?: string
           phone?: string | null
+          quickpay_fee_pct?: number | null
           safety_rating?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["carrier_status"]
@@ -1472,6 +1475,7 @@ export type Database = {
           pieces: number | null
           pod_received: boolean
           pod_received_at: string | null
+          quickpay_fee_pct: number | null
           ratecon_pdf_path: string | null
           ratecon_signed: boolean
           ship_ref: string | null
@@ -1527,6 +1531,7 @@ export type Database = {
           pieces?: number | null
           pod_received?: boolean
           pod_received_at?: string | null
+          quickpay_fee_pct?: number | null
           ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
           ship_ref?: string | null
@@ -1582,6 +1587,7 @@ export type Database = {
           pieces?: number | null
           pod_received?: boolean
           pod_received_at?: string | null
+          quickpay_fee_pct?: number | null
           ratecon_pdf_path?: string | null
           ratecon_signed?: boolean
           ship_ref?: string | null

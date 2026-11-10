@@ -11,7 +11,7 @@ const load = (o: Partial<Load> = {}) => ({
   delivery_at: pod, created_at: pod, ...o,
 }) as unknown as Load;
 const carrier = (o: Partial<PayCarrier> = {}): PayCarrier => ({
-  id: "c1", legal_name: "Acme Trucking", pay_terms: "net30", factoring_company: null, factoring_remit: null,
+  id: "c1", legal_name: "Acme Trucking", pay_terms: "net30", quickpay_fee_pct: null, factoring_company: null, factoring_remit: null,
   factoring_remit_address: null, noa_received: false, address: "1 Main St", city: "Raleigh", state: "NC", zip: "27601", ...o,
 });
 
@@ -79,5 +79,20 @@ describe("carrier payments window", () => {
     expect(s.paid).toEqual({ count: 1, net: 1900 });
     expect(s.owed).toEqual({ count: 1, net: 1900 });
     expect(s.pastDue).toBe(1);
+  });
+});
+
+describe("quick pay fee percent", () => {
+  it("existing carriers with no chosen % keep the standard 5%", () => {
+    expect(carrierPayDue(load(), carrier({ pay_terms: "quickpay" }), t0).fee).toBe(100);
+  });
+  it("a carrier % replaces the standard", () => {
+    expect(carrierPayDue(load(), carrier({ pay_terms: "quickpay", quickpay_fee_pct: 3 } as never), t0).fee).toBe(60);
+  });
+  it("a load % at final pay beats the carrier %", () => {
+    expect(carrierPayDue(load({ quickpay_fee_pct: 2 } as never), carrier({ pay_terms: "quickpay", quickpay_fee_pct: 3 } as never), t0).fee).toBe(40);
+  });
+  it("Net 30 never takes a fee even with a %", () => {
+    expect(carrierPayDue(load({ quickpay_fee_pct: 2 } as never), carrier(), t0).fee).toBe(0);
   });
 });

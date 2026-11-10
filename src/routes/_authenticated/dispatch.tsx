@@ -11,7 +11,7 @@ import {
   PAY_TERMS, effectivePayTerms,
   STATUSES, statusMeta, usd, fmtDate, loadTotals, marginText, isFleetLoad, FLEET_CARRIER_ID, sortForBoard, latePickup, lateDelivery, carrierCompliance, checkCallOverdue,
   ACCESSORIAL_TYPES, type Accessorial, type Load, type LoadStatus, type Carrier, type Company, type Profile,
-} from "@/lib/tms";
+  effectiveFeeRate, QP_FEE_CHOICES } from "@/lib/tms";
 import { RateConPanel, tellRemovedCarrier } from "@/components/RateConPanel";
 import { Button } from "@/components/ui/button";
 import { ActionButton, Hint } from "@/components/ActionGuard";
@@ -611,7 +611,8 @@ const Cockpit = memo(function Cockpit({
   const acc = (load.accessorials as Accessorial[]) ?? [];
   const compliance = carrier ? carrierCompliance(carrier) : null;
   const pay = effectivePayTerms(load, carrier);
-  const qpFee = t.cost * pay.fee;
+  const qpRate = effectiveFeeRate(load, carrier);
+  const qpFee = Math.round(t.cost * qpRate * 100) / 100;
   const adv = Number(advance || 0);
   const advFee = adv ? Math.max(15, adv * 0.02) : 0;
   const netCarrier = t.cost - qpFee - adv - advFee;
@@ -806,6 +807,13 @@ const Cockpit = memo(function Cockpit({
                 <SelectContent>{PAY_TERMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
               </Select>
             </label>
+            {pay.fee > 0 && <label className="mt-2 flex items-center gap-2">Quick Pay fee for this load
+              <select aria-label="Quick Pay fee percent" className="h-8 rounded border bg-background px-2 text-sm" value={load.quickpay_fee_pct == null ? "" : String(load.quickpay_fee_pct)}
+                onChange={(e) => update({ quickpay_fee_pct: e.target.value === "" ? null : Number(e.target.value) }, "Quick Pay fee updated")}>
+                <option value="">Carrier default ({Math.round((carrier?.quickpay_fee_pct ?? pay.fee * 100) * 10) / 10}%)</option>
+                {QP_FEE_CHOICES.map((n) => <option key={n} value={n}>{n}%</option>)}
+              </select>
+            </label>}
             <label className="mt-2 flex items-center gap-2">Fuel advance <Input className="h-7 w-24" value={advance} onChange={(e) => setAdvance(e.target.value)} placeholder="$0" /></label>
             <KV k="QuickPay fee (finance revenue)" v={usd(qpFee)} />
             <KV k="Advance fee (2%, min $15)" v={usd(advFee)} />

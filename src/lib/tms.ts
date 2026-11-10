@@ -144,6 +144,15 @@ export const payTermsOf = (v: string | null | undefined) => PAY_TERMS.find((p) =
 /** Load override wins, else the carrier's chosen option. */
 export const effectivePayTerms = (load: { pay_terms?: string | null }, carrier?: { pay_terms?: string | null } | null) =>
   payTermsOf(load.pay_terms ?? carrier?.pay_terms);
+/** Quick Pay fee % choices (standard Quick Pay is 5%). */
+export const QP_FEE_CHOICES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
+/** Fee rate (0–1) for a load: Quick Pay options use load % override, else carrier %, else the standard; others 0. */
+export function effectiveFeeRate(load: { pay_terms?: string | null; quickpay_fee_pct?: number | null }, carrier?: { pay_terms?: string | null; quickpay_fee_pct?: number | null } | null) {
+  const pt = effectivePayTerms(load, carrier);
+  if (!pt.fee) return 0;
+  const pct = load.quickpay_fee_pct ?? carrier?.quickpay_fee_pct;
+  return pct != null && Number.isFinite(Number(pct)) ? Number(pct) / 100 : pt.fee;
+}
 
 /** Paste-ready load summary (no money) for texts, emails and load posts. */
 export function loadString(l: Load, names: { customer?: string | null; shipper?: Company | null; consignee?: Company | null } = {}) {

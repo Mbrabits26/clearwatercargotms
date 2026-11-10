@@ -1,11 +1,11 @@
-import { effectivePayTerms, isFleetLoad, loadTotals, type Carrier, type Load, type PayTerms } from "@/lib/tms";
+import { effectiveFeeRate, effectivePayTerms, isFleetLoad, loadTotals, type Carrier, type Load, type PayTerms } from "@/lib/tms";
 
 const DAY = 86_400_000;
 /** Days from POD to pay: Quick Pay options pay in 3 days, everything else Net 30. */
 export const payDays = (t: PayTerms) => (t === "quickpay" || t === "factored_quickpay" ? 3 : 30);
 export const isQuickPay = (t: PayTerms) => t === "quickpay" || t === "factored_quickpay";
 
-export type PayCarrier = Pick<Carrier, "id" | "legal_name" | "pay_terms" | "factoring_company" | "factoring_remit" | "factoring_remit_address" | "noa_received" | "address" | "city" | "state" | "zip">;
+export type PayCarrier = Pick<Carrier, "id" | "legal_name" | "pay_terms" | "quickpay_fee_pct" | "factoring_company" | "factoring_remit" | "factoring_remit_address" | "noa_received" | "address" | "city" | "state" | "zip">;
 
 /**
  * Brokered load with a carrier that hasn't been marked paid, once the POD is in OR the customer
@@ -19,11 +19,12 @@ export const owesCarrier = (l: Load, hasInvoice = false) =>
 export function carrierPayDue(l: Load, carrier: PayCarrier | null | undefined, now = Date.now()) {
   const pt = effectivePayTerms(l, carrier);
   const gross = loadTotals(l).cost;
-  const fee = Math.round(gross * pt.fee * 100) / 100;
+  const rate = effectiveFeeRate(l, carrier);
+  const fee = Math.round(gross * rate * 100) / 100;
   // Clock starts at the POD; without one (older loads) it starts at delivery.
   const start = new Date((l.pod_received ? l.pod_received_at : null) ?? l.delivery_at ?? l.pod_received_at ?? l.created_at).getTime();
   const due = start + payDays(pt.value) * DAY;
-  return { fromPod: !!l.pod_received && !!l.pod_received_at, pt, gross, fee, net: Math.round((gross - fee) * 100) / 100, podAt: start, due, daysLeft: Math.ceil((due - now) / DAY), quickPay: isQuickPay(pt.value) };
+  return { rate, fromPod: !!l.pod_received && !!l.pod_received_at, pt, gross, fee, net: Math.round((gross - fee) * 100) / 100, podAt: start, due, daysLeft: Math.ceil((due - now) / DAY), quickPay: isQuickPay(pt.value) };
 }
 
 /** Quick Pay shows the moment the POD is in; Net 30 shows once it is within `leadDays` of due (or past due). */
