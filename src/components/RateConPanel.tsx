@@ -2,7 +2,8 @@ import { DocLink, useBlobViewer } from "@/components/DocPreview";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, FileSignature, FileText, Mail, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Download, FileSignature, FileText, Mail, MessageSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { rateconPhone, rateconText } from "@/lib/rateconDelivery";
 import { supabase } from "@/integrations/supabase/client";
 import { applyTrackingFee, buildRateConData, buildRateConPdf, isTrackingLine, TRACKING_FEE, type RateConData } from "@/lib/ratecon";
 import { composeEmail, getMailClient } from "@/lib/email";
@@ -41,6 +42,10 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   const [shipRef, setShipRef] = useState(load.ship_ref ?? "");
   const [destRef, setDestRef] = useState(load.dest_ref ?? "");
   const [email, setEmail] = useState(carrier?.email ?? "");
+  const [phone, setPhone] = useState(carrier?.phone ?? "");
+  const [phoneShare, setPhoneShare] = useState<{ url: string; message: string; phone: string } | null>(null);
+  const [sending, setSending] = useState(false);
+  useEffect(() => { setPhone(carrier?.phone ?? ""); setPhoneShare(null); }, [load.id, carrier?.id, carrier?.phone]);
   useEffect(() => { setEmail(carrier?.email ?? ""); }, [carrier?.id, carrier?.email]);
   // Per-rate-con edits; they go into the snapshot the carrier signs, not back onto the load.
   const [draft, setDraft] = useState<RateConData | null>(null);
@@ -94,29 +99,49 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     toast.success("Rate con updated. Send it for signature when ready.");
   };
   const W = <K extends keyof RateConData>(k: K, v: RateConData[K]) => setWork((p) => (p ? { ...p, [k]: v } : p));
-  const send = async () => {
+  const send = async (method: "email" | "phone" = "email") => {
     if (!carrier) return;
+    const number = rateconPhone(phone);
+    if (method === "phone" && !number) return toast.error("Enter a complete phone number, including country code outside the US or Canada.");
+    if (method === "email" && !recipients().length) return toast.error("Enter a valid carrier email address.");
+    const existing = reqs.find((r) => r.status === "sent");
+    if (method === "phone" && existing && !draft && !load.ratecon_signed) {
+      const old = existing.snapshot as unknown as RateConData | null;
+      const url = link(existing.token);
+      if (number) setPhoneShare({ url, message: rateconText(load.load_number, old?.lane ?? rcData().lane, url), phone: number });
+      return;
+    }
     if (load.ratecon_signed && !confirm("This rate con is already signed. Send a revised one? The carrier will need to sign the new version; the old signed copy stays on file.")) return;
+    setSending(true);
+    try {
     await saveRefs();
     await supabase.from("ratecon_requests").update({ status: "void" }).eq("load_id", load.id).eq("status", "sent");
     if (load.ratecon_signed) { await supabase.from("loads").update({ ratecon_signed: false }).eq("id", load.id); onSaved(); }
     const snapshot = rcData();
-    const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: recipients().join(", ") || null, snapshot }).select("token").single();
+    const { data, error } = await supabase.from("ratecon_requests").insert({ load_id: load.id, carrier_email: method === "email" ? recipients().join(", ") : null, snapshot }).select("token").single();
     if (error) return toast.error(error.message);
     // Keep a copy of exactly what was sent in the load's documents.
     await supabase.storage.from("load-docs").upload(`${load.id}/ratecon-${load.load_number}-sent.pdf`, buildRateConPdf(snapshot).output("blob"), { upsert: true, contentType: "application/pdf" });
     qc.invalidateQueries({ queryKey: ["load-docs", load.id] });
     const url = link(data.token);
+    if (method === "phone" && number) {
+      setPhoneShare({ url, message: rateconText(load.load_number, snapshot.lane, url), phone: number });
+      qc.invalidateQueries({ queryKey: key });
+      return;
+    }
     await navigator.clipboard.writeText(url).catch(() => {});
     const to = recipients();
     let direct = false;
     if (to.length) {
-      const body = `Please review and sign rate confirmation ${load.load_number} (${snapshot.lane}):\n\n${url}\n\nClearwater Cargo LLC · 252-497-7916`;
+      const body = rateconText(load.load_number, snapshot.lane, url);
       const cc = ccMe && myEmail && !to.includes(myEmail) ? myEmail : undefined;
       direct = await composeEmail(to.join(", "), `Rate Confirmation ${load.load_number} — Clearwater Cargo`, body, getMailClient(), cc);
     }
     toast.success("Signing link copied" + (to.length ? (direct ? ` and emailed to ${to.length} recipient${to.length > 1 ? "s" : ""}${ccMe ? " (copy to you)" : ""}` : " and email drafted") : ""));
     qc.invalidateQueries({ queryKey: key });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't prepare the rate confirmation.");
+    } finally { setSending(false); }
   };
   const pending = reqs.find((r) => r.status === "sent");
   const hasSigned = load.ratecon_signed || !!load.ratecon_pdf_path || reqs.some((r) => r.status === "signed");
@@ -147,10 +172,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     {viewer.viewer}
     <div className="mt-4 space-y-2 border-t pt-3">
       <div className="text-xs font-semibold uppercase tracking-widest text-gold">Rate confirmation · RC #{load.load_number}</div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Input placeholder="Shipper PO / PU Ref #" value={shipRef} onChange={(e) => setShipRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Dest ref" value={destRef} onChange={(e) => setDestRef(e.target.value)} onBlur={saveRefs} />
-        <Input placeholder="Carrier emails (separate with commas)" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className="text-xs">Email<Input aria-label="Rate confirmation email" placeholder="Carrier emails (separate with commas)" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label className="text-xs">Phone<Input aria-label="Rate confirmation phone" type="tel" placeholder="Carrier or driver phone" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <label className="flex items-center gap-1"><input type="checkbox" checked={ccMe} onChange={(e) => setCcMe(e.target.checked)} />Send a copy to me{myEmail && ` (${myEmail})`}</label>
@@ -161,9 +187,10 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
         <Button size="sm" variant="outline" disabled={!carrier} onClick={openEdit}><Pencil className="mr-1 h-3.5 w-3.5" />Edit rate con</Button>
         <Button size="sm" variant="outline" disabled={!carrier} onClick={preview}><FileText className="mr-1 h-3.5 w-3.5" />Preview PDF</Button>
         {draft && <span className="self-center text-[10px] uppercase text-gold">Edited · <button className="underline" onClick={() => setDraft(null)}>reset</button></span>}
-        <Button size="sm" disabled={!carrier} onClick={send}>
-          <Mail className="mr-1 h-3.5 w-3.5" />{load.ratecon_signed ? "Send revised rate con" : pending ? "Resend for signature" : "Send for signature"}
+        <Button size="sm" disabled={!carrier || sending} onClick={() => send("email")}>
+          <Mail className="mr-1 h-3.5 w-3.5" />{sending ? "Preparing…" : load.ratecon_signed ? "Email revised rate con" : pending ? "Resend by email" : "Email for signature"}
         </Button>
+        <Button size="sm" variant="outline" disabled={!carrier || sending} onClick={() => send("phone")}><MessageSquare className="mr-1 h-3.5 w-3.5" />Text for signature</Button>
         {load.ratecon_pdf_path && (
           <DocLink items={[{ name: `RateCon-${load.load_number}-signed.pdf`, bucket: "load-docs", path: load.ratecon_pdf_path, readOnly: true }]} className="self-center text-sm"><Download className="mr-1 inline h-3.5 w-3.5" />Signed rate con</DocLink>
         )}
@@ -186,6 +213,24 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
           </li>
         ))}
       </ul>
+      <Dialog open={!!phoneShare} onOpenChange={(open) => { if (!open) setPhoneShare(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-auto">
+          <DialogHeader><DialogTitle>Text rate confirmation · {load.load_number}</DialogTitle></DialogHeader>
+          {phoneShare && <div className="space-y-3">
+            <div className="text-sm">To: {phoneShare.phone}</div>
+            <Textarea aria-label="Rate confirmation text message" rows={6} readOnly value={phoneShare.message} />
+            <div className="flex flex-wrap gap-2">
+              <Button asChild><a href={`sms:${phoneShare.phone}?&body=${encodeURIComponent(phoneShare.message)}`}><MessageSquare className="mr-1 h-4 w-4" />Open texting app</a></Button>
+              <Button variant="outline" onClick={() => {
+                window.open(`https://voice.google.com/u/0/messages?itemId=t.${encodeURIComponent(phoneShare.phone)}`, "_blank", "noopener");
+                navigator.clipboard.writeText(phoneShare.message).then(() => toast.success("Text copied — paste it in Google Voice and send.")).catch(() => toast.error("Couldn't copy — select the message above and copy it."));
+              }}><MessageSquare className="mr-1 h-4 w-4" />Google Voice</Button>
+              <Button variant="outline" onClick={() => navigator.clipboard.writeText(phoneShare.phone).then(() => toast.success("Phone copied")).catch(() => toast.error("Couldn't copy phone"))}><Copy className="mr-1 h-4 w-4" />Copy phone</Button>
+              <Button variant="outline" onClick={() => navigator.clipboard.writeText(phoneShare.message).then(() => toast.success("Text copied")).catch(() => toast.error("Couldn't copy text"))}><Copy className="mr-1 h-4 w-4" />Copy text</Button>
+            </div>
+          </div>}
+        </DialogContent>
+      </Dialog>
       <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle className="font-display text-2xl uppercase">Delete signed rate con · RC #{load.load_number}</DialogTitle></DialogHeader>

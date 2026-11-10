@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Rate confirmations: email or phone signing-link sharing with Google Voice/texting app and manual phone/text copy.
+
 - [x] Load uploads: custom typed labels and regular/factoring carrier invoice choices; finance-only reviewed remit/payment saving; 25 focused tests passed; custom upload and factoring form browser-verified (no real payment details changed)
 
 - [x] Accounting: finance-only manual invoice linking; verified invoice 2088 / ref 40114919 assigned to CW-15408; removed conflicting CW-10529 link without changing ref 40116298
