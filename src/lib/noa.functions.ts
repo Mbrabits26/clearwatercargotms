@@ -15,9 +15,31 @@ export const readNoaDoc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ carrierId: z.string().uuid(), docId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const sb = context.supabase;
-    const { data: staff } = await sb.rpc("is_staff", { _uid: context.userId });
+    const { data: staff } = await context.supabase.rpc("is_staff", { _uid: context.userId });
     if (!staff) throw new Error("Forbidden");
+    return readOne(context.supabase, context.userId, data);
+  });
+
+/** Re-reads every NOA already on file (finance only); fills blanks only, never overwrites. */
+export const readAllNoas = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ offset: z.number().int().min(0).default(0) }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const { data: fin } = await sb.rpc("is_finance", { _uid: context.userId });
+    if (!fin) throw new Error("Only admins/accountants can read bank details");
+    const { data: docs } = await sb.from("carrier_documents").select("id, carrier_id, file_name").eq("kind", "noa").not("file_path", "is", null).order("uploaded_at", { ascending: false });
+    const all = docs ?? [];
+    const batch = all.slice(data.offset, data.offset + 4);
+    const results = await Promise.all(batch.map(async (d) => {
+      try { const r = await readOne(sb, context.userId, { carrierId: d.carrier_id, docId: d.id }); return { carrierId: d.carrier_id, file: d.file_name, filled: r.filled, found: r.found, error: r.bankSkipped || null }; }
+      catch (e) { return { carrierId: d.carrier_id, file: d.file_name, filled: [] as string[], found: false, error: e instanceof Error ? e.message : "Failed" }; }
+    }));
+    return { total: all.length, next: data.offset + batch.length, results };
+  });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readOne(sb: any, userId: string, data: { carrierId: string; docId: string }) {
     const { data: doc } = await sb.from("carrier_documents").select("*").eq("id", data.docId).eq("carrier_id", data.carrierId).single();
     if (!doc?.file_path) throw new Error("Document not found");
     const { data: blob } = await sb.storage.from("carrier-docs").download(doc.file_path);
@@ -44,7 +66,7 @@ export const readNoaDoc = createServerFn({ method: "POST" })
     await sb.from("carriers").update(cPatch as never).eq("id", data.carrierId);
     const filled: string[] = Object.keys(cPatch).filter((k) => k !== "noa_received");
     let bankSaved = false; let bankSkipped = "";
-    const { data: fin } = await sb.rpc("is_finance", { _uid: context.userId });
+    const { data: fin } = await sb.rpc("is_finance", { _uid: userId });
     const bank = { bank_name: p.bank_name, account_name: p.account_name, routing_number: routingOk, account_number: digits(p.account_number), account_type: p.account_type?.toLowerCase() === "savings" ? "savings" : p.account_type ? "checking" : null, remit_email: p.remit_email };
     const hasBank = Object.values(bank).some(Boolean);
     if (hasBank && !fin) bankSkipped = "Bank details were found but only admins/accountants can save them.";
@@ -61,4 +83,4 @@ export const readNoaDoc = createServerFn({ method: "POST" })
     const last4 = (s: string | null) => (s ? `••••${s.slice(-4)}` : null);
     return { found: !!(p.factoring_company || hasBank), filled, bankSaved, bankSkipped,
       noa: { factoring_company: p.factoring_company, remit_address: p.remit_address, remit_email: p.remit_email, bank_name: p.bank_name, routing: last4(routingOk), account: last4(digits(p.account_number)) } };
-  });
+}

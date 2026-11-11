@@ -92,9 +92,15 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
       } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the certificate"); }
       update({ coi_received: true } as Partial<Carrier>, "Document uploaded");
     } else if (kind === "noa" && doc) {
+      await readNoaNow(doc.id);
+      update({ noa_received: true } as Partial<Carrier>, "Document uploaded");
+    } else update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
+    setBusy(false);
+  };
+  const readNoaNow = async (docId: string) => {
       const t = toast.loading("Reading notice of assignment…");
       try {
-        const r = await readNoa({ data: { carrierId: c.id, docId: doc.id } });
+        const r = await readNoa({ data: { carrierId: c.id, docId } });
         toast.dismiss(t);
         const n = r.noa;
         if (r.found) toast.success(`NOA read — check these against the document`, { duration: 20000, description: [
@@ -106,9 +112,6 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
         qc.invalidateQueries({ queryKey: ["carriers"] });
         qc.invalidateQueries({ queryKey: ["carrier_payment_accounts"] });
       } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the NOA"); }
-      update({ noa_received: true } as Partial<Carrier>, "Document uploaded");
-    } else update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
-    setBusy(false);
   };
   const fileDocs: DocItem[] = docs.filter((d) => d.file_path).map((d) => ({ name: d.file_name ?? d.kind, bucket: "carrier-docs", path: d.file_path }));
 
@@ -159,7 +162,9 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
                 qc.invalidateQueries({ queryKey: key });
               }} />
             </span>
-            <span className="text-xs text-muted-foreground">{d.source} · {fmtDate(d.uploaded_at)}</span>
+            <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+              {d.kind === "noa" && d.file_path && <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" disabled={busy} onClick={async () => { setBusy(true); await readNoaNow(d.id); setBusy(false); }}>Read NOA</Button>}
+              {d.source} · {fmtDate(d.uploaded_at)}</span>
           </li>
         ))}
         {!docs.length && <li className="py-2 text-xs text-muted-foreground">No files uploaded yet.</li>}
