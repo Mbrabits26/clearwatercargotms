@@ -158,7 +158,8 @@ function TrackPage() {
     if (kind === "pod") refetch();
   };
 
-  if (reviewQueue.length) return <ScanReview key={reviewQueue.length + reviewQueue[0].name + reviewQueue[0].lastModified} file={reviewQueue[0]} onDone={reviewed} />;
+  const nextScan = reviewQueue[0];
+  if (nextScan) return <ScanReview key={reviewQueue.length + nextScan.name + nextScan.lastModified} file={nextScan} onDone={reviewed} />;
   if (isLoading) return <Shell><p className="text-center text-muted-foreground">Loading…</p></Shell>;
   if (!data?.ok) {
     if (data && "completed" in data && data.completed) return (

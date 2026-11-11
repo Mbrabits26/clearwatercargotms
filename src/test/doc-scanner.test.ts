@@ -26,7 +26,7 @@ describe("POD scanner", () => {
     const size = outputSize(q);
     const out = { ...size, data: new Uint8ClampedArray(size.width * size.height * 4) };
     warp(src, q, out);
-    let dark = 0; for (let i = 0; i < out.data.length; i += 4) if (out.data[i] < 100) dark++;
+    let dark = 0; for (let i = 0; i < out.data.length; i += 4) if ((out.data[i] ?? 0) < 100) dark++;
     expect(dark / (size.width * size.height)).toBeLessThan(0.02);
   });
 });
