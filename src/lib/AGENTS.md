@@ -1,6 +1,6 @@
 # src/lib
 
-- Multi-photo driver PODs use deferred uploads and token-validated `finishTrackingPod`, which verifies saved files before marking POD received and closing tracking; `savePodPhotos` keeps saved paths on retry. Why: the first photo must not lock out the remaining pages.
+- Driver POD selections are converted browser-side by `podPdf.ts` into one PDF in selection order, including every selected PDF page; deferred upload and token-validated `finishTrackingPod` verify the saved file before marking POD received and closing tracking, and keep its saved path on retry. Why: multiple photos belong in one attachment and an incomplete upload must not close the link.
 
 - Doc extraction runs server-side in `extract.server.ts` (Lovable AI, strict JSON); spreadsheets are converted to CSV in the browser first. All document AI reads share `readDocJson`; carrier packets use `extractCarrierPacket` plus a review step before writing to carriers.
 - `fixCarrierWithAi` reads carrier-docs + FMCSA, fills blanks only, preview-then-apply.
