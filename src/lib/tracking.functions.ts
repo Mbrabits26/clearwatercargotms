@@ -138,19 +138,21 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       kind: z.enum(["pod", "bol"]),
       fileName: z.string().min(1).max(200),
       base64: z.string().min(50).max(14_000_000),
+      deferCompletion: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin, tk, problem } = await loadToken(data.token);
     if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
     const safe = data.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
-    const path = `${tk.load_id}/${data.kind}-${Date.now()}-${safe}`;
+    const path = `${tk.load_id}/${data.kind}-${crypto.randomUUID()}-${safe}`;
     const { error } = await supabaseAdmin.storage
       .from("load-docs")
       .upload(path, Buffer.from(data.base64, "base64"), { contentType: "application/octet-stream" });
     if (error) { console.error(error); return { ok: false as const, problem: "Could not save the document. Please try again." }; }
-    if (data.kind === "pod") {
-      await supabaseAdmin.from("loads").update({ pod_received: true, last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
+    if (data.kind === "pod" && !data.deferCompletion) {
+      const { error: podError } = await supabaseAdmin.from("loads").update({ pod_received: true, last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
+      if (podError) return { ok: false as const, problem: "Could not record the POD. Please try again." };
     }
     // Bell alerts listen for tracking pings, so uploads log one too.
     await supabaseAdmin.from("load_tracking_pings").insert({ load_id: tk.load_id, token_id: tk.id, kind: "doc", status: `${data.kind === "pod" ? "POD" : "BOL"} uploaded`, note: data.fileName });
@@ -159,17 +161,40 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
       author_id: tk.created_by ?? undefined,
       body: `Driver uploaded ${data.kind === "pod" ? "POD" : "BOL"}: ${data.fileName}`,
     });
-    const delivered = data.kind === "pod" ? await autoDeliverIfPod(supabaseAdmin, tk, "POD uploaded") : false;
+    const delivered = data.kind === "pod" && !data.deferCompletion ? await autoDeliverIfPod(supabaseAdmin, tk, "POD uploaded") : false;
     const { emailDriverUpdate } = await import("./notifyPrefs.server");
     await emailDriverUpdate(supabaseAdmin, tk, "email_driver_docs", {
       what: `${data.kind === "pod" ? "POD" : "BOL"} uploaded: ${data.fileName}${delivered ? " — load marked Delivered" : ""}`,
       key: path,
     });
     if (delivered) await closeLinks(supabaseAdmin, tk.load_id);
-    else if (data.kind === "pod") {
+    else if (data.kind === "pod" && !data.deferCompletion) {
       const { data: l } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).single();
       if (trackingFinished(l)) await closeLinks(supabaseAdmin, tk.load_id);
     }
+    return { ok: true as const, delivered, path };
+  });
+
+/** Finish a multi-page POD only after the selected files are present on this load. */
+export const finishTrackingPod = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => tokenSchema.extend({ paths: z.array(z.string().min(1).max(300)).min(1).max(100) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, tk, problem } = await loadToken(data.token);
+    if (problem || !tk) return { ok: false as const, problem: problem ?? "Invalid link" };
+    for (const path of data.paths) {
+      const prefix = `${tk.load_id}/pod-`;
+      if (!path.startsWith(prefix) || path.slice(tk.load_id.length + 1).includes("/")) {
+        return { ok: false as const, problem: "This POD does not belong to this load." };
+      }
+      const name = path.slice(tk.load_id.length + 1);
+      const { data: files, error } = await supabaseAdmin.storage.from("load-docs").list(tk.load_id, { search: name });
+      if (error || !files?.some(file => file.name === name)) return { ok: false as const, problem: "A POD photo is missing. Please retry the upload." };
+    }
+    const { error } = await supabaseAdmin.from("loads").update({ pod_received: true, last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
+    if (error) return { ok: false as const, problem: "Could not complete the POD. Please try again." };
+    const delivered = await autoDeliverIfPod(supabaseAdmin, tk, "driver finished uploading POD photos");
+    const { data: load } = await supabaseAdmin.from("loads").select("status, pod_received").eq("id", tk.load_id).single();
+    if (trackingFinished(load)) await closeLinks(supabaseAdmin, tk.load_id);
     return { ok: true as const, delivered };
   });
 
