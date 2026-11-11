@@ -438,3 +438,19 @@ export async function downloadInvoiceFile(admin: Admin, entity: QbEntity, attach
   if (bytes.byteLength > MAX_BYTES) throw new Error("File is over 25 MB.");
   return { bytes, name: a.FileName, contentType: a.ContentType || "application/octet-stream" };
 }
+
+/** Read-only: current balance/total for the given QuickBooks invoice ids (batched). Missing ids are left out. */
+export async function invoiceBalances(admin: Admin, entity: QbEntity, ids: string[]) {
+  const c = await getConn(admin, entity);
+  if (!c) throw new Error(entity === "fleet" ? "Foust Farms QuickBooks isn't connected." : "Clearwater Cargo QuickBooks isn't connected.");
+  const qb = new Qb(c);
+  const out = new Map<string, { total: number; balance: number; docNumber: string | null; customer: string; date: string | null }>();
+  const clean = [...new Set(ids.filter((i) => /^\d+$/.test(i)))];
+  for (let k = 0; k < clean.length; k += 100) {
+    const part = clean.slice(k, k + 100).map((i) => `'${i}'`).join(",");
+    const q = encodeURIComponent(`select * from Invoice where Id in (${part}) maxresults 1000`);
+    const j = await qb.req<{ QueryResponse: { Invoice?: RawInv[] } }>(`query?query=${q}`);
+    for (const i of j.QueryResponse?.Invoice ?? []) out.set(i.Id, { total: Number(i.TotalAmt ?? 0), balance: Number(i.Balance ?? 0), docNumber: i.DocNumber ?? null, customer: i.CustomerRef?.name ?? "", date: i.TxnDate ?? null });
+  }
+  return out;
+}

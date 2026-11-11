@@ -44,6 +44,7 @@ import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoi
 import { BillAuditDialog } from "@/components/BillAuditDialog";
 import { FactoringRemittanceDialog } from "@/components/FactoringRemittanceDialog";
 import { QbAuditDialog } from "@/components/QbAuditDialog";
+import { QbPaidDialog } from "@/components/QbPaidDialog";
 import { auditBill, parseChargeLines } from "@/lib/billAudit";
 import type { PayCarrier } from "@/lib/carrierPay";
 
@@ -249,6 +250,7 @@ function Accounting() {
   const [auditOpen, setAuditOpen] = useState(false);
   const [factorOpen, setFactorOpen] = useState(false);
   const [qbAuditOpen, setQbAuditOpen] = useState(false);
+  const [paidOpen, setPaidOpen] = useState(false);
   const billTargetFor = (l: Load): BillTarget => { const b = billMath(l); return { load: l, bill: synced(l.id, "bill"), payee: payee(l, "bill"), net: b.net, gross: b.gross, fee: b.fee }; };
   const invoicedIds = useMemo(() => new Set(sync.filter((s) => s.kind !== "bill").map((s) => s.load_id)), [sync]);
 
@@ -466,6 +468,7 @@ function Accounting() {
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
         <div className="flex flex-wrap gap-2">
           {isFinance && <ActionButton variant="outline" hint="Read-only: finds duplicate invoices in both QuickBooks companies, and checks an uploaded check stub or remittance against your QuickBooks invoices." onClick={() => setQbAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />QB duplicates & payments</ActionButton>}
+          {isFinance && <ActionButton variant="outline" hint="Reads both QuickBooks companies for customer invoices paid in full, lists their loads, and lets you mark them Paid (optionally close out)." onClick={() => setPaidOpen(true)}><Landmark className="mr-1 h-4 w-4" />Customer paid in QB</ActionButton>}
           {(tab === "invoice" || tab === "fleet_invoice") && (
             <ActionButton variant="outline" hint="Opens a window to create invoice numbers for the ticked loads — one per load or one combined. You review it before anything is saved." onClick={() => (picked.length ? setBatchOpen(true) : toast.info("Tick the delivered loads to invoice."))}><FileText className="mr-1 h-4 w-4" />Create invoices ({picked.length})</ActionButton>
           )}
@@ -654,6 +657,7 @@ function Accounting() {
         onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => setPacketRow(null)} />
       <CarrierInvoiceDialog target={billTarget} onClose={() => setBillTarget(null)} onSaved={() => { setBillTarget(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <BillAuditDialog open={auditOpen} onOpenChange={setAuditOpen} loads={shown} billOf={(id) => synced(id, "bill")} payeeOf={(l) => payee(l, "bill")} onAttach={(l) => setBillTarget(billTargetFor(l))} />
+      {paidOpen && <QbPaidDialog open={paidOpen} onOpenChange={setPaidOpen} />}
       {qbAuditOpen && <QbAuditDialog open={qbAuditOpen} onOpenChange={setQbAuditOpen} />}
       <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
       <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
