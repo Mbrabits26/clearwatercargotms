@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { markPodReceived } from "@/lib/podMark";
@@ -9,6 +9,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AttachToQbButton, DeleteDocButton } from "@/components/DocActions";
+
+const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 
 /** A document stored in a private bucket, or a generated in-memory file. */
 export type DocItem = { name: string; bucket?: "carrier-docs" | "load-docs"; path?: string; blob?: Blob; /** Hide file actions (delete / attach / mark POD) — e.g. signed rate con links. */ readOnly?: boolean };
@@ -52,7 +54,7 @@ function useDocUrl(d: DocItem | null, enabled = true) {
 function Frame({ d, url, small }: { d: DocItem; url: string; small?: boolean }) {
   const k = kindOf(d);
   if (k === "image") return <img src={url} alt={d.name} className={cn("mx-auto object-contain", small ? "max-h-56" : "max-h-[75vh]")} />;
-  if (k === "pdf") return <iframe title={d.name} src={`${url}#toolbar=1&view=FitH`} className={cn("w-full rounded bg-white", small ? "h-56" : "h-[75vh]")} />;
+  if (k === "pdf") return <Suspense fallback={<Loader2 className="mx-auto my-8 h-5 w-5 animate-spin text-muted-foreground" />}><PdfPreview key={url} url={url} name={d.name} small={small} /></Suspense>;
   return <div className="flex flex-col items-center gap-2 py-10 text-sm text-muted-foreground"><FileText className="h-10 w-10" />No preview for this file type — use Download.</div>;
 }
 
