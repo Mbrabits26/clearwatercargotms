@@ -123,11 +123,37 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         if (added) toast(`You were tagged ${added} time${added === 1 ? "" : "s"} while away`, { description: "Open the bell to see each one." });
       });
 
+    // Driver updates and signed rate cons that happened while this tab was closed or asleep.
+    const seenKey = `cw-alerts-seen:${userId}`;
+    const catchUp = async () => {
+      const since = new Date(Math.max(Number(localStorage.getItem(seenKey)) || 0, Date.now() - 3 * 86_400_000)).toISOString();
+      localStorage.setItem(seenKey, String(Date.now()));
+      const [pings, rcs] = await Promise.all([
+        on("app_driver") ? supabase.from("load_tracking_pings").select("id, load_id, kind, status, place, created_at").gt("created_at", since).order("created_at").limit(50) : Promise.resolve({ data: [] as any[] }),
+        on("app_ratecon") ? supabase.from("ratecon_requests").select("id, load_id, signer_name, signed_at").eq("status", "signed").gt("signed_at", since).limit(30) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      let added = 0;
+      for (const p of (pings.data ?? []) as any[]) {
+        const l = await loadInfo(p.load_id); if (!l || !mine(l.broker_id)) continue;
+        const what = p.kind === "pod" || p.kind === "doc" ? (p.status ?? "Document uploaded") : p.status ? `Status: ${p.status}` : "Location check-in";
+        if (push(`Driver update — ${l.load_number}`, `${what}${p.place ? ` · ${p.place}` : ""}`, "/dispatch", { load: p.load_id }, { id: `ping-${p.id}`, at: new Date(p.created_at).getTime(), quiet: true }) !== false) added++;
+      }
+      for (const r of (rcs.data ?? []) as any[]) {
+        const l = await loadInfo(r.load_id); if (!l || !mine(l.broker_id)) continue;
+        if (push(`Rate con signed — ${l.load_number}`, `Signed by ${r.signer_name ?? "carrier"}`, "/dispatch", { load: r.load_id }, { id: `rc-${r.id}`, at: new Date(r.signed_at).getTime(), quiet: true }) !== false) added++;
+      }
+      if (added) toast(`${added} update${added === 1 ? "" : "s"} while you were away`, { description: "Open the bell to see each one." });
+    };
+    catchUp();
+    const onVis = () => { if (document.visibilityState === "visible") catchUp(); };
+    document.addEventListener("visibilitychange", onVis);
+    const stamp = () => localStorage.setItem(seenKey, String(Date.now()));
+
     const ch = supabase.channel(`alerts-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ratecon_requests" }, async (p: any) => {
         if (!on("app_ratecon") || p.new.status !== "signed" || p.old?.status === "signed") return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
-        push(`Rate con signed — ${l.load_number}`, `Signed by ${p.new.signer_name ?? "carrier"}`, "/dispatch", { load: p.new.load_id });
+        push(`Rate con signed — ${l.load_number}`, `Signed by ${p.new.signer_name ?? "carrier"}`, "/dispatch", { load: p.new.load_id }, { id: `rc-${p.new.id}` });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "carrier_invites" }, async (p: any) => {
         if (!on("app_carrier_packet")) return;
@@ -141,8 +167,8 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_tracking_pings" }, async (p: any) => {
         if (!on("app_driver")) return;
         const l = await loadInfo(p.new.load_id); if (!l || !mine(l.broker_id)) return;
-        const what = p.new.kind === "pod" || p.new.kind === "doc" ? "Document uploaded" : p.new.status ? `Status: ${p.new.status}` : "Location check-in";
-        push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch", { load: p.new.load_id });
+        const what = p.new.kind === "pod" || p.new.kind === "doc" ? (p.new.status ?? "Document uploaded") : p.new.status ? `Status: ${p.new.status}` : "Location check-in";
+        stamp(); push(`Driver update — ${l.load_number}`, `${what}${p.new.place ? ` · ${p.new.place}` : ""}`, "/dispatch", { load: p.new.load_id }, { id: `ping-${p.new.id}` });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_notes" }, async (p: any) => {
         // Admins/accountants: a load moved to Invoiced → review it and sync with QuickBooks.
@@ -167,7 +193,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         push(isDm ? `Message from ${who}` : `Team chat — ${who}`, String(m.body).slice(0, 140), "/dispatch", id ? { load: id } : undefined);
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { supabase.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); };
   }, [userId, isAdmin, isFinance, key, navigate, qc]);
 
   const unread = alerts.filter((a) => !a.read).length;
