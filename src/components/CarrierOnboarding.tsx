@@ -1,6 +1,7 @@
 import { composeEmail } from "@/lib/email";
 import { useServerFn } from "@tanstack/react-start";
 import { readCoiDoc } from "@/lib/coi.functions";
+import { readNoaDoc } from "@/lib/noa.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -58,6 +59,7 @@ export function InsurancePanel({ c, update }: { c: Carrier; update: (p: Partial<
 export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<Carrier>, m: string) => void }) {
   const qc = useQueryClient();
   const readCoi = useServerFn(readCoiDoc);
+  const readNoa = useServerFn(readNoaDoc);
   const key = ["carrier_docs", c.id];
   const { data: docs = [] } = useQuery({
     queryKey: key,
@@ -89,6 +91,22 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
         qc.invalidateQueries({ queryKey: ["carriers"] });
       } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the certificate"); }
       update({ coi_received: true } as Partial<Carrier>, "Document uploaded");
+    } else if (kind === "noa" && doc) {
+      const t = toast.loading("Reading notice of assignment…");
+      try {
+        const r = await readNoa({ data: { carrierId: c.id, docId: doc.id } });
+        toast.dismiss(t);
+        const n = r.noa;
+        if (r.found) toast.success(`NOA read — check these against the document`, { duration: 20000, description: [
+          n.factoring_company && `Factor: ${n.factoring_company}`, n.remit_address && `Remit: ${n.remit_address}`, n.remit_email && `Email: ${n.remit_email}`,
+          n.bank_name && `Bank: ${n.bank_name}`, n.routing && `Routing ${n.routing}`, n.account && `Account ${n.account}`,
+          r.filled.length ? `Filled blanks: ${r.filled.join(", ").replace(/_/g, " ")}` : "Nothing new filled (existing info kept)", r.bankSkipped,
+        ].filter(Boolean).join(" · ") });
+        else toast.warning("Couldn't read payment details from the NOA — please enter them by hand.");
+        qc.invalidateQueries({ queryKey: ["carriers"] });
+        qc.invalidateQueries({ queryKey: ["carrier_payment_accounts"] });
+      } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the NOA"); }
+      update({ noa_received: true } as Partial<Carrier>, "Document uploaded");
     } else update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
     setBusy(false);
   };
