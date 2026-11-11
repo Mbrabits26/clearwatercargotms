@@ -26,7 +26,7 @@ export const readAllNoas = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ offset: z.number().int().min(0).default(0) }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
-    const { data: fin } = await sb.rpc("is_finance", { _uid: userId });
+    const { data: fin } = await sb.rpc("is_finance", { _uid: context.userId });
     if (!fin) throw new Error("Only admins/accountants can read bank details");
     const { data: docs } = await sb.from("carrier_documents").select("id, carrier_id, file_name").eq("kind", "noa").not("file_path", "is", null).order("uploaded_at", { ascending: false });
     const all = docs ?? [];
