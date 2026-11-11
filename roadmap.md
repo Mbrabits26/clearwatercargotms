@@ -1,5 +1,6 @@
 # Roadmap
 
+- [x] Accounting manual QB linking: make existing correction visible by name in AR and Sync log; offer matching for Not sent loads without a TMS invoice, with a permanent top-level entry.
 - [x] CW-10472 white POD display: saved scan contains legible paperwork/signatures; PDF.js preview verified at phone/desktop sizes without altering load or invoice.
 - [x] POD hover previews without automatically downloading; browser verified zero hover downloads and successful explicit Download.
 - [x] Explain thumb removal: outside-paper fingers can be cropped; do not reconstruct obscured content or alter the signed POD to invent missing paper.

@@ -467,6 +467,7 @@ function Accounting() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold uppercase">Accounting</h1>
         <div className="flex flex-wrap gap-2">
+          {isFinance && <ActionButton variant="outline" hint="Read existing QuickBooks invoices and manually link one to a TMS load that shows Not sent. Linking records the existing invoice without sending a duplicate." onClick={() => openWindow("qbMatch")}><Link2 className="mr-1 h-4 w-4" />Link existing QB invoice</ActionButton>}
           {isFinance && <ActionButton variant="outline" hint="Read-only: finds duplicate invoices in both QuickBooks companies, and checks an uploaded check stub or remittance against your QuickBooks invoices." onClick={() => setQbAuditOpen(true)}><ClipboardCheck className="mr-1 h-4 w-4" />QB duplicates & payments</ActionButton>}
           {isFinance && <ActionButton variant="outline" hint="Reads both QuickBooks companies for customer invoices paid in full, lists their loads, and lets you mark them Paid (optionally close out)." onClick={() => setPaidOpen(true)}><Landmark className="mr-1 h-4 w-4" />Customer paid in QB</ActionButton>}
           {(tab === "invoice" || tab === "fleet_invoice") && (
@@ -506,7 +507,6 @@ function Accounting() {
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1 text-muted-foreground">Queued items go to the matching company's QuickBooks automatically.</span>
           <ActionButton size="sm" hint="Sends everything waiting in the queue (and any failed items) to QuickBooks now, plus any picked attachments." confirm={syncSpec} onClick={() => syncNow()} disabled={syncing}><RotateCcw className="mr-1 h-3.5 w-3.5" />{syncing ? "Syncing…" : "Sync now"}</ActionButton>
-          {isFinance && <ActionButton size="sm" variant="outline" hint="Opens a window that reads invoices from QuickBooks (without changing them) and suggests which TMS load each belongs to. You choose what to link." onClick={() => openWindow("qbMatch")}>Match QuickBooks invoices</ActionButton>}
           {isFinance && <ActionButton size="sm" variant="outline" hint="Opens the assistant: ask in plain English or compare the TMS with QuickBooks. It only builds lists — nothing changes until you tick rows and confirm." onClick={() => openWindow("reviewAssistant")}>Review assistant</ActionButton>}
         </div>
       ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
@@ -566,7 +566,7 @@ function Accounting() {
                   <TableCell>{fmtDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {isFinance && s.kind !== "bill" && <ActionButton size="icon" variant="ghost" aria-label="Assign existing QuickBooks invoice" hint="Manually link or correct this invoice to an existing QuickBooks invoice, without creating a duplicate." onClick={() => setLinking(s)}><Link2 className="h-3.5 w-3.5" /></ActionButton>}
+                      {isFinance && s.kind !== "bill" && <ActionButton size="sm" variant="outline" aria-label="Assign existing QuickBooks invoice" hint="Manually link or correct this invoice to an existing QuickBooks invoice and mark it sent in the TMS, without creating a duplicate." onClick={() => setLinking(s)}><Link2 className="mr-1 h-3.5 w-3.5" />Link QB invoice</ActionButton>}
                       {isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
                       <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>
                       {s.status === "error" && s.error?.startsWith("Possible duplicate") && <ActionButton size="sm" variant="ghost" className="h-8 px-2 text-xs" hint="Sends this as a new QuickBooks invoice even though one with the same customer and amount exists." confirm={() => ({ title: "Send a new invoice anyway?", points: ["Only do this if the QuickBooks invoice shown in the error is for a different load.", "A new invoice is created in QuickBooks."], confirmLabel: "Send anyway" })} onClick={() => sendAnyway(s.id)}>Send anyway</ActionButton>}
@@ -631,9 +631,9 @@ function Accounting() {
                       ) : <span className="text-xs text-muted-foreground">Assigned when queued</span>}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
                         {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
-                        {s && isFinance && s.kind !== "bill" && <ActionButton size="icon" variant="ghost" aria-label="Assign existing QuickBooks invoice" hint="Manually link or correct this invoice to an existing QuickBooks invoice, without creating a duplicate." onClick={() => setLinking(s)}><Link2 className="h-3.5 w-3.5" /></ActionButton>}
+                        {isFinance && tab !== "bill" && <ActionButton size="sm" variant="outline" aria-label="Assign existing QuickBooks invoice" hint="Link an invoice already in QuickBooks instead of sending a duplicate. Existing TMS invoices can be reassigned and marked sent; loads without a TMS invoice use the matching window." onClick={() => s ? setLinking(s) : openWindow("qbMatch")}><Link2 className="mr-1 h-3.5 w-3.5" />Link QB invoice</ActionButton>}
                         {s && isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
                         {s && <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>}
                         {s && s.status === "error" && <ActionButton size="icon" variant="ghost" aria-label="Retry" hint={HINT.retry} confirm={retrySpec(s)} onClick={() => retry(s)}><RotateCcw className="h-3.5 w-3.5" /></ActionButton>}
