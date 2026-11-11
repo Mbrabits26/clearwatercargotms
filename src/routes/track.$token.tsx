@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { MapPin, Camera, CheckCircle2, Truck, ShieldCheck, Images, X } from "lucide-react";
 import { getTracking, postPing, uploadTrackingDoc, finishTrackingPod } from "@/lib/tracking.functions";
 import { savePodPhotos, type PodPhoto } from "@/lib/podUpload";
+import { buildPodPdf, podImageBytes } from "@/lib/podPdf";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 
@@ -33,6 +34,7 @@ function TrackPage() {
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState<(PodPhoto<File> & { preview?: string })[]>([]);
   const [progress, setProgress] = useState("");
+  const [podPath, setPodPath] = useState<string>();
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const previews = useRef<string[]>([]);
@@ -52,24 +54,27 @@ function TrackPage() {
 
   const finishPod = async () => {
     setBusy(true);
-    let count = photos.filter(photo => photo.path).length;
     try {
-      await savePodPhotos(photos, async file => {
-        setProgress(`Uploading photo ${count + 1} of ${photos.length}…`);
-        const bytes = new Uint8Array(await file.arrayBuffer());
+      await savePodPhotos([{ id: "pod-pdf", file: photos, path: podPath }], async selected => {
+        setProgress("Creating POD PDF…");
+        const files = [];
+        for (const photo of selected) files.push({ name: photo.file.name, bytes: await podImageBytes(photo.file) });
+        const bytes = await buildPodPdf(files);
+        if (bytes.length > 10 * 1024 * 1024) throw new Error("Combined POD exceeds 10 MB. Choose smaller photos or a smaller PDF and try again.");
+        setProgress("Uploading POD PDF…");
         let bin = "";
         bytes.forEach(byte => { bin += String.fromCharCode(byte); });
-        const result = await uploadTrackingDoc({ data: { token, kind: "pod", fileName: file.name, base64: btoa(bin), deferCompletion: true } });
+        const result = await uploadTrackingDoc({ data: { token, kind: "pod", fileName: "signed-POD.pdf", base64: btoa(bin), deferCompletion: true } });
         if (!result.ok) throw new Error(result.problem);
-        count++;
         return result.path;
-      }, (id, path) => setPhotos(current => current.map(photo => photo.id === id ? { ...photo, path } : photo)), async paths => {
+      }, (_id, path) => setPodPath(path), async paths => {
         setProgress("Completing POD…");
         const result = await finishTrackingPod({ data: { token, paths } });
         if (!result.ok) throw new Error(result.problem);
       });
-      toast.success(`All ${photos.length} POD files uploaded — thank you!`);
+      toast.success("Signed POD uploaded as one PDF — thank you!");
       setPhotos([]);
+      setPodPath(undefined);
       await refetch();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload interrupted. Please try again.");
@@ -216,20 +221,20 @@ function TrackPage() {
           <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" disabled={busy} aria-label="Take POD photo" onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
           <input ref={galleryInput} type="file" accept="image/*,application/pdf" multiple className="hidden" disabled={busy} aria-label="Choose POD photos" onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" disabled={busy} onClick={() => cameraInput.current?.click()}><Camera className="mr-2 h-4 w-4" /> {photos.length ? "Take another" : "Take photo"}</Button>
-            <Button variant="outline" disabled={busy} onClick={() => galleryInput.current?.click()}><Images className="mr-2 h-4 w-4" /> Add photos / PDF</Button>
+            <Button variant="outline" disabled={busy || !!podPath} onClick={() => cameraInput.current?.click()}><Camera className="mr-2 h-4 w-4" /> {photos.length ? "Take another" : "Take photo"}</Button>
+            <Button variant="outline" disabled={busy || !!podPath} onClick={() => galleryInput.current?.click()}><Images className="mr-2 h-4 w-4" /> Add photos / PDF</Button>
           </div>
           {photos.length > 0 && <>
             <div className="grid grid-cols-2 gap-3">
               {photos.map((photo, index) => <div key={photo.id} className="min-w-0 space-y-1">
                 <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-muted">
                   {photo.preview ? <img src={photo.preview} alt={`POD photo ${index + 1}`} className="h-full w-full object-contain" /> : <span className="text-sm text-muted-foreground">PDF</span>}
-                  {!photo.path && <Button size="icon" variant="secondary" className="absolute right-1 top-1 h-7 w-7" disabled={busy} aria-label={`Remove POD photo ${index + 1}`} title="Remove photo" onClick={() => setPhotos(current => current.filter(item => item.id !== photo.id))}><X className="h-4 w-4" /></Button>}
+                  {!podPath && <Button size="icon" variant="secondary" className="absolute right-1 top-1 h-7 w-7" disabled={busy} aria-label={`Remove POD photo ${index + 1}`} title="Remove photo" onClick={() => setPhotos(current => current.filter(item => item.id !== photo.id))}><X className="h-4 w-4" /></Button>}
                 </div>
                 <div className="break-all text-xs text-muted-foreground">{photo.file.name}{photo.path ? " · Uploaded" : ""}</div>
               </div>)}
             </div>
-            <Button className="w-full" disabled={busy} onClick={finishPod}><CheckCircle2 className="mr-2 h-4 w-4" /> {busy ? progress : `Upload ${photos.length} ${photos.length === 1 ? "file" : "files"} & finish POD`}</Button>
+            <Button className="w-full" disabled={busy} onClick={finishPod}><CheckCircle2 className="mr-2 h-4 w-4" /> {busy ? progress : podPath ? "Retry finishing POD" : "Upload one PDF & finish POD"}</Button>
           </>}
         </div>
         <DocButton label="Upload BOL" busy={busy} onPick={(f) => upload("bol", f)} />
