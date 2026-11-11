@@ -456,6 +456,13 @@
       "when": 1794320570234,
       "tag": "0064_quickpay_fee_pct",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1794418602136,
+      "tag": "0065_invoice_number_on_update",
+      "breakpoints": true
     }
   ]
 }
