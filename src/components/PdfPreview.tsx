@@ -19,7 +19,7 @@ export default function PdfPreview({ url, name, small }: { url: string; name: st
       const { default: worker } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
       if (!live) return;
       pdfjs.GlobalWorkerOptions.workerSrc = worker;
-      const task = pdfjs.getDocument(url);
+      const task = pdfjs.getDocument({ url });
       cleanup = () => { void task.destroy(); };
       const doc = await task.promise;
       if (!live) return;
