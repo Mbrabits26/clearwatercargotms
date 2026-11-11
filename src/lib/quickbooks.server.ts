@@ -227,8 +227,10 @@ export async function deliverQueued(admin: Admin, ids?: string[], force = false)
           ref = j.Bill.Id;
         }
       } else {
-        const doc = (r.invoice_number ?? l.load_number).slice(0, 21);
-        const group = r.invoice_number ? list.filter((x) => x.kind === r.kind && x.invoice_number === r.invoice_number) : [r];
+        // Customer invoices always carry their FF-/INV- number; never fall back to the load number.
+        if (!r.invoice_number) throw new Error("This invoice has no FF-/INV- number yet. Re-save it so a number is assigned, then send again.");
+        const doc = r.invoice_number.slice(0, 21);
+        const group = list.filter((x) => x.kind === r.kind && x.invoice_number === r.invoice_number);
         const cust = await party(qb, "Customer", r.payee || "Unknown customer");
         const dup = await qb.query<Ref>("Invoice", `where DocNumber = '${esc(doc)}'`);
         const groupLoads = group.map((g) => byId.get(g.load_id)).filter((x): x is LoadLite => !!x);

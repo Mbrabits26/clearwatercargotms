@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS qb_sync_invoice_number ON public.qb_sync;
+CREATE TRIGGER qb_sync_invoice_number BEFORE INSERT OR UPDATE OF invoice_number, kind ON public.qb_sync FOR EACH ROW EXECUTE FUNCTION public.assign_invoice_number();
