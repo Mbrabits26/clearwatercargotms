@@ -197,7 +197,7 @@ export function CarrierPayDue() {
                                 <p>Customer ref: {l.customer_ref || "—"} · Shipper ref: {l.ship_ref || "—"}</p>
                                 <p>Customer invoice: {data?.invoices[l.id] ?? "—"} · Carrier invoice: {bill?.carrier_invoice_number || "—"}{bill?.carrier_invoice_path ? " (on file)" : " (pending)"}</p>
                                 <p>Gross {usd(d.gross)} · fee {Number((d.rate * 100).toFixed(2))}% ({usd(d.fee)}) · {d.pt.terms}</p>
-                                <p className={l.pod_received ? "text-success" : "text-destructive"}>{l.pod_received ? "Signed POD on file" : "Signed POD missing"}</p>
+                                <p className={l.pod_received ? "text-primary" : "text-destructive"}>{l.pod_received ? "Signed POD on file" : "Signed POD missing"}</p>
                               </div>)}
                             </HoverCardContent></HoverCard></td>
                           <td className="p-2">{payTo(g.carrier).name}</td>
