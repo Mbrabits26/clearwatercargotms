@@ -1,6 +1,7 @@
 # Roadmap
 
 - [ ] CW-10472 white POD display: inspect saved document and verify phone/desktop PDF preview without altering load or invoice.
+- [ ] POD hover must preview without automatically downloading; downloads only on explicit request.
 
 - [x] Driver POD: convert one or multiple photos into one PDF attachment, preserving every selected page; 12 tests passed, real driver page produced a verified two-page PDF (upload intercepted before changing a load).
 
