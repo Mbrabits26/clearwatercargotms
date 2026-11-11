@@ -39,6 +39,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     queryKey: key,
     queryFn: async () => (await supabase.from("ratecon_requests").select("*").eq("load_id", load.id).order("created_at", { ascending: false })).data ?? [],
   });
+  const [custRef, setCustRef] = useState(load.customer_ref ?? "");
   const [shipRef, setShipRef] = useState(load.ship_ref ?? "");
   const [destRef, setDestRef] = useState(load.dest_ref ?? "");
   const [email, setEmail] = useState(carrier?.email ?? "");
@@ -62,11 +63,11 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyEmail(data.user?.email ?? "")); }, []);
   const recipients = () => email.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
   const link = (t: string) => `${window.location.origin}/sign/${t}`;
-  const current = () => ({ ...load, ship_ref: shipRef || null, dest_ref: destRef || null });
+  const current = () => ({ ...load, customer_ref: custRef || null, ship_ref: shipRef || null, dest_ref: destRef || null });
 
   const saveRefs = async () => {
-    if (shipRef === (load.ship_ref ?? "") && destRef === (load.dest_ref ?? "")) return;
-    await supabase.from("loads").update({ ship_ref: shipRef || null, dest_ref: destRef || null }).eq("id", load.id);
+    if (custRef === (load.customer_ref ?? "") && shipRef === (load.ship_ref ?? "") && destRef === (load.dest_ref ?? "")) return;
+    await supabase.from("loads").update({ customer_ref: custRef || null, ship_ref: shipRef || null, dest_ref: destRef || null }).eq("id", load.id);
     onSaved();
   };
   const rcData = () => {
@@ -173,6 +174,7 @@ export function RateConPanel({ load, carrier, shipper, consignee, customer, onSa
     <div className="mt-4 space-y-2 border-t pt-3">
       <div className="text-xs font-semibold uppercase tracking-widest text-gold">Rate confirmation · RC #{load.load_number}</div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <Input placeholder="Customer ref #" value={custRef} onChange={(e) => setCustRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Shipper PO / PU Ref #" value={shipRef} onChange={(e) => setShipRef(e.target.value)} onBlur={saveRefs} />
         <Input placeholder="Dest ref" value={destRef} onChange={(e) => setDestRef(e.target.value)} onBlur={saveRefs} />
         <label className="text-xs">Email<Input aria-label="Rate confirmation email" placeholder="Carrier emails (separate with commas)" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
