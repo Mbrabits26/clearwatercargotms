@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MapPin, Camera, CheckCircle2, Truck, ShieldCheck } from "lucide-react";
-import { getTracking, postPing, uploadTrackingDoc } from "@/lib/tracking.functions";
+import { MapPin, Camera, CheckCircle2, Truck, ShieldCheck, Images, X } from "lucide-react";
+import { getTracking, postPing, uploadTrackingDoc, finishTrackingPod } from "@/lib/tracking.functions";
+import { savePodPhotos, type PodPhoto } from "@/lib/podUpload";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 
@@ -30,6 +31,50 @@ function TrackPage() {
   const [note, setNote] = useState("");
   const [done, setDone] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<(PodPhoto<File> & { preview?: string })[]>([]);
+  const [progress, setProgress] = useState("");
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
+  const previews = useRef<string[]>([]);
+  useEffect(() => () => { previews.current.forEach(url => URL.revokeObjectURL(url)); }, []);
+
+  const addPhotos = (files: FileList | null) => {
+    if (!files) return;
+    const added: typeof photos = [];
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name}: file too large (10 MB max).`); continue; }
+      const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+      if (preview) previews.current.push(preview);
+      added.push({ id: crypto.randomUUID(), file, preview });
+    }
+    setPhotos(current => [...current, ...added]);
+  };
+
+  const finishPod = async () => {
+    setBusy(true);
+    let count = photos.filter(photo => photo.path).length;
+    try {
+      await savePodPhotos(photos, async file => {
+        setProgress(`Uploading photo ${count + 1} of ${photos.length}…`);
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let bin = "";
+        bytes.forEach(byte => { bin += String.fromCharCode(byte); });
+        const result = await uploadTrackingDoc({ data: { token, kind: "pod", fileName: file.name, base64: btoa(bin), deferCompletion: true } });
+        if (!result.ok) throw new Error(result.problem);
+        count++;
+        return result.path;
+      }, (id, path) => setPhotos(current => current.map(photo => photo.id === id ? { ...photo, path } : photo)), async paths => {
+        setProgress("Completing POD…");
+        const result = await finishTrackingPod({ data: { token, paths } });
+        if (!result.ok) throw new Error(result.problem);
+      });
+      toast.success(`All ${photos.length} POD files uploaded — thank you!`);
+      setPhotos([]);
+      await refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload interrupted. Please try again.");
+    } finally { setBusy(false); setProgress(""); }
+  };
   // "unknown" until checked; buttons stay locked until location is turned on for this page.
   const [geo, setGeo] = useState<"unknown" | "granted" | "blocked" | "unsupported">("unknown");
 
@@ -146,7 +191,7 @@ function TrackPage() {
       <div className={`space-y-2 ${locked ? "pointer-events-none opacity-50" : ""}`} aria-disabled={locked}>
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status update</div>
         {STEPS.map((s) => (
-          <Button key={s} variant="outline" className="w-full justify-start" disabled={busy || locked || done.includes(s)} onClick={() => send("status", s)}>
+          <Button key={s} variant="outline" className="w-full justify-start" disabled={busy || locked || photos.length > 0 || done.includes(s)} onClick={() => send("status", s)}>
             {done.includes(s) ? <CheckCircle2 className="mr-2 h-4 w-4 text-success" /> : <Truck className="mr-2 h-4 w-4" />}
             {s}
           </Button>
@@ -166,7 +211,27 @@ function TrackPage() {
 
       <div className="space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documents</div>
-        <DocButton label="Upload signed POD" busy={busy} onPick={(f) => upload("pod", f)} />
+        <div className="space-y-3 border-y py-3">
+          <div className="text-sm font-semibold">Signed POD photos</div>
+          <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" disabled={busy} aria-label="Take POD photo" onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
+          <input ref={galleryInput} type="file" accept="image/*,application/pdf" multiple className="hidden" disabled={busy} aria-label="Choose POD photos" onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => cameraInput.current?.click()}><Camera className="mr-2 h-4 w-4" /> {photos.length ? "Take another" : "Take photo"}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => galleryInput.current?.click()}><Images className="mr-2 h-4 w-4" /> Add photos / PDF</Button>
+          </div>
+          {photos.length > 0 && <>
+            <div className="grid grid-cols-2 gap-3">
+              {photos.map((photo, index) => <div key={photo.id} className="min-w-0 space-y-1">
+                <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-muted">
+                  {photo.preview ? <img src={photo.preview} alt={`POD photo ${index + 1}`} className="h-full w-full object-contain" /> : <span className="text-sm text-muted-foreground">PDF</span>}
+                  {!photo.path && <Button size="icon" variant="secondary" className="absolute right-1 top-1 h-7 w-7" disabled={busy} aria-label={`Remove POD photo ${index + 1}`} title="Remove photo" onClick={() => setPhotos(current => current.filter(item => item.id !== photo.id))}><X className="h-4 w-4" /></Button>}
+                </div>
+                <div className="break-all text-xs text-muted-foreground">{photo.file.name}{photo.path ? " · Uploaded" : ""}</div>
+              </div>)}
+            </div>
+            <Button className="w-full" disabled={busy} onClick={finishPod}><CheckCircle2 className="mr-2 h-4 w-4" /> {busy ? progress : `Upload ${photos.length} ${photos.length === 1 ? "file" : "files"} & finish POD`}</Button>
+          </>}
+        </div>
         <DocButton label="Upload BOL" busy={busy} onPick={(f) => upload("bol", f)} />
       </div>
       <p className="text-center text-xs text-muted-foreground">Photos and updates attach directly to load {l.load_number} at Clearwater Cargo.</p>

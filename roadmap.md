@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Driver POD link: multiple photos with add/remove and explicit finish; all files verified before delivery/link closure, saved pages kept on retry; 12 tests passed and mobile selection verified on a real link without submitting PODs.
+
 - [x] Expand carrier due-pay window: searchable load/carrier views, references, due dates, paperwork, fees and printable detail; 14 pay-rule tests passed; real accounting search and drill-down verified without payment changes.
 
 - [x] Rate confirmations: email or phone signing-link sharing with Google Voice/texting app and manual phone/text copy.
