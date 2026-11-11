@@ -7,6 +7,7 @@ import { getTracking, postPing, uploadTrackingDoc, finishTrackingPod } from "@/l
 import { savePodPhotos, type PodPhoto } from "@/lib/podUpload";
 import { buildPodPdf, podImageBytes } from "@/lib/podPdf";
 import { Button } from "@/components/ui/button";
+import { ScanReview } from "@/components/ScanReview";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 
 export const Route = createFileRoute("/track/$token")({
@@ -40,10 +41,21 @@ function TrackPage() {
   const previews = useRef<string[]>([]);
   useEffect(() => () => { previews.current.forEach(url => URL.revokeObjectURL(url)); }, []);
 
+  const [reviewQueue, setReviewQueue] = useState<File[]>([]);
   const addPhotos = (files: FileList | null) => {
     if (!files) return;
+    const list = Array.from(files).filter(f => f.size <= 10 * 1024 * 1024 || (toast.error(`${f.name}: file too large (10 MB max).`), false));
+    const images = list.filter(f => f.type.startsWith("image/"));
+    if (images.length) setReviewQueue(q => [...q, ...images]);
+    addReviewed(list.filter(f => !f.type.startsWith("image/")));
+  };
+  const reviewed = (result: File | null) => {
+    setReviewQueue(q => q.slice(1));
+    if (result) addReviewed([result]);
+  };
+  const addReviewed = (files: File[]) => {
     const added: typeof photos = [];
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name}: file too large (10 MB max).`); continue; }
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
       if (preview) previews.current.push(preview);
@@ -146,6 +158,7 @@ function TrackPage() {
     if (kind === "pod") refetch();
   };
 
+  if (reviewQueue.length) return <ScanReview key={reviewQueue.length + reviewQueue[0].name + reviewQueue[0].lastModified} file={reviewQueue[0]} onDone={reviewed} />;
   if (isLoading) return <Shell><p className="text-center text-muted-foreground">Loading…</p></Shell>;
   if (!data?.ok) {
     if (data && "completed" in data && data.completed) return (
