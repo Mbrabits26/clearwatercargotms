@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { DocLink, type DocItem } from "@/components/DocPreview";
 import { ReportExport } from "@/components/ReportExport";
 import type { ReportSpec } from "@/lib/reportExport";
@@ -62,9 +63,12 @@ export function CarrierPayDue() {
         ids.length ? supabase.from("carriers").select("*").in("id", ids) : Promise.resolve({ data: [] as Carrier[] }),
         owed.length ? supabase.from("qb_sync").select("load_id, status, qb_ref, carrier_invoice_path, carrier_invoice_number, carrier_invoice_kind, error").eq("kind", "bill").in("load_id", owed.map((l) => l.id)) : Promise.resolve({ data: [], error: null }),
       ]);
+      const inv = owed.length ? await supabase.from("qb_sync").select("load_id, invoice_number").in("kind", ["invoice", "fleet_invoice"]).in("load_id", owed.map((l) => l.id)) : { data: [] };
+      const invoices: Record<string, string> = {};
+      for (const r of (inv.data ?? []) as { load_id: string; invoice_number: string | null }[]) if (r.invoice_number) invoices[r.load_id] = r.invoice_number;
       if ("error" in cs && cs.error) throw cs.error;
       if (bills.error) throw bills.error;
-      return { loads: owed, carriers: (cs.data ?? []) as Carrier[], bills: (bills.data ?? []) as (Bill & { load_id: string })[] };
+      return { loads: owed, carriers: (cs.data ?? []) as Carrier[], bills: (bills.data ?? []) as (Bill & { load_id: string })[], invoices };
     },
   });
 
@@ -184,7 +188,18 @@ export function CarrierPayDue() {
                       const left = Math.ceil((g.soonest - Date.now()) / 86_400_000);
                       return (
                         <tr key={g.id} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => setSel(g.id)}>
-                          <td className="p-2 font-semibold text-gold underline">{g.carrier?.legal_name ?? "Unknown carrier"}</td>
+                          <td className="p-2"><HoverCard openDelay={150}><HoverCardTrigger asChild><span className="font-semibold text-gold underline">{g.carrier?.legal_name ?? "Unknown carrier"}</span></HoverCardTrigger>
+                            <HoverCardContent side="right" align="start" className="max-h-96 w-[26rem] overflow-auto p-2" onClick={(e) => e.stopPropagation()}>
+                              <p className="mb-1 text-xs uppercase text-muted-foreground">{g.items.length} load{g.items.length === 1 ? "" : "s"} waiting</p>
+                              {g.items.map(({ l, d, bill }) => <div key={l.id} className="border-t py-1.5 text-xs first:border-t-0">
+                                <div className="flex justify-between gap-2"><Link to="/dispatch" search={{ load: l.id }} onClick={() => setOpen(false)} className="font-semibold text-gold underline">{l.load_number}</Link><span className="font-semibold">{usd(d.net)} net</span></div>
+                                <p className="text-muted-foreground">{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state} · delivered {l.delivery_at ? day(new Date(l.delivery_at).getTime()) : "—"} · due {day(d.due)}</p>
+                                <p>Customer ref: {l.customer_ref || "—"} · Shipper ref: {l.ship_ref || "—"}</p>
+                                <p>Customer invoice: {data?.invoices[l.id] ?? "—"} · Carrier invoice: {bill?.carrier_invoice_number || "—"}{bill?.carrier_invoice_path ? " (on file)" : " (pending)"}</p>
+                                <p>Gross {usd(d.gross)} · fee {Number((d.rate * 100).toFixed(2))}% ({usd(d.fee)}) · {d.pt.terms}</p>
+                                <p className={l.pod_received ? "text-primary" : "text-destructive"}>{l.pod_received ? "Signed POD on file" : "Signed POD missing"}</p>
+                              </div>)}
+                            </HoverCardContent></HoverCard></td>
                           <td className="p-2">{payTo(g.carrier).name}</td>
                           <td className="p-2">{[...new Set(g.items.map((x) => x.d.pt.terms))].join(" / ")}</td>
                           <td className="p-2">{g.items.length}</td>

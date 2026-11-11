@@ -152,6 +152,8 @@ export const uploadTrackingDoc = createServerFn({ method: "POST" })
     if (data.kind === "pod") {
       await supabaseAdmin.from("loads").update({ pod_received: true, last_check_call: new Date().toISOString() }).eq("id", tk.load_id);
     }
+    // Bell alerts listen for tracking pings, so uploads log one too.
+    await supabaseAdmin.from("load_tracking_pings").insert({ load_id: tk.load_id, token_id: tk.id, kind: "doc", status: `${data.kind === "pod" ? "POD" : "BOL"} uploaded`, note: data.fileName });
     await supabaseAdmin.from("load_notes").insert({
       load_id: tk.load_id,
       author_id: tk.created_by ?? undefined,
