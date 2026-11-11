@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Driver POD link: multiple photos, add more before finishing, close tracking only after the driver completes the POD upload.
+
 - [x] Expand carrier due-pay window: searchable load/carrier views, references, due dates, paperwork, fees and printable detail; 14 pay-rule tests passed; real accounting search and drill-down verified without payment changes.
 
 - [x] Rate confirmations: email or phone signing-link sharing with Google Voice/texting app and manual phone/text copy.
