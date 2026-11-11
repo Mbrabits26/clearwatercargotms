@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] CW-10472 white POD display: saved scan contains legible paperwork/signatures; PDF.js preview verified at phone/desktop sizes without altering load or invoice.
+- [x] POD hover previews without automatically downloading; browser verified zero hover downloads and successful explicit Download.
+- [x] Explain thumb removal: outside-paper fingers can be cropped; do not reconstruct obscured content or alter the signed POD to invent missing paper.
+
 - [x] Driver POD: convert one or multiple photos into one PDF attachment, preserving every selected page; 12 tests passed, real driver page produced a verified two-page PDF (upload intercepted before changing a load).
 
 - [x] Driver POD link: multiple photos with add/remove and explicit finish; all files verified before delivery/link closure, saved pages kept on retry; 12 tests passed and mobile selection verified on a real link without submitting PODs.
