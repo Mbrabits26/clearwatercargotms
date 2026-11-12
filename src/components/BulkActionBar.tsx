@@ -29,7 +29,7 @@ export type BulkAction<T> = {
   /** Return an error message for this row, or null when it worked. */
   each?: (item: T, param: string) => Promise<string | null>;
   /** Runs once for all rows instead (exports). */
-  all?: (items: T[], param: string) => void;
+  all?: (items: T[], param: string) => void | Promise<void>;
 };
 
 /** Run `fn` on each row, six at a time, so database rules judge each row on its own. */
@@ -38,7 +38,8 @@ async function runEach<T>(items: T[], fn: (t: T) => Promise<string | null>, onTi
   let i = 0, done = 0;
   const worker = async () => {
     while (i < items.length) {
-      const it = items[i++]!;
+      const it = items[i++];
+      if (it === undefined) continue;
       const err = await fn(it).catch((e: Error) => e.message);
       if (err) errors.push(err);
       onTick(++done);
@@ -89,8 +90,8 @@ export function exportAction<T>(title: string, head: string[], row: (t: T) => (s
 }
 
 /** "N selected · Action [..] · Apply" bar shown once rows are checked. */
-export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, noun = "rows" }: {
-  items: T[]; total: number; actions: BulkAction<T>[]; onClear: () => void; invalidate: string[]; noun?: string;
+export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, noun = "rows", applyLabel = "Apply" }: {
+  items: T[]; total: number; actions: BulkAction<T>[]; onClear: () => void; invalidate: string[]; noun?: string; applyLabel?: string;
 }) {
   const { isAdmin, isFinance } = useRouteContext({ from: "/_authenticated" });
   const qc = useQueryClient();
@@ -108,7 +109,15 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
 
   const go = async () => {
     if (!a || needParam) return;
-    if (a.all) { a.all(items, param); return; }
+    if (a.all) {
+      setBusy("…"); setErrors([]);
+      try { await a.all(items, param); }
+      catch (e) { const message = e instanceof Error ? e.message : "The action could not finish."; setErrors([message]); toast.error(message); }
+      finally { setBusy(""); }
+      return;
+    }
+    if (!a.each) return;
+    const each = a.each;
     const points = a.points?.(items, param) ?? [`${items.length} ${noun} will be updated.`];
     if (!(await ask({ title: `${a.label}${a.param ? `: ${a.param.options.find((o) => o.value === param)?.label}` : ""} — ${items.length} ${noun}?`, points: [...points, "Any that can't be changed are listed after."], confirmLabel: a.label, danger: a.danger }))) return;
     if (a.danger) {
@@ -118,7 +127,7 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
       if (!ok) return;
     }
     setErrors([]);
-    const errs = await runEach(items, (t) => a.each!(t, param), (n) => setBusy(`${n}/${items.length}`));
+    const errs = await runEach(items, (t) => each(t, param), (n) => setBusy(`${n}/${items.length}`));
     setBusy("");
     invalidate.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
     const ok = items.length - errs.length;
@@ -132,7 +141,7 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
     <div className="space-y-2 rounded-md border border-gold/50 bg-gold/5 p-2 text-sm print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-gold">{items.length} of {total} selected</span>
-        <Select value={value} onValueChange={(v) => { setValue(v); setParam(""); setErrors([]); }}>
+        <Select disabled={!!busy} value={value} onValueChange={(v) => { setValue(v); setParam(""); setErrors([]); }}>
           <SelectTrigger className="h-8 w-56" aria-label="Action"><SelectValue placeholder="Pick an action" /></SelectTrigger>
           <SelectContent>{list.map((x) => <SelectItem key={x.value} value={x.value} className={x.danger ? "text-destructive" : undefined}>{x.label}</SelectItem>)}</SelectContent>
         </Select>
@@ -144,7 +153,7 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
         )}
         {a?.input && <Input className="h-8 w-64" aria-label={a.input.label} placeholder={a.input.label} value={param} onChange={(e) => setParam(e.target.value)} />}
         <Hint text={a ? a.hint : "Pick an action first."}>
-          <Button size="sm" variant={a?.danger ? "destructive" : "default"} disabled={!a || needParam || !!busy} onClick={go}>{busy ? `Working ${busy}…` : "Apply"}</Button>
+          <Button size="sm" variant={a?.danger ? "destructive" : "default"} disabled={!a || needParam || !!busy} onClick={go}>{busy ? `Working ${busy}…` : applyLabel}</Button>
         </Hint>
         <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => { onClear(); setErrors([]); }}>Clear selection</Button>
       </div>
