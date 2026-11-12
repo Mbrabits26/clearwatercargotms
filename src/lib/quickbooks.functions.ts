@@ -137,6 +137,27 @@ export const qbFindExistingInvoice = createServerFn({ method: "POST" })
     return { invoices: await lookupExistingInvoice(admin, entityForKind(row.kind), data.value, data.by) };
   });
 
+export const qbRemoveInvoiceAssignment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ rowId: z.string().uuid(), previousRef: z.string().min(1).max(40) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context as never);
+    const { data: row, error } = await context.supabase.from("qb_sync").select("id, kind, invoice_number, qb_ref").eq("id", data.rowId).single();
+    if (error || !row || row.kind === "bill") throw new Error("Customer invoice not found.");
+    if (row.qb_ref !== data.previousRef) throw new Error("The invoice link changed. Close this window and try again.");
+    let query = context.supabase.from("qb_sync").select("id, qb_ref").eq("kind", row.kind);
+    query = row.invoice_number ? query.eq("invoice_number", row.invoice_number) : query.eq("id", row.id);
+    const { data: group, error: groupError } = await query;
+    if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
+    if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before removing.");
+    const { manualInvoiceUnlinkPatch } = await import("./qbManualLink");
+    const ids = group.map((g) => g.id);
+    const { data: updated, error: saveError } = await context.supabase.from("qb_sync").update(manualInvoiceUnlinkPatch()).in("id", ids).eq("kind", row.kind).eq("qb_ref", data.previousRef).select("id");
+    if (saveError) throw new Error(saveError.message);
+    if (updated?.length !== ids.length) throw new Error("The invoice changed while saving. Refresh and review its link.");
+    return { count: ids.length };
+  });
+
 export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ rowId: z.string().uuid(), qbId: z.string().min(1).max(40), previousRef: z.string().nullable() }).parse(d))
