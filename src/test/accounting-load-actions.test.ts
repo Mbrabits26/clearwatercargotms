@@ -38,10 +38,20 @@ describe("checked Accounting Paid + Closeout", () => {
     expect(db.update).not.toHaveBeenCalled();
     expect(db.rpc).toHaveBeenCalledTimes(1);
   });
-  it("skips cancelled and already closed-out loads", async () => {
+  it("skips cancelled loads", async () => {
     await action()?.each?.(load("CW-1", "cancelled"), "Reviewed");
-    await action()?.each?.({ ...load("CW-2"), closed_at: "2026-11-12" }, "Reviewed");
     expect(db.update).not.toHaveBeenCalled();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+  it("marks an already-closed unpaid load paid without overwriting its closeout", async () => {
+    expect(await action()?.each?.({ ...load("CW-2"), closed_at: "2026-11-12" }, "Reviewed")).toBeNull();
+    expect(db.update).toHaveBeenCalledWith({ status: "paid" });
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+  it("handles 114 already-closed unpaid loads without skipping payment", async () => {
+    const selected = Array.from({ length: 114 }, (_, i) => ({ ...load(`CW-${i}`), closed_at: "2026-11-12" }));
+    expect(await Promise.all(selected.map((l) => action()?.each?.(l, "Reviewed")))).toEqual(Array(114).fill(null));
+    expect(db.update).toHaveBeenCalledTimes(114);
     expect(db.rpc).not.toHaveBeenCalled();
   });
   it("reports partial completion when closeout fails after customer payment", async () => {

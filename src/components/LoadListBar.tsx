@@ -45,13 +45,14 @@ export function buildLoadListActions({ actions, companies, customerName, title =
       value: "paid_closeout", label: "Mark customer paid + close out", financeOnly: true,
       hint: "Records customer payment and closes out each checked load. Confirm the customer really paid; this does not read or change QuickBooks or mark the carrier paid.",
       input: { label: "Closeout note (required)" },
-      points: (items) => [`${items.length} checked loads will be reviewed for customer Paid + Closeout.`, "Confirm customer payment was received. This is a manual TMS action, not a QuickBooks balance check.", "Loads without a customer invoice are refused. Cancelled and already closed-out loads are skipped.", "A load is closed out only after its Paid update succeeds; if closeout fails it remains Paid and the error is listed.", "Carrier payment, invoice amounts and QuickBooks stay unchanged. Your closeout note is saved."],
+      points: (items) => [`${items.length} checked loads will be reviewed for customer Paid + Closeout.`, "Confirm customer payment was received. This is a manual TMS action, not a QuickBooks balance check.", "Loads without a customer invoice are refused. Cancelled loads are skipped. Already closed-out loads can still be marked customer paid; their original closeout record stays unchanged.", "A load is closed out only after its Paid update succeeds; if closeout fails it remains Paid and the error is listed.", "Carrier payment, invoice amounts and QuickBooks stay unchanged. Your closeout note is saved."],
       each: async (l, note) => {
-        if (l.closed_at || l.status === "cancelled") return `${l.load_number}: skipped — ${l.closed_at ? "already closed out" : "cancelled"}`;
+        if (l.status === "cancelled") return `${l.load_number}: skipped — cancelled`;
         if (l.status !== "paid") {
           const error = await setStatus(l, "paid");
           if (error) return error;
         }
+        if (l.closed_at) return null;
         const { data, error } = await supabase.rpc("batch_load_action", { _ids: [l.id], _action: "closeout", _note: note.trim() });
         const result = (data as unknown as { ok: boolean; error?: string }[] | null)?.[0];
         return error || !result?.ok ? `${l.load_number}: customer paid, but closeout failed — ${error?.message ?? result?.error ?? "could not close out"}` : null;
