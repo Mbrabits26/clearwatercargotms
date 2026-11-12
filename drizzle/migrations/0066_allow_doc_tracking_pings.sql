@@ -1,0 +1,2 @@
+ALTER TABLE public.load_tracking_pings DROP CONSTRAINT IF EXISTS load_tracking_pings_kind_check;
+ALTER TABLE public.load_tracking_pings ADD CONSTRAINT load_tracking_pings_kind_check CHECK (kind IN ('location','status','doc'));
