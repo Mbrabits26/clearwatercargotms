@@ -1,5 +1,6 @@
 import { getRequest, getRequestHeader } from "@tanstack/react-start/server";
 import { assessIp } from "./ipRisk";
+import { postCarrierSafetyAlert } from "./carrierAlerts.server";
 
 /** Client IP, device, country and network from the signing request (Cloudflare request data when available). */
 export function requestSigner() {
@@ -13,12 +14,18 @@ export function requestSigner() {
 }
 
 /** Post a Team chat warning when a signature came from a risky IP. */
-export async function postIpRiskNotice(supabaseAdmin: any, authorId: string | null | undefined, what: string, risk: string | null, ip: string | null) {
-  if (!risk || !authorId) return;
+export async function postIpRiskNotice(supabaseAdmin: any, authorId: string | null | undefined, what: string, risk: string | null, ip: string | null, loadId?: string | null, brokerId?: string | null) {
+  if (!risk) return;
+  const body = `⚠️ Signing warning — ${what} was signed from IP ${ip ?? "unknown"}: ${risk}. Call the carrier at the FMCSA phone number to confirm before dispatching.`;
   try {
-    await supabaseAdmin.from("chat_messages").insert({
+    await postCarrierSafetyAlert(supabaseAdmin, { senderId: authorId, brokerId, source: "signing_risk", body, loadId });
+  } catch (e) { console.error("direct signing risk notice failed", e); }
+  if (!authorId) return;
+  try {
+    const { error } = await supabaseAdmin.from("chat_messages").insert({
       channel: "team", author_id: authorId,
-      body: `⚠️ Signing warning — ${what} was signed from IP ${ip ?? "unknown"}: ${risk}. Call the carrier at the FMCSA phone number to confirm before dispatching.`,
+      body,
     });
+    if (error) throw error;
   } catch (e) { console.error("ip risk notice failed", e); }
 }

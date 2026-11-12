@@ -116,7 +116,7 @@ export const signRateCon = createServerFn({ method: "POST" })
     if (risk) {
       const { data: ld } = await supabaseAdmin.from("loads").select("broker_id").eq("id", req.load_id).maybeSingle();
       const { postIpRiskNotice } = await import("./esign.server");
-      await postIpRiskNotice(supabaseAdmin, ld?.broker_id ?? req.created_by, `Rate con RC #${rc.rc} (${rc.carrier})`, risk, ip);
+      await postIpRiskNotice(supabaseAdmin, req.created_by, `Rate con RC #${rc.rc} (${rc.carrier})`, risk, ip, req.load_id, ld?.broker_id);
     }
     await supabaseAdmin.from("loads").update({ ratecon_signed: true, ratecon_pdf_path: path }).eq("id", req.load_id);
     await sendSignedEmails(supabaseAdmin, req, rc, data.name, title, signedAt);

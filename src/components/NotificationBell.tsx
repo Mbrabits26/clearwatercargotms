@@ -10,6 +10,7 @@ import { isInvoicedNote } from "@/lib/invoiceReview";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { isCarrierSafetyAlert } from "@/lib/carrierAlerts";
 
 type Prefs = Record<string, boolean>;
 const PREF_ROWS: { key: string; label: string; group: "Email" | "In-app" }[] = [
@@ -101,6 +102,10 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
     const mine = (brokerId?: string | null) => isAdmin || brokerId === userId;
     // Someone tagged me — in a load note (links to the load) or in chat.
     const mentionAlert = async (m: { id: string; author_id: string; body: string; source: string; load_id: string | null; created_at: string }, quiet = false) => {
+      if (isCarrierSafetyAlert(m.source)) {
+        const [title, ...details] = m.body.split("\n");
+        return push(title ?? "Carrier warning", details.join("\n") || m.body, m.load_id ? "/dispatch" : "/carriers", m.load_id ? { load: m.load_id } : undefined, { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet });
+      }
       const who = names.current[m.author_id] ?? "A teammate";
       const group = /@(team|everyone)\b/i.test(m.body);
       const opts = { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet };
@@ -118,9 +123,9 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       .gte("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString()).order("created_at").limit(20)
       .then(async ({ data }) => {
         await names0;
-        if (!on("app_mentions") || !data?.length) return;
-        const added = (await Promise.all(data.map((m) => mentionAlert(m, true)))).filter(Boolean).length;
-        if (added) toast(`You were tagged ${added} time${added === 1 ? "" : "s"} while away`, { description: "Open the bell to see each one." });
+        if (!data?.length) return;
+        const added = (await Promise.all(data.filter((m) => isCarrierSafetyAlert(m.source) || on("app_mentions")).map((m) => mentionAlert(m, true)))).filter(Boolean).length;
+        if (added) toast(`${added} notice${added === 1 ? "" : "s"} while away`, { description: "Open the bell to see each one." });
       });
 
     // Driver updates and signed rate cons that happened while this tab was closed or asleep.
@@ -128,6 +133,8 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
     const catchUp = async () => {
       const since = new Date(Math.max(Number(localStorage.getItem(seenKey)) || 0, Date.now() - 3 * 86_400_000)).toISOString();
       localStorage.setItem(seenKey, String(Date.now()));
+      const { data: safety } = await supabase.from("chat_mentions").select("id, author_id, body, source, load_id, created_at").eq("user_id", userId).in("source", ["signing_risk", "carrier_check"]).gt("created_at", since).order("created_at").limit(50);
+      for (const m of safety ?? []) await mentionAlert(m, true);
       const [pings, rcs] = await Promise.all([
         on("app_driver") ? supabase.from("load_tracking_pings").select("id, load_id, kind, status, place, created_at").gt("created_at", since).order("created_at").limit(50) : Promise.resolve({ data: [] as any[] }),
         on("app_ratecon") ? supabase.from("ratecon_requests").select("id, load_id, signer_name, signed_at").eq("status", "signed").gt("signed_at", since).limit(30) : Promise.resolve({ data: [] as any[] }),
@@ -180,10 +187,12 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         push(`Load invoiced — ${l.load_number}`, `${who} moved it to Invoiced · review and sync with QuickBooks`, "/quickbooks", { q: l.load_number, review: true });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_mentions", filter: `user_id=eq.${userId}` }, (p: any) => {
-        if (on("app_mentions")) mentionAlert(p.new);
+        if (isCarrierSafetyAlert(p.new.source) || on("app_mentions")) mentionAlert(p.new);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, async (p: any) => {
         const m = p.new; if (m.author_id === userId || !on("app_chat")) return;
+        // Signing warnings have their own addressed alerts, including the sender.
+        if (String(m.body).startsWith("⚠️ Signing warning —")) return;
         const isDm = m.channel.startsWith("dm:");
         if (isDm && !m.channel.includes(userId)) return;
         const who = names.current[m.author_id] ?? "Teammate";
