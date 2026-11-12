@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Accounting: Apply to all checked for existing actions across AR, fleet AR and Sync log/AP, retaining per-invoice review and existing safeguards.
+
 - [x] Accounting totals: AP/QuickPay use carrier payment records, totals open printable load details, refresh every minute/manual; real-account AR/AP/fee windows, search and refresh verified; 21 tests passed.
 
 - [x] Accounting manual QB linking: make existing correction visible by name in AR and Sync log; offer matching for Not sent loads without a TMS invoice, with a permanent top-level entry.
