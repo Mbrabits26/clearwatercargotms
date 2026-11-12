@@ -35,6 +35,7 @@ export function LoadHoverPreview() {
       }
       clear();
       if (!anchor || !number) { close(); return; }
+      if (active.current === anchor) return;
       const next = { number, element: anchor };
       active.current = anchor;
       timers.current.open = setTimeout(() => setTarget(next), 250);
@@ -51,12 +52,9 @@ export function LoadHoverPreview() {
       const element = event.target;
       if (element instanceof HTMLElement && (active.current?.contains(element) || element.closest("[data-load-hover-preview]"))) clearTimeout(timers.current.close);
     };
-    document.addEventListener("pointerover", enter);
-    document.addEventListener("focusin", enter);
-    document.addEventListener("pointerout", leave);
+    document.addEventListener("pointermove", enter);
     document.addEventListener("click", click);
-    document.addEventListener("pointermove", stay);
-    return () => { clear(); document.removeEventListener("pointerover", enter); document.removeEventListener("focusin", enter); document.removeEventListener("pointerout", leave); document.removeEventListener("click", click); document.removeEventListener("pointermove", stay); };
+    return () => { clear(); document.removeEventListener("pointermove", enter); document.removeEventListener("click", click); };
   }, []);
   return <Popover open={!!target} onOpenChange={(open) => { if (!open) setTarget(null); }}>
     <PopoverAnchor virtualRef={{ current: { getBoundingClientRect: () => target?.element.getBoundingClientRect() ?? new DOMRect() } }} />
