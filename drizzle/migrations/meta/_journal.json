@@ -463,6 +463,13 @@
       "when": 1794418602136,
       "tag": "0065_invoice_number_on_update",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794488979112,
+      "tag": "0066_allow_doc_tracking_pings",
+      "breakpoints": true
     }
   ]
 }
