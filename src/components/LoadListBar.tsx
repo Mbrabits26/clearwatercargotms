@@ -9,7 +9,7 @@ import { BulkActionBar, exportAction, type BulkAction } from "@/components/BulkA
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 
 /** Actions offered on a generated list of loads, in the order given. */
-export type LoadListActionKey = "paid" | "delivered" | "status" | "closeout" | "invoice" | "checkcall" | "pod" | "carrier_paid" | "export";
+export type LoadListActionKey = "paid" | "paid_closeout" | "delivered" | "status" | "closeout" | "invoice" | "checkcall" | "pod" | "carrier_paid" | "export";
 
 const STATUS_OPTIONS = STATUSES.filter((s) => BULK_TARGETS.includes(s.value)).map((s) => ({ value: s.value, label: s.label }));
 const plural = (n: number) => `${n} load${n === 1 ? "" : "s"}`;
@@ -34,14 +34,29 @@ const statusAction = (t: LoadStatus, value: string, label: string, hint: string)
   each: (l) => setStatus(l, t),
 });
 
-/** Check-box action bar for any generated list of loads (alerts, past-due lists, review lists). */
-export function LoadListBar({ loads, total, onClear, actions, companies, customerName, title = "Loads" }: {
-  loads: Load[]; total: number; onClear: () => void; actions: LoadListActionKey[]; companies?: Company[]; customerName?: (id: string | null) => string; title?: string;
+/** Shared definitions keep accounting and generated load lists on the same safeguards. */
+export function buildLoadListActions({ actions, companies, customerName, title = "Loads", onInvoice }: {
+  actions: LoadListActionKey[]; companies?: Company[]; customerName?: (id: string | null) => string; title?: string; onInvoice?: (loads: Load[]) => void;
 }) {
-  const [invoicing, setInvoicing] = useState<Load[] | null>(null);
   const name = (id: string | null) => customerName?.(id) ?? companies?.find((c) => c.id === id)?.name ?? "";
   const all: Record<LoadListActionKey, BulkAction<Load> | null> = {
     paid: statusAction("paid", "paid", "Mark customer paid", "Changes the checked loads to Completed / Paid (the customer paid us). Needs a customer invoice on file. Carrier pay is not touched."),
+    paid_closeout: {
+      value: "paid_closeout", label: "Mark customer paid + close out", financeOnly: true,
+      hint: "Records customer payment and closes out each checked load. Confirm the customer really paid; this does not read or change QuickBooks or mark the carrier paid.",
+      input: { label: "Closeout note (required)" },
+      points: (items) => [`${items.length} checked loads will be reviewed for customer Paid + Closeout.`, "Confirm customer payment was received. This is a manual TMS action, not a QuickBooks balance check.", "Loads without a customer invoice are refused. Cancelled and already closed-out loads are skipped.", "A load is closed out only after its Paid update succeeds; if closeout fails it remains Paid and the error is listed.", "Carrier payment, invoice amounts and QuickBooks stay unchanged. Your closeout note is saved."],
+      each: async (l, note) => {
+        if (l.closed_at || l.status === "cancelled") return `${l.load_number}: skipped — ${l.closed_at ? "already closed out" : "cancelled"}`;
+        if (l.status !== "paid") {
+          const error = await setStatus(l, "paid");
+          if (error) return error;
+        }
+        const { data, error } = await supabase.rpc("batch_load_action", { _ids: [l.id], _action: "closeout", _note: note.trim() });
+        const result = (data as unknown as { ok: boolean; error?: string }[] | null)?.[0];
+        return error || !result?.ok ? `${l.load_number}: customer paid, but closeout failed — ${error?.message ?? result?.error ?? "could not close out"}` : null;
+      },
+    },
     delivered: statusAction("delivered", "delivered", "Mark delivered", "Changes the checked loads to Delivered. It does not mark the POD received or create invoices."),
     status: {
       value: "status", label: "Change status", hint: "Changes the checked loads to the status you pick. Each load still has to pass the normal load rules.",
@@ -67,7 +82,7 @@ export function LoadListBar({ loads, total, onClear, actions, companies, custome
     },
     invoice: companies ? {
       value: "invoice", label: "Create invoices", hint: "Opens the invoice window for the checked delivered/invoiced loads so you can create them (one each or combined). Nothing is sent until you confirm there.",
-      all: (items) => { const ok = items.filter((l) => invoiceable(l) && !l.closed_at); if (!ok.length) toast.error("None of the checked loads can be invoiced (they must be Delivered or Invoiced and not closed out)."); else setInvoicing(ok); },
+      all: (items) => { const ok = items.filter((l) => invoiceable(l) && !l.closed_at); if (!ok.length) toast.error("None of the checked loads can be invoiced (they must be Delivered or Invoiced and not closed out)."); else onInvoice?.(ok); },
     } : null,
     checkcall: {
       value: "checkcall", label: "Log check call now", hint: "Records a check call at the current time on each checked load that is still moving.",
@@ -93,7 +108,15 @@ export function LoadListBar({ loads, total, onClear, actions, companies, custome
       (l) => [l.load_number, name(l.customer_id), l.customer_ref, statusMeta(l.status).label, l.pickup_at ? dayText(l.pickup_at) : "", l.delivery_at ? dayText(l.delivery_at) : "",
         `${l.origin_city}, ${l.origin_state}`, `${l.dest_city}, ${l.dest_state}`, loadTotals(l).revenue.toFixed(2), loadTotals(l).cost.toFixed(2)]),
   };
-  const list = actions.map((k) => all[k]).filter((a): a is BulkAction<Load> => !!a);
+  return actions.map((k) => all[k]).filter((a): a is BulkAction<Load> => !!a);
+}
+
+/** Check-box action bar for any generated list of loads (alerts, past-due lists, review lists). */
+export function LoadListBar({ loads, total, onClear, actions, companies, customerName, title = "Loads" }: {
+  loads: Load[]; total: number; onClear: () => void; actions: LoadListActionKey[]; companies?: Company[]; customerName?: (id: string | null) => string; title?: string;
+}) {
+  const [invoicing, setInvoicing] = useState<Load[] | null>(null);
+  const list = buildLoadListActions({ actions, companies, customerName, title, onInvoice: setInvoicing });
   return (
     <>
       <BulkActionBar items={loads} total={total} actions={list} onClear={onClear} noun="loads"
