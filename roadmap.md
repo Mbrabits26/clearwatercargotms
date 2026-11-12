@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Diagnose missing Accounting entries: removing a queue record does not remove its load; AR includes unpaid customer invoice records only. Corrected Paid + Closeout for previously closed unpaid loads; 25 tests passed (including 114 loads), signed-in missing-entry flow and payment confirmation verified without changing payments. Exact user's 114 checked IDs unavailable; no batch payment applied.
+
 - [x] Align Accounting checked-load and quick-batch choices, including customer Paid, Closeout and Paid + Closeout; 21 tests passed including a 115-load batch, real-account 115-load and Sync log confirmations verified and cancelled without changing payments.
 
 - [x] Restore app-wide load hover details including Accounting; exclude Dispatch board and load detail screen. Four rule tests passed; real Accounting table/summary, repeat hover, Home and laptop previews verified; no financial changes.
