@@ -1,6 +1,7 @@
 # Roadmap
 
 - [ ] Allow finance users to remove incorrect QuickBooks assignments without deleting invoices or changing payment status; verify and correct 2165 / FF-1018 using customer references.
+- [ ] Provide self-service assignment overrides with verification prompts, including invoices assigned to another load, so future corrections need no chat request.
 
 - [x] Diagnose missing Accounting entries: removing a queue record does not remove its load; AR includes unpaid customer invoice records only. Corrected Paid + Closeout for previously closed unpaid loads; 25 tests passed (including 114 loads), signed-in missing-entry flow and payment confirmation verified without changing payments. Exact user's 114 checked IDs unavailable; no batch payment applied.
 
