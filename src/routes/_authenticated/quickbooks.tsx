@@ -14,12 +14,13 @@ import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, fetchAllPaged } from "@/lib/queries";
 import { agingTotal, carrierAccountingEntries } from "@/lib/accountingSummary";
+import { checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
 import { CUSTOMER_TERMS, termsDays, effectiveFeeRate, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
 import { useAppWindows } from "@/lib/appWindows";
 import { ReportExport } from "@/components/ReportExport";
-import { datesLine, dayText, type ReportSpec } from "@/lib/reportExport";
+import { datesLine, dayText, downloadReportCsv, type ReportSpec } from "@/lib/reportExport";
 import { buildInvoicePdf, loadImage } from "@/lib/invoice";
 import { DEDUCTION_PRESETS, invoiceNet, parseDeductions, type Deduction } from "@/lib/invoiceDeductions";
 import { DocLink, useBlobViewer } from "@/components/DocPreview";
@@ -35,7 +36,7 @@ import { LoadQuickLook } from "@/components/LoadQuickLook";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbooks.functions";
-import { ActionButton, Hint, type ConfirmSpec } from "@/components/ActionGuard";
+import { ActionButton, Hint, useConfirm, type ConfirmSpec } from "@/components/ActionGuard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkActionBar, SelectAllBox, useSelection, type BulkAction } from "@/components/BulkActionBar";
 import { Files, ClipboardCheck, Landmark } from "lucide-react";
@@ -119,6 +120,7 @@ function Accounting() {
   const { data: companies } = useSuspenseQuery(companiesQuery);
   const { data: carriers } = useSuspenseQuery({ ...carriersQuery, refetchInterval: 60_000 });
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const { data: sync = [], error: syncError, isFetching: refreshing } = useQuery({
     queryKey: ["qb_sync"],
     queryFn: async () => (await fetchAllPaged("qb_sync", "created_at", false)) as SyncRow[],
@@ -133,6 +135,8 @@ function Accounting() {
   const [editing, setEditing] = useState<SyncRow | null>(null);
   const [attaching, setAttaching] = useState<SyncRow | null>(null);
   const [linking, setLinking] = useState<SyncRow | null>(null);
+  type ReviewAction = "edit" | "attach" | "link" | "email" | "packet" | "carrier";
+  const [reviewQueue, setReviewQueue] = useState<{ action: ReviewAction; rows: Load[]; entries: SyncRow[]; index: number } | null>(null);
   const qbStatusFn = useServerFn(qbStatus);
   const qbStart = useServerFn(qbStartConnect);
   const qbOff = useServerFn(qbDisconnect);
@@ -210,7 +214,7 @@ function Accounting() {
     const l = loads.find((x) => x.id === s.load_id);
     if (!l || !s.invoice_number) return null;
     const g = groupOf(s);
-    const lines = g.map((x) => ({ load: loads.find((y) => y.id === x.load_id)!, amount: Number(x.amount), deductions: x.deductions })).filter((x) => x.load);
+    const lines = g.flatMap((x) => { const load = loadById.get(x.load_id); return load ? [{ load, amount: Number(x.amount), deductions: x.deductions }] : []; });
     const amount = g.length > 1 ? lines.reduce((t, x) => t + x.amount, 0) : Number(s.amount);
     const billTo = companies.find((c) => c.id === l.customer_id);
     const terms = invoiceTerms(s);
@@ -236,7 +240,7 @@ function Accounting() {
   /** One packet per invoice for the ticked loads, with the default documents (POD + BOL). */
   const downloadPackets = async () => {
     const kind = tab as Kind;
-    const rowsFor = [...new Map(picked.map((id) => synced(id, kind)).filter((s): s is SyncRow => !!s?.invoice_number).map((s) => [s.invoice_number!, s])).values()];
+    const rowsFor = uniqueAccountingInvoices(checkedAccountingRows(shown, picked).map((l) => synced(l.id, kind)).filter((s): s is SyncRow => !!s?.invoice_number));
     if (!rowsFor.length) return toast.info("Tick loads that already have an invoice number.");
     setPacking(true);
     let made = 0;
@@ -272,7 +276,7 @@ function Accounting() {
 
   /** Warning box for "Send selected to QuickBooks". */
   const sendSpec = (): ConfirmSpec | null => {
-    const chosen = rows.filter((l) => picked.includes(l.id));
+    const chosen = checkedAccountingRows(shown, picked);
     if (!chosen.length) return null;
     const kind = tab as Kind;
     const bill = kind === "bill";
@@ -297,11 +301,11 @@ function Accounting() {
   };
 
   const send = async () => {
-    const chosen = rows.filter((l) => picked.includes(l.id));
+    const chosen = checkedAccountingRows(shown, picked);
     if (!chosen.length) return toast.info("Select at least one load.");
     const kind = tab as Kind;
     const { error } = await supabase.from("qb_sync").upsert(
-      chosen.map((l) => ({
+      chosen.filter((l) => !synced(l.id, kind)?.qb_ref).map((l) => ({
         load_id: l.id,
         kind,
         payee: payee(l, kind),
@@ -484,6 +488,59 @@ function Accounting() {
   };
 
 
+  const selectedLoads = checkedAccountingRows(shown, picked);
+  const showReview = (action: ReviewAction, load: Load, row?: SyncRow) => {
+    if (action === "carrier") setBillTarget(billTargetFor(load));
+    else if (!row) return;
+    else if (action === "edit") setEditing(row);
+    else if (action === "attach") setAttaching(row);
+    else if (action === "link") setLinking(row);
+    else if (action === "packet" || action === "email") setPacketRow(row);
+  };
+  const startReview = (action: ReviewAction, items: Load[], explicitRows?: SyncRow[]) => {
+    const candidates = explicitRows ?? items.map((l) => synced(l.id, tab as Kind)).filter((s): s is SyncRow => !!s);
+    const eligible = uniqueAccountingInvoices(candidates.filter((s) =>
+      (action !== "link" || s.kind !== "bill") &&
+      (!["email", "packet"].includes(action) || (s.kind !== "bill" && !!s.invoice_number))));
+    const targets = action === "carrier" ? items : eligible.flatMap((s) => { const load = loadById.get(s.load_id); return load ? [load] : []; });
+    if (!targets.length) { toast.info("No checked entries can use this action. Create or link an invoice first."); return; }
+    if (action !== "carrier" && candidates.length < items.length) toast.info("Loads without an invoice are skipped; use Link existing QB invoice to match them.");
+    setReviewQueue({ action, rows: targets, entries: eligible, index: 0 });
+    const first = targets[0];
+    if (first) showReview(action, first, eligible[0]);
+  };
+  const finishReview = () => { setReviewQueue(null); setEditing(null); setAttaching(null); setLinking(null); setPacketRow(null); setBillTarget(null); };
+  const nextReview = () => {
+    setEditing(null); setAttaching(null); setLinking(null); setPacketRow(null); setBillTarget(null);
+    if (!reviewQueue) return;
+    const index = reviewQueue.index + 1;
+    const load = reviewQueue.rows[index];
+    if (!load) { finishReview(); toast.success("Checked-entry review complete."); return; }
+    setReviewQueue({ ...reviewQueue, index });
+    const row = reviewQueue.entries[index];
+    showReview(reviewQueue.action, load, row);
+  };
+  const reviewActions: BulkAction<Load>[] = [
+    ...(tab === "bill" ? [{ value: "carrier", label: "Attach / review carrier invoices", financeOnly: true, hint: "Review the correct invoice and payment details separately for each checked load.", all: (items: Load[]) => startReview("carrier", items) }] : [
+      { value: "create", label: "Create invoices", hint: "Create separate or combined invoices for the checked loads, with review before saving.", all: () => setBatchOpen(true) },
+      { value: "packets", label: "Download invoice packets", hint: "Download one invoice, POD and BOL packet per checked invoice.", all: downloadPackets },
+      { value: "packet", label: "Review invoice packets", hint: "Review documents for every checked invoice separately.", all: (items: Load[]) => startReview("packet", items) },
+      { value: "email", label: "Email invoices (review each)", hint: "Review each invoice packet and open your Gmail; nothing is emailed automatically.", all: (items: Load[]) => startReview("email", items) },
+      { value: "link", label: "Link existing QB invoices (review each)", financeOnly: true, hint: "Verify a separate existing QuickBooks invoice for each checked invoice; never assigns one invoice to unrelated loads.", all: (items: Load[]) => startReview("link", items) },
+    ]),
+    { value: "send", label: "Send to QuickBooks", hint: "Send the checked entries, retaining the existing duplicate and billing safeguards.", all: async () => { const spec = sendSpec(); if (spec && await confirm(spec)) await send(); } },
+    { value: "edit", label: "Edit invoice / terms (review each)", financeOnly: true, hint: "Review amounts, terms, due dates, deductions and billing company separately for every checked entry.", all: (items) => startReview("edit", items) },
+    { value: "attach", label: "Attach documents (review each)", hint: "Pick the correct documents for every checked invoice or bill; previously sent files are retained.", all: (items) => startReview("attach", items) },
+    ...logActions.map((action): BulkAction<Load> => ({ ...action, points: (items, param) => action.points?.(items.flatMap((l) => { const s = synced(l.id, tab as Kind); return s ? [s] : []; }), param) ?? [], each: async (l, param) => { const row = synced(l.id, tab as Kind); return row && action.each ? action.each(row, param) : `${l.load_number}: skipped — no queued entry`; }, all: undefined })),
+    { value: "export", label: "Export checked to CSV", hint: "Download only the checked loads as a spreadsheet.", all: (items) => downloadReportCsv({ title: TAB_TITLE[tab] ?? "Accounting", head: ["Load", "Customer ref", "Payee", "Amount", "Invoice", "QuickBooks"], rows: items.map((l) => { const s = synced(l.id, tab as Kind); return [l.load_number, l.customer_ref ?? "", payee(l, tab), usd(amountFor(l, tab as Kind)), s?.invoice_number ?? "", qbText(s)]; }) }) },
+  ];
+  const logReviewActions: BulkAction<SyncRow>[] = [
+    ...["edit", "attach", "link"].map((action): BulkAction<SyncRow> => ({ value: action, label: action === "edit" ? "Edit invoice / terms (review each)" : action === "attach" ? "Attach documents (review each)" : "Link existing QB invoices (review each)", financeOnly: action !== "attach", hint: "Review every checked invoice separately with its existing safeguards.", all: (items) => startReview(action as ReviewAction, items.flatMap((s) => { const l = loadById.get(s.load_id); return l ? [l] : []; }), items) })),
+    ...logActions,
+    { value: "force", label: "Send anyway (duplicate warnings only)", hint: "Creates new invoices despite duplicate warnings. Verify each is a different load first.", points: (items) => [`${items.filter((s) => s.status === "error" && s.error?.startsWith("Possible duplicate")).length} duplicate-warning entries will be sent as NEW invoices.`, "Only proceed if each warning refers to a different load; all other entries are skipped."], each: async (s) => { if (s.status !== "error" || !s.error?.startsWith("Possible duplicate")) return `${s.invoice_number ?? s.id}: skipped — no duplicate warning`; const result = await qbSync({ data: { ids: [s.id], force: true } }); return result.failed ? `${s.invoice_number ?? s.id}: still failed — see Sync log` : null; } },
+  ];
+
+
   return (
     <div className="space-y-5 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -505,7 +562,7 @@ function Accounting() {
           {tab !== "log" && <ActionButton hint={tab === "bill" ? "Queues the ticked carrier bills and sends them to Clearwater QuickBooks. Does not pay the carrier." : "Queues the ticked invoices, moves delivered loads to Invoiced, and sends them to QuickBooks. Asks you first."} confirm={sendSpec} onClick={send}><Send className="mr-1 h-4 w-4" />Send selected to QuickBooks</ActionButton>}
         </div>
       </div>
-      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={rows.filter((l) => picked.includes(l.id))} companies={companies} onDone={() => { setPicked([]); if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow(); }} />
+      <BatchInvoiceDialog open={batchOpen} onOpenChange={setBatchOpen} loads={selectedLoads} companies={companies} onDone={() => { setPicked([]); if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow(); }} />
       <div className="grid gap-3 md:grid-cols-2">
         {([["brokerage", "Clearwater Cargo", "Customer invoices (AR) and carrier bills (AP)"], ["fleet", "Foust Farms Trucking", "Fleet billing (FF- invoices)"]] as const).map(([ent, name, what]) => {
           const st = qbs?.[ent];
@@ -570,10 +627,16 @@ function Accounting() {
       )}
       <ReportExport className="ml-auto" build={exportSpec} />
       </div>
+      {reviewQueue && <div className="flex flex-wrap items-center gap-2 border-y py-2 text-sm">
+        <span className="flex-1">Checked-entry review {reviewQueue.index + 1} of {reviewQueue.rows.length} · {reviewQueue.rows[reviewQueue.index]?.load_number}</span>
+        <Button size="sm" variant="outline" onClick={nextReview}>Skip / next entry</Button>
+        <Button size="sm" variant="ghost" onClick={finishReview}>Stop review</Button>
+      </div>}
+      {tab !== "log" && <BulkActionBar key={tab} items={selectedLoads} total={shown.length} actions={reviewActions} onClear={() => setPicked([])} invalidate={["qb_sync", "loads"]} noun="loads" applyLabel="Apply to all checked" />}
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
           <>
-          <div className="p-2"><BulkActionBar items={shownSync.filter((x) => logSel.has(x.id))} total={shownSync.length} actions={logActions} onClear={logSel.clear} invalidate={["qb_sync"]} noun="items" /></div>
+          <div className="p-2"><BulkActionBar items={shownSync.filter((x) => logSel.has(x.id))} total={shownSync.length} actions={logReviewActions} onClear={logSel.clear} applyLabel="Apply to all checked" invalidate={["qb_sync"]} noun="items" /></div>
           <Table>
             <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={shownSync.map((x) => x.id)} sel={logSel} /></TableHead><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="w-24">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -611,7 +674,7 @@ function Accounting() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">
-                  <input type="checkbox" checked={picked.length > 0 && picked.length === Math.min(shown.length, limit)} onChange={(e) => setPicked(e.target.checked ? shown.slice(0, limit).map((r) => r.id) : [])} />
+                  <Checkbox aria-label="Select all shown accounting loads" checked={shown.slice(0, limit).length > 0 && shown.slice(0, limit).every((l) => picked.includes(l.id)) ? true : shown.slice(0, limit).some((l) => picked.includes(l.id)) ? "indeterminate" : false} onCheckedChange={(v) => setPicked(v === true ? shown.slice(0, limit).map((r) => r.id) : [])} />
                 </TableHead>
                 <TableHead>Load</TableHead><TableHead>Lane</TableHead><TableHead>{tab === "bill" ? "Pay to" : "Bill to"}</TableHead><TableHead>Delivered</TableHead><TableHead>Age</TableHead><TableHead>Amount</TableHead><TableHead>{tab === "bill" ? "Carrier invoice" : "Invoice"}</TableHead><TableHead>QuickBooks</TableHead>
               </TableRow>
@@ -625,7 +688,7 @@ function Accounting() {
                 const age = ageDays(l);
                 return (
                   <TableRow key={l.id}>
-                    <TableCell><input type="checkbox" checked={picked.includes(l.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} /></TableCell>
+                    <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={picked.includes(l.id)} onCheckedChange={(v) => setPicked((p) => (v === true ? [...p, l.id] : p.filter((x) => x !== l.id)))} /></TableCell>
                     <TableCell><LoadQuickLook load={l} />{tab !== "bill" && billedKind(l) !== invoiceKind(l) && <div className="text-[10px] text-warning">Billed through {billedKind(l) === "fleet_invoice" ? "Foust Farms" : "Clearwater"}</div>}</TableCell>
                     <TableCell>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
                     <TableCell>{payee(l, tab as Kind)}</TableCell>
@@ -692,18 +755,18 @@ function Accounting() {
           </Table></div>
         </DialogContent>
       </Dialog>
-      {linking && <QbManualLinkDialog key={linking.id} row={linking} groupSize={groupOf(linking).length || 1} groupTotal={(groupOf(linking).length ? groupOf(linking) : [linking]).reduce((sum, row) => sum + owed(row), 0)} customerRef={loadById.get(linking.load_id)?.customer_ref} onClose={() => setLinking(null)} />}
+      {linking && <QbManualLinkDialog key={linking.id} row={linking} groupSize={groupOf(linking).length || 1} groupTotal={(groupOf(linking).length ? groupOf(linking) : [linking]).reduce((sum, row) => sum + owed(row), 0)} customerRef={loadById.get(linking.load_id)?.customer_ref} onClose={() => reviewQueue ? nextReview() : setLinking(null)} />}
       <InvoicePacketDialog invoiceNumber={packetRow?.invoice_number ?? null} loads={packetRow ? groupOf(packetRow).map((x) => loadById.get(x.load_id)).filter((l): l is Load => !!l) : []}
         buildInvoice={() => (packetRow ? invoicePdf(packetRow) : Promise.resolve(null))}
-        onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => setPacketRow(null)} />
-      <CarrierInvoiceDialog target={billTarget} onClose={() => setBillTarget(null)} onSaved={() => { setBillTarget(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+        onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => reviewQueue ? nextReview() : setPacketRow(null)} />
+      <CarrierInvoiceDialog key={billTarget?.load.id ?? "none"} target={billTarget} onClose={() => reviewQueue ? nextReview() : setBillTarget(null)} onSaved={() => { if (reviewQueue) nextReview(); else setBillTarget(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <BillAuditDialog open={auditOpen} onOpenChange={setAuditOpen} loads={shown} billOf={(id) => synced(id, "bill")} payeeOf={(l) => payee(l, "bill")} onAttach={(l) => setBillTarget(billTargetFor(l))} />
       {paidOpen && <QbPaidDialog open={paidOpen} onOpenChange={setPaidOpen} />}
       {qbAuditOpen && <QbAuditDialog open={qbAuditOpen} onOpenChange={setQbAuditOpen} />}
       <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
-      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
-      <QbAttachDialog row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
-        onClose={() => setAttaching(null)} onSaved={() => { setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => reviewQueue ? nextReview() : setEditing(null)} onSaved={() => { if (reviewQueue) nextReview(); else setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <QbAttachDialog key={attaching?.id ?? "none"} row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
+        onClose={() => reviewQueue ? nextReview() : setAttaching(null)} onSaved={() => { if (reviewQueue) nextReview(); else setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
     </div>
   );
 }
