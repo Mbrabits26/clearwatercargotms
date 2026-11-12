@@ -147,6 +147,7 @@ export const qbRemoveInvoiceAssignment = createServerFn({ method: "POST" })
     if (row.qb_ref !== data.previousRef) throw new Error("The invoice link changed. Close this window and try again.");
     let query = context.supabase.from("qb_sync").select("id, qb_ref").eq("kind", row.kind);
     query = row.invoice_number ? query.eq("invoice_number", row.invoice_number) : query.eq("id", row.id);
+    query = query.eq("qb_ref", data.previousRef);
     const { data: group, error: groupError } = await query;
     if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
     if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before removing.");
@@ -173,6 +174,7 @@ export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
     if (!invoice?.docNumber) throw new Error("QuickBooks didn't return an invoice number.");
     let groupQuery = context.supabase.from("qb_sync").select("id, qb_ref, attachments").eq("kind", row.kind);
     groupQuery = row.invoice_number ? groupQuery.eq("invoice_number", row.invoice_number) : groupQuery.eq("id", row.id);
+    groupQuery = row.qb_ref ? groupQuery.eq("qb_ref", row.qb_ref) : groupQuery.is("qb_ref", null);
     const { data: group, error: groupError } = await groupQuery;
     if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
     if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before assigning.");

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { accountingBulkPatch, checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
 
 describe("apply to all checked accounting rows", () => {
+  it("keeps an unlinked wrong assignment separate from the corrected live invoice", () => {
+    const rows = [{ id: "wrong", kind: "fleet_invoice", invoice_number: "2165", qb_ref: null }, { id: "correct", kind: "fleet_invoice", invoice_number: "2165", qb_ref: "5048" }];
+    expect(uniqueAccountingInvoices(rows).map((r) => r.id)).toEqual(["wrong", "correct"]);
+  });
   it("applies to every checked row, not unchecked or filtered-out rows", () => {
     expect(checkedAccountingRows([{ id: "a" }, { id: "b" }, { id: "c" }], ["a", "c", "hidden"]).map((r) => r.id)).toEqual(["a", "c"]);
   });

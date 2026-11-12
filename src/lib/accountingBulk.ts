@@ -1,8 +1,12 @@
 /** Combined invoices are reviewed once, in selection order, and never across companies. */
-export function uniqueAccountingInvoices<T extends { id: string; kind: string; invoice_number: string | null }>(rows: T[]): T[] {
+export function accountingInvoiceKey(row: { id: string; kind: string; invoice_number: string | null; qb_ref?: string | null }) {
+  return row.invoice_number ? `${row.kind}:${row.invoice_number}:${row.qb_ref ?? "unlinked"}` : row.id;
+}
+
+export function uniqueAccountingInvoices<T extends { id: string; kind: string; invoice_number: string | null; qb_ref?: string | null }>(rows: T[]): T[] {
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const key = row.invoice_number ? `${row.kind}:${row.invoice_number}` : row.id;
+    const key = accountingInvoiceKey(row);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

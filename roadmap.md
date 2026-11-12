@@ -1,7 +1,8 @@
 # Roadmap
 
-- [ ] Allow finance users to remove incorrect QuickBooks assignments without deleting invoices or changing payment status; verify and correct 2165 / FF-1018 using customer references.
-- [ ] Provide self-service assignment overrides with verification prompts, including invoices assigned to another load, so future corrections need no chat request.
+- [x] Finance-only Remove assignment and verified replacement prompts; corrected QB 2165 (ref 40115320) from CW-10508 to CW-15412 through the signed-in UI without changing amounts or payments. Held CW-10508; QB FF-1018 / internal 5094 is unavailable.
+- [x] Self-service assignment corrections: remove another load's incorrect assignment with confirmation, then verify and assign the existing invoice; no QB deletion required. Held and linked records sharing a number remain separate.
+- [ ] CW-10508 (customer ref 40115924): replacement invoice cannot be verified because FF-1018 / QB 5094 is unavailable; needs the correct existing QuickBooks invoice.
 
 - [x] Diagnose missing Accounting entries: removing a queue record does not remove its load; AR includes unpaid customer invoice records only. Corrected Paid + Closeout for previously closed unpaid loads; 25 tests passed (including 114 loads), signed-in missing-entry flow and payment confirmation verified without changing payments. Exact user's 114 checked IDs unavailable; no batch payment applied.
 
