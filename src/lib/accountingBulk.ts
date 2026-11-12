@@ -14,3 +14,23 @@ export function checkedAccountingRows<T extends { id: string }>(rows: T[], picke
   const ids = new Set(picked);
   return rows.filter((row) => ids.has(row.id));
 }
+
+/** Validate shared invoice edits before any selected record is changed. */
+export function accountingBulkPatch(field: "payee" | "amount" | "due_date" | "deductions", value: string) {
+  if (field === "payee") {
+    if (!value.trim()) throw new Error("Enter a payee / customer name.");
+    return { payee: value.trim() };
+  }
+  if (field === "amount") {
+    const amount = Number(value);
+    if (!value.trim() || !Number.isFinite(amount) || amount < 0) throw new Error("Enter a valid non-negative amount.");
+    return { amount };
+  }
+  if (field === "due_date") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) throw new Error("Enter a valid due date as YYYY-MM-DD.");
+    return { due_date: value };
+  }
+  const pct = Number(value);
+  if (!value.trim() || !Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error("Enter a deduction percentage from 0 to 100.");
+  return { deductions: pct === 0 ? [] : [{ label: "QuickPay fee", pct }] };
+}

@@ -14,7 +14,7 @@ import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, fetchAllPaged } from "@/lib/queries";
 import { agingTotal, carrierAccountingEntries } from "@/lib/accountingSummary";
-import { checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
+import { accountingBulkPatch, checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
 import { CUSTOMER_TERMS, termsDays, effectiveFeeRate, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
@@ -304,8 +304,10 @@ function Accounting() {
     const chosen = checkedAccountingRows(shown, picked);
     if (!chosen.length) return toast.info("Select at least one load.");
     const kind = tab as Kind;
+    const unsent = chosen.filter((l) => !synced(l.id, kind)?.qb_ref);
+    if (!unsent.length) return toast.info("All checked entries are already linked to QuickBooks; nothing was sent again.");
     const { error } = await supabase.from("qb_sync").upsert(
-      chosen.filter((l) => !synced(l.id, kind)?.qb_ref).map((l) => ({
+      unsent.map((l) => ({
         load_id: l.id,
         kind,
         payee: payee(l, kind),
@@ -322,7 +324,7 @@ function Accounting() {
       await supabase.from("loads").update({ status: "invoiced" }).in("id", chosen.filter((l) => l.status === "delivered").map((l) => l.id));
       qc.invalidateQueries({ queryKey: ["loads"] });
     }
-    toast.success(`${chosen.length} ${kind === "bill" ? "bill(s)" : "invoice(s)"} queued for QuickBooks`);
+    toast.success(`${unsent.length} ${kind === "bill" ? "bill(s)" : "invoice(s)"} queued for QuickBooks`);
     setPicked([]);
     qc.invalidateQueries({ queryKey: ["qb_sync"] });
     if (qbs?.brokerage.connected || qbs?.fleet.connected) syncNow();
@@ -499,9 +501,10 @@ function Accounting() {
   };
   const startReview = (action: ReviewAction, items: Load[], explicitRows?: SyncRow[]) => {
     const candidates = explicitRows ?? items.map((l) => synced(l.id, tab as Kind)).filter((s): s is SyncRow => !!s);
-    const eligible = uniqueAccountingInvoices(candidates.filter((s) =>
+    const filtered = candidates.filter((s) =>
       (action !== "link" || s.kind !== "bill") &&
-      (!["email", "packet"].includes(action) || (s.kind !== "bill" && !!s.invoice_number))));
+      (!["email", "packet"].includes(action) || (s.kind !== "bill" && !!s.invoice_number)) && !!loadById.get(s.load_id));
+    const eligible = action === "edit" ? filtered : uniqueAccountingInvoices(filtered);
     const targets = action === "carrier" ? items : eligible.flatMap((s) => { const load = loadById.get(s.load_id); return load ? [load] : []; });
     if (!targets.length) { toast.info("No checked entries can use this action. Create or link an invoice first."); return; }
     if (action !== "carrier" && candidates.length < items.length) toast.info("Loads without an invoice are skipped; use Link existing QB invoice to match them.");
@@ -520,6 +523,36 @@ function Accounting() {
     const row = reviewQueue.entries[index];
     showReview(reviewQueue.action, load, row);
   };
+  const commonEdits: BulkAction<SyncRow>[] = [
+    ...(["payee", "amount", "due_date", "deductions"] as const).map((field): BulkAction<SyncRow> => ({
+      value: `set-${field}`, label: field === "payee" ? "Set payee / customer" : field === "amount" ? "Set amount" : field === "due_date" ? "Set due date" : "Set customer QuickPay deduction %",
+      financeOnly: true, input: { label: field === "payee" ? "Payee / customer name" : field === "amount" ? "Amount ($)" : field === "due_date" ? "Due date (YYYY-MM-DD)" : "Customer deduction % (0 removes)" },
+      hint: "Applies the same value to all checked TMS entries. QuickBooks itself and carrier terms are unchanged.",
+      points: (items, value) => [`Set ${field.replace(/_/g, " ")} to ${value} on ${items.length} checked entries.`, "Only TMS records change; invoices already in QuickBooks are NOT updated there.", field === "deductions" ? "Replaces customer percentage deductions. Carrier payment terms, fee choices and bank details stay unchanged." : "Other amounts, terms, deductions and carrier settings stay unchanged.", "Due dates and customer deductions skip carrier bills."],
+      each: async (row, value) => {
+        if (row.kind === "bill" && ["due_date", "deductions"].includes(field)) return `${row.invoice_number ?? row.id}: skipped — carrier bill`;
+        const patch = accountingBulkPatch(field, value);
+        const { error, count } = await supabase.from("qb_sync").update(patch, { count: "exact" }).eq("id", row.id);
+        return error ? `${row.invoice_number ?? row.id}: ${error.message}` : !count ? `${row.invoice_number ?? row.id}: not allowed to update` : null;
+      },
+    })),
+    { value: "terms", label: "Set customer payment terms", financeOnly: true, hint: "Applies the chosen terms and recalculates each invoice's due date from its own invoice date. Carrier terms stay unchanged.", param: { label: "Payment terms", options: CUSTOMER_TERMS.map((value) => ({ value, label: value })) }, points: (items, value) => [`${items.filter((s) => s.kind !== "bill").length} customer invoice entries get ${value}.`, "Due dates are recalculated from each invoice date. Carrier bills are skipped.", "Only TMS invoices change; QuickBooks invoices and carrier pay settings remain unchanged."], each: async (row, terms) => {
+      if (row.kind === "bill") return `${row.id}: skipped — carrier bill`;
+      const due_date = new Date(new Date(row.created_at).getTime() + termsDays(terms) * 86_400_000).toISOString().slice(0, 10);
+      const { error, count } = await supabase.from("qb_sync").update({ terms, due_date }, { count: "exact" }).eq("id", row.id);
+      return error ? `${row.invoice_number}: ${error.message}` : !count ? `${row.invoice_number}: not allowed to update` : null;
+    } },
+    { value: "company", label: "Set billing company (unsent only)", financeOnly: true, hint: "Moves each checked unsent customer invoice to the chosen billing company using the existing protected correction. Combined invoices move together and get a new number.", param: { label: "Billing company", options: [{ value: "invoice", label: "Clearwater Cargo" }, { value: "fleet_invoice", label: "Foust Farms" }] }, all: async (items, kind) => {
+      const rows = uniqueAccountingInvoices(items.filter((s) => s.kind !== "bill" && !s.qb_ref && s.status !== "sent" && s.kind !== kind));
+      if (!rows.length) { toast.info("No unsent checked invoices need to change company."); return; }
+      if (!await confirm({ title: `Change billing company for ${rows.length} checked invoices?`, points: ["Combined invoices move together, including their other load lines.", "Each invoice receives a new invoice number. Old PDFs will need replacing.", "Invoices already in QuickBooks and carrier bills are skipped."], confirmLabel: "Change billing company" })) return;
+      const errors: string[] = [];
+      for (const row of rows) { const { error } = await supabase.rpc("set_invoice_company", { p_id: row.id, p_kind: kind }); if (error) errors.push(`${row.invoice_number}: ${error.message}`); }
+      await refreshAccounting();
+      if (errors.length) throw new Error(errors.join("; "));
+      toast.success(`${rows.length} invoices changed billing company.`); setPicked([]); logSel.clear();
+    } },
+  ];
   const reviewActions: BulkAction<Load>[] = [
     ...(tab === "bill" ? [{ value: "carrier", label: "Attach / review carrier invoices", financeOnly: true, hint: "Review the correct invoice and payment details separately for each checked load.", all: (items: Load[]) => startReview("carrier", items) }] : [
       { value: "create", label: "Create invoices", hint: "Create separate or combined invoices for the checked loads, with review before saving.", all: () => setBatchOpen(true) },
@@ -531,12 +564,14 @@ function Accounting() {
     { value: "send", label: "Send to QuickBooks", hint: "Send the checked entries, retaining the existing duplicate and billing safeguards.", all: async () => { const spec = sendSpec(); if (spec && await confirm(spec)) await send(); } },
     { value: "edit", label: "Edit invoice / terms (review each)", financeOnly: true, hint: "Review amounts, terms, due dates, deductions and billing company separately for every checked entry.", all: (items) => startReview("edit", items) },
     { value: "attach", label: "Attach documents (review each)", hint: "Pick the correct documents for every checked invoice or bill; previously sent files are retained.", all: (items) => startReview("attach", items) },
+    ...commonEdits.map((action): BulkAction<Load> => ({ ...action, points: (items, param) => action.points?.(items.flatMap((l) => { const s = synced(l.id, tab as Kind); return s ? [s] : []; }), param) ?? [], each: action.each ? async (l, param) => { const s = synced(l.id, tab as Kind); return s && action.each ? action.each(s, param) : `${l.load_number}: skipped — no invoice entry`; } : undefined, all: action.all ? (items, param) => action.all?.(items.flatMap((l) => { const s = synced(l.id, tab as Kind); return s ? [s] : []; }), param) : undefined })),
     ...logActions.map((action): BulkAction<Load> => ({ ...action, points: (items, param) => action.points?.(items.flatMap((l) => { const s = synced(l.id, tab as Kind); return s ? [s] : []; }), param) ?? [], each: async (l, param) => { const row = synced(l.id, tab as Kind); return row && action.each ? action.each(row, param) : `${l.load_number}: skipped — no queued entry`; }, all: undefined })),
     { value: "export", label: "Export checked to CSV", hint: "Download only the checked loads as a spreadsheet.", all: (items) => downloadReportCsv({ title: TAB_TITLE[tab] ?? "Accounting", head: ["Load", "Customer ref", "Payee", "Amount", "Invoice", "QuickBooks"], rows: items.map((l) => { const s = synced(l.id, tab as Kind); return [l.load_number, l.customer_ref ?? "", payee(l, tab), usd(amountFor(l, tab as Kind)), s?.invoice_number ?? "", qbText(s)]; }) }) },
   ];
   const logReviewActions: BulkAction<SyncRow>[] = [
     ...["edit", "attach", "link"].map((action): BulkAction<SyncRow> => ({ value: action, label: action === "edit" ? "Edit invoice / terms (review each)" : action === "attach" ? "Attach documents (review each)" : "Link existing QB invoices (review each)", financeOnly: action !== "attach", hint: "Review every checked invoice separately with its existing safeguards.", all: (items) => startReview(action as ReviewAction, items.flatMap((s) => { const l = loadById.get(s.load_id); return l ? [l] : []; }), items) })),
     ...logActions,
+    ...commonEdits,
     { value: "force", label: "Send anyway (duplicate warnings only)", hint: "Creates new invoices despite duplicate warnings. Verify each is a different load first.", points: (items) => [`${items.filter((s) => s.status === "error" && s.error?.startsWith("Possible duplicate")).length} duplicate-warning entries will be sent as NEW invoices.`, "Only proceed if each warning refers to a different load; all other entries are skipped."], each: async (s) => { if (s.status !== "error" || !s.error?.startsWith("Possible duplicate")) return `${s.invoice_number ?? s.id}: skipped — no duplicate warning`; const result = await qbSync({ data: { ids: [s.id], force: true } }); return result.failed ? `${s.invoice_number ?? s.id}: still failed — see Sync log` : null; } },
   ];
 
