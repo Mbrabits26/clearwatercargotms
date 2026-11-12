@@ -7,6 +7,7 @@ import { lookupFmcsa, type FmcsaCarrier } from "@/lib/fmcsa.functions";
 import { contactRisk } from "@/lib/fraudCheck";
 import { getCarrierCheck } from "@/lib/carrierCheck.functions";
 import { CarrierCheckButton } from "@/components/CarrierCheckDialog";
+import { carrierCheckWarning, type CarrierWarning } from "@/lib/carrierAlerts";
 
 /** Button that pulls carrier data from FMCSA/SAFER by MC or DOT. */
 export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
@@ -15,16 +16,24 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
   const fn = useServerFn(lookupFmcsa);
   const checkFn = useServerFn(getCarrierCheck);
   const [busy, setBusy] = useState(false);
+  const [warning, setWarning] = useState<CarrierWarning | null>(null);
   const run = async () => {
-    setBusy(true);
+    setBusy(true); setWarning(null);
     try {
       const r = await fn({ data: { mc: mc || null, dot: dot || null } });
       if (r.source === "blocked") { toast.warning(r.warnings[0], { action: { label: "Open in SAFER", onClick: () => window.open(r.safer_url, "_blank") } }); return; }
       onResult(r);
-      // Build the detailed Carrier Checks report in the background so it's ready to open.
-      if (r.dot_number) checkFn({ data: { mc: r.mc_number, dot: r.dot_number } }).catch(() => {});
       if (r.warnings.length) toast.warning(`FMCSA: ${r.warnings.join(" · ")}`);
       else toast.success(`FMCSA: ${r.legal_name} · ${r.authority_status}`);
+      // Complete the check as part of this lookup, not a silent background job.
+      if (r.dot_number) {
+        try {
+          const report = await checkFn({ data: { mc: r.mc_number, dot: r.dot_number } });
+          setWarning(carrierCheckWarning(report));
+        } catch {
+          toast.warning("Detailed Carrier Checks unavailable; FMCSA result is still shown.");
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "FMCSA lookup failed");
     } finally {
@@ -38,6 +47,10 @@ export function FmcsaButton({ mc, dot, onResult, label = "Look up FMCSA" }: {
       </Button>
       <MotusButton dot={dot} />
       <CarrierCheckButton mc={mc} dot={dot} />
+      {warning && <div role="status" className={`w-full rounded border p-2 text-sm ${warning.level === "red" ? "border-destructive/50 bg-destructive/5" : "border-warning/50 bg-warning/5"}`}>
+        <div className={`font-semibold ${warning.level === "red" ? "text-destructive" : "text-warning"}`}>{warning.title}</div>
+        <div className="text-muted-foreground">{warning.body}</div>
+      </div>}
     </div>
   );
 }

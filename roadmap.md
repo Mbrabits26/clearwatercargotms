@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Non-US packet/RC signatures address the sender, assigned load broker and admins; informational yellow/red Carrier Checks show inline after MC/DOT lookup and persist in recipient bells. Real signed-in red check, inline warning and admin recipient records verified; no signatures or carrier data changed. Signature routing covered by tests; no real overseas signing submitted. Preview only.
+
 - [x] Finance-only Remove assignment and verified replacement prompts; corrected QB 2165 (ref 40115320) from CW-10508 to CW-15412 through the signed-in UI without changing amounts or payments. Held CW-10508; QB FF-1018 / internal 5094 is unavailable.
 - [x] Self-service assignment corrections: remove another load's incorrect assignment with confirmation, then verify and assign the existing invoice; no QB deletion required. Held and linked records sharing a number remain separate.
 - [ ] CW-10508 (customer ref 40115924): replacement invoice cannot be verified because FF-1018 / QB 5094 is unavailable; needs the correct existing QuickBooks invoice.
