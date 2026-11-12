@@ -573,6 +573,7 @@ function Accounting() {
   const logReviewActions: BulkAction<SyncRow>[] = [
     ...buildLoadListActions({ actions: ["paid", "closeout", "paid_closeout", "status", "pod", "carrier_paid"] }).map((action): BulkAction<SyncRow> => ({
       ...action,
+      all: undefined,
       points: (items, param) => action.points?.([...new Set(items.map((s) => s.load_id))].flatMap((id) => { const l = loadById.get(id); return l ? [l] : []; }), param) ?? [],
       each: async (row, param) => {
         const checked = shownSync.filter((s) => logSel.has(s.id) && s.load_id === row.load_id);
