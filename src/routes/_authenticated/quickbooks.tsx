@@ -12,7 +12,8 @@ import { QbManualLinkDialog } from "@/components/QbManualLinkDialog";
 import { QbAttachDialog } from "@/components/QbAttachDialog";
 import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
-import { carriersQuery, companiesQuery, loadsQuery } from "@/lib/queries";
+import { carriersQuery, companiesQuery, loadsQuery, fetchAllPaged } from "@/lib/queries";
+import { agingTotal, carrierAccountingEntries } from "@/lib/accountingSummary";
 import { CUSTOMER_TERMS, termsDays, effectiveFeeRate, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
@@ -114,14 +115,19 @@ export const Route = createFileRoute("/_authenticated/quickbooks")({
 
 function Accounting() {
   const { isFinance } = useRouteContext({ from: "/_authenticated" });
-  const { data: loads } = useSuspenseQuery(loadsQuery);
+  const { data: loads } = useSuspenseQuery({ ...loadsQuery, refetchInterval: 60_000 });
   const { data: companies } = useSuspenseQuery(companiesQuery);
-  const { data: carriers } = useSuspenseQuery(carriersQuery);
+  const { data: carriers } = useSuspenseQuery({ ...carriersQuery, refetchInterval: 60_000 });
   const qc = useQueryClient();
-  const { data: sync = [] } = useQuery({
+  const { data: sync = [], error: syncError, isFetching: refreshing } = useQuery({
     queryKey: ["qb_sync"],
-    queryFn: async () => ((await supabase.from("qb_sync").select("*").order("created_at", { ascending: false })).data ?? []) as SyncRow[],
+    queryFn: async () => (await fetchAllPaged("qb_sync", "created_at", false)) as SyncRow[],
+    refetchInterval: 60_000,
   });
+  const [summaryOpen, setSummaryOpen] = useState<"ar" | "ap" | "fees" | null>(null);
+  const refreshAccounting = async () => {
+    await Promise.all(["loads", "carriers", "qb_sync"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
+  };
   const [tab, setTab] = useState<Kind | "log">("invoice");
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<SyncRow | null>(null);
@@ -152,8 +158,8 @@ function Accounting() {
   const billedKind = (l: Load) => sync.find((s) => s.load_id === l.id && s.kind !== "bill")?.kind ?? invoiceKind(l);
   const ar = delivered.filter((l) => billedKind(l) === "invoice");
   const fleetAr = delivered.filter((l) => billedKind(l) === "fleet_invoice");
-  const ap = loads.filter((l) => l.carrier_id && l.pod_received && ["delivered", "invoiced", "paid"].includes(l.status));
-  const ap0 = ap.filter((l) => !isFleetLoad(l));
+  const carrierEntries = carrierAccountingEntries(loads, carrierById, new Set(sync.filter((s) => s.kind !== "bill").map((s) => s.load_id)));
+  const ap0 = carrierEntries.filter((e) => e.owed).map((e) => e.load);
   const [batchOpen, setBatchOpen] = useState(false);
   const needsReview = (l: Load) => qbReviewState(l, sync) !== null;
   // Arriving from the "invoiced loads to review" notice: show only those, on the tab that holds them.
@@ -409,13 +415,29 @@ function Accounting() {
   const loadOf = (id: string) => loadById.get(id);
   const age = (s: SyncRow) => { const l = loadOf(s.load_id); return l ? ageDays(l) ?? 0 : 0; };
   const bucket = (list: SyncRow[]) => {
-    const open = list.filter((s) => !paidStatus(loadOf(s.load_id)));
+    const open = list.filter((s) => { const l = loadOf(s.load_id); return !!l && l.status !== "cancelled" && !paidStatus(l); });
     const sum = (f: (a: number) => boolean) => open.filter((s) => f(age(s))).reduce((t, s) => t + owed(s), 0);
     return { total: sum(() => true), a: sum((a) => a <= 30), b: sum((a) => a > 30 && a <= 60), c: sum((a) => a > 60) };
   };
-  const arB = bucket(sync.filter((s) => s.kind !== "bill"));
-  const apB = bucket(sync.filter((s) => s.kind === "bill"));
-  const qpRevenue = sync.filter((s) => s.kind === "bill").reduce((t, s) => t + Number(s.quickpay_fee || 0), 0);
+  const filteredSync = shownSync.filter((s) => s.kind !== "bill");
+  const arB = bucket(filteredSync);
+  const filteredCarrier = carrierEntries.filter((e) => inRange(loadDay(e.load)) && (!needle || (hayById.get(e.load.id) ?? "").includes(needle)));
+  const apEntries = filteredCarrier.filter((e) => e.owed);
+  const apB = agingTotal(apEntries.map((e) => ({ amount: e.pay.net, age: Math.max(0, Math.floor((Date.now() - e.pay.podAt) / 86400_000)) })));
+  const feeEntries = filteredCarrier.filter((e) => e.pay.fee > 0 && (e.owed || e.collected));
+  const qpRevenue = feeEntries.filter((e) => e.collected).reduce((t, e) => t + e.pay.fee, 0);
+  const qpPending = feeEntries.filter((e) => e.owed).reduce((t, e) => t + e.pay.fee, 0);
+  const summaryRows = summaryOpen === "ar" ? filteredSync.filter((s) => {
+    const l = loadOf(s.load_id); return !!l && !["paid", "cancelled"].includes(l.status);
+  }).flatMap((s) => {
+    const l = loadOf(s.load_id); return l ? [{ load: l, invoice: s.invoice_number ?? "—", payee: s.payee ?? "—", amount: owed(s), detail: `${kindCompany(s.kind)} · ${s.status}`, due: dueOf(s) }] : [];
+  }) : (summaryOpen === "ap" ? apEntries : feeEntries).map((e) => ({
+    load: e.load, invoice: sync.filter((s) => s.load_id === e.load.id && s.kind !== "bill").map((s) => s.invoice_number).filter(Boolean).join(", ") || "—",
+    payee: payee(e.load, "bill"), amount: summaryOpen === "ap" ? e.pay.net : e.pay.fee,
+    detail: summaryOpen === "ap" ? `${usd(e.pay.gross)} − ${usd(e.pay.fee)} (${Math.round(e.pay.rate * 1000) / 10}%)` : e.collected ? "Collected — carrier paid" : "Pending — carrier unpaid",
+    due: new Date(e.pay.due).toISOString().slice(0, 10),
+  }));
+  const summaryTitle = summaryOpen === "ar" ? "Open customer receivables" : summaryOpen === "ap" ? "Unpaid carrier payables" : "Quick Pay fees — collected & pending";
 
   // Print / PDF / CSV of exactly what this tab shows (all matching rows, not just the first page).
   const TAB_TITLE: Record<string, string> = { invoice: "Customer invoices (AR)", fleet_invoice: "Fleet billing (AR) — Foust Farms", bill: "Carrier bills (AP)", log: "QuickBooks sync log" };
@@ -511,9 +533,13 @@ function Accounting() {
         </div>
       ) : !isFinance && <p className="text-xs text-muted-foreground">An admin or accountant connects QuickBooks.</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Aging k="Receivables — owed to us (AR)" b={arB} />
-        <Aging k="Payables — we owe carriers (AP)" b={apB} />
-        <Stat k="Quick Pay fee revenue" v={usd(qpRevenue)} />
+        <Aging k="Receivables — owed to us (AR)" b={arB} onClick={() => setSummaryOpen("ar")} />
+        <Aging k="Payables — we owe carriers (AP)" b={apB} onClick={() => setSummaryOpen("ap")} />
+        <Stat k="Quick Pay fee revenue" v={usd(qpRevenue)} detail={`Pending ${usd(qpPending)}`} onClick={() => setSummaryOpen("fees")} />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        {syncError ? <span role="alert" className="text-sm text-destructive">Accounting records could not refresh: {syncError.message}</span> : <span className="text-xs text-muted-foreground">TMS records · {from || to || needle ? "Filtered totals" : "All dates"}</span>}
+        <ActionButton size="sm" variant="ghost" disabled={refreshing} hint="Reloads invoices, carrier payments and fee totals from the TMS. Does not change QuickBooks." onClick={refreshAccounting}><RotateCcw className="mr-1 h-4 w-4" />{refreshing ? "Refreshing…" : "Refresh totals"}</ActionButton>
       </div>
       <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setPicked([]); }}>
         <TabsList>
@@ -651,6 +677,21 @@ function Accounting() {
         )}
       </div>
       {viewer.viewer}
+      <Dialog open={summaryOpen !== null} onOpenChange={(open) => { if (!open) setSummaryOpen(null); }}>
+        <DialogContent className="max-w-5xl max-h-[85dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{summaryTitle}</DialogTitle></DialogHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span>{summaryRows.length} entries · {usd(summaryRows.reduce((t, r) => t + r.amount, 0))}</span>
+            <ReportExport build={() => ({ title: summaryTitle, head: ["Load", "Customer ref", "Invoice #", "Payee", "Due", "Amount", "Status / fee"], right: [5], rows: summaryRows.map((r) => [r.load.load_number, r.load.customer_ref ?? "", r.invoice, r.payee, r.due, usd(r.amount), r.detail]) })} />
+          </div>
+          <div className="overflow-x-auto"><Table>
+            <TableHeader><TableRow><TableHead>Load / customer ref</TableHead><TableHead>Invoice #</TableHead><TableHead>Customer / pay to</TableHead><TableHead>Due</TableHead><TableHead>Amount</TableHead><TableHead>Status / fee</TableHead></TableRow></TableHeader>
+            <TableBody>{summaryRows.map((r, i) => <TableRow key={`${r.load.id}:${i}`}><TableCell><LoadQuickLook load={r.load} /><div className="text-xs text-muted-foreground">{r.load.customer_ref}</div></TableCell><TableCell>{r.invoice}</TableCell><TableCell>{r.payee}</TableCell><TableCell>{r.due}</TableCell><TableCell>{usd(r.amount)}</TableCell><TableCell>{r.detail}</TableCell></TableRow>)}
+              {!summaryRows.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No matching entries.</TableCell></TableRow>}
+            </TableBody>
+          </Table></div>
+        </DialogContent>
+      </Dialog>
       {linking && <QbManualLinkDialog key={linking.id} row={linking} groupSize={groupOf(linking).length || 1} groupTotal={(groupOf(linking).length ? groupOf(linking) : [linking]).reduce((sum, row) => sum + owed(row), 0)} customerRef={loadById.get(linking.load_id)?.customer_ref} onClose={() => setLinking(null)} />}
       <InvoicePacketDialog invoiceNumber={packetRow?.invoice_number ?? null} loads={packetRow ? groupOf(packetRow).map((x) => loadById.get(x.load_id)).filter((l): l is Load => !!l) : []}
         buildInvoice={() => (packetRow ? invoicePdf(packetRow) : Promise.resolve(null))}
@@ -782,21 +823,22 @@ function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow
   );
 }
 
-function Stat({ k, v }: { k: string; v: string }) {
+function Stat({ k, v, detail, onClick }: { k: string; v: string; detail?: string; onClick: () => void }) {
   return (
-    <div className="rounded border bg-card p-4">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
-      <div className="font-display text-3xl text-gold">{v}</div>
-    </div>
+    <Button variant="outline" onClick={onClick} className="h-auto w-full flex-col items-start whitespace-normal bg-card p-4 text-left">
+      <span className="text-xs uppercase tracking-wider text-muted-foreground">{k}</span>
+      <span className="font-display text-3xl text-gold">{v}</span>
+      {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
+    </Button>
   );
 }
-function Aging({ k, b }: { k: string; b: { total: number; a: number; b: number; c: number } }) {
+function Aging({ k, b, onClick }: { k: string; b: { total: number; a: number; b: number; c: number }; onClick: () => void }) {
   return (
-    <div className="rounded border bg-card p-4">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
-      <div className="font-display text-3xl text-gold">{usd(b.total)}</div>
-      <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground"><span>0–30d {usd(b.a)}</span><span>31–60d {usd(b.b)}</span><span className={b.c > 0 ? "text-destructive" : ""}>60+d {usd(b.c)}</span></div>
-    </div>
+    <Button variant="outline" onClick={onClick} className="h-auto w-full flex-col items-start whitespace-normal bg-card p-4 text-left">
+      <span className="text-xs uppercase tracking-wider text-muted-foreground">{k}</span>
+      <span className="font-display text-3xl text-gold">{usd(b.total)}</span>
+      <span className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground"><span>0–30d {usd(b.a)}</span><span>31–60d {usd(b.b)}</span><span className={b.c > 0 ? "text-destructive" : ""}>60+d {usd(b.c)}</span></span>
+    </Button>
   );
 }
 function Pill({ status }: { status: string }) {

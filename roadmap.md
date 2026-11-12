@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Accounting totals: AP/QuickPay use carrier payment records, totals open printable load details, refresh every minute/manual; real-account AR/AP/fee windows, search and refresh verified; 21 tests passed.
+
 - [x] Accounting manual QB linking: make existing correction visible by name in AR and Sync log; offer matching for Not sent loads without a TMS invoice, with a permanent top-level entry.
 - [x] CW-10472 white POD display: saved scan contains legible paperwork/signatures; PDF.js preview verified at phone/desktop sizes without altering load or invoice.
 - [x] POD hover previews without automatically downloading; browser verified zero hover downloads and successful explicit Download.
