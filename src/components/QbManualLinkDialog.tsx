@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, Link2 } from "lucide-react";
-import { qbFindExistingInvoice, qbAssignExistingInvoice } from "@/lib/quickbooks.functions";
+import { Search, Link2, Unlink } from "lucide-react";
+import { qbFindExistingInvoice, qbAssignExistingInvoice, qbRemoveInvoiceAssignment } from "@/lib/quickbooks.functions";
 import type { QbInvoice } from "@/lib/qbMatch";
 import { usd, fmtDate } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ type Row = { id: string; kind: string; invoice_number: string | null; qb_ref: st
 export function QbManualLinkDialog({ row, groupTotal, groupSize, customerRef, onClose }: { row: Row; groupTotal: number; groupSize: number; customerRef?: string | null; onClose: () => void }) {
   const find = useServerFn(qbFindExistingInvoice);
   const assign = useServerFn(qbAssignExistingInvoice);
+  const remove = useServerFn(qbRemoveInvoiceAssignment);
   const qc = useQueryClient();
   const [by, setBy] = useState<"number" | "id">("number");
   const [value, setValue] = useState("");
@@ -25,6 +26,15 @@ export function QbManualLinkDialog({ row, groupTotal, groupSize, customerRef, on
     setBusy(true); setInvoices(null);
     try { setInvoices((await find({ data: { rowId: row.id, value, by } })).invoices); }
     catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  };
+  const unlink = async () => {
+    if (!row.qb_ref) return;
+    setBusy(true);
+    try {
+      await remove({ data: { rowId: row.id, previousRef: row.qb_ref } });
+      await qc.invalidateQueries({ queryKey: ["qb_sync"] });
+      toast.success("Assignment removed. Invoice held until you link the correct QuickBooks invoice."); onClose();
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
   const link = async (invoice: QbInvoice) => {
     setBusy(true);
@@ -38,6 +48,7 @@ export function QbManualLinkDialog({ row, groupTotal, groupSize, customerRef, on
     <DialogContent className="max-h-[85dvh] overflow-auto sm:max-w-2xl">
       <DialogHeader><DialogTitle>Assign existing QuickBooks invoice</DialogTitle></DialogHeader>
       <div className="space-y-1 text-sm"><div>{row.invoice_number} · {row.payee} · {usd(groupTotal)}</div><div className="text-muted-foreground">{row.kind === "fleet_invoice" ? "Foust Farms" : "Clearwater Cargo"} · Customer ref: {customerRef || "—"}{groupSize > 1 ? ` · ${groupSize} combined loads` : ""}</div><div className="text-muted-foreground">Current QuickBooks ID: {row.qb_ref || "Not linked"}</div></div>
+      {row.qb_ref && <ActionButton variant="outline" disabled={busy} hint="Remove only the incorrect assignment, keeping both invoices and all payment information." confirm={{ title: "Remove QuickBooks assignment?", body: `${row.invoice_number} · QuickBooks ID ${row.qb_ref}`, points: [`Removes the assignment for ${groupSize} load(s) in this invoice group.`, "The TMS invoice is held until the correct existing QuickBooks invoice is assigned; sync will not create a duplicate.", "Invoice amounts, customer payment status, closeout and documents remain unchanged. Nothing is deleted or voided in QuickBooks."], confirmLabel: "Remove assignment" }} onClick={unlink}><Unlink className="mr-1 h-4 w-4" />Remove assignment</ActionButton>}
       <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); search(); }}>
         <label className="text-sm">Find by<Select value={by} onValueChange={(v) => { setBy(v as "number" | "id"); setInvoices(null); }}><SelectTrigger className="mt-1 w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="number">Invoice number</SelectItem><SelectItem value="id">QuickBooks internal ID</SelectItem></SelectContent></Select></label>
         <label className="min-w-40 flex-1 text-sm">{by === "number" ? "QuickBooks invoice number" : "QuickBooks internal ID"}<Input className="mt-1" value={value} onChange={(e) => { setValue(e.target.value); setInvoices(null); }} /></label>

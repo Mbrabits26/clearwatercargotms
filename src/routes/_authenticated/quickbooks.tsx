@@ -14,7 +14,7 @@ import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, fetchAllPaged } from "@/lib/queries";
 import { agingTotal, carrierAccountingEntries } from "@/lib/accountingSummary";
-import { accountingBulkPatch, checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
+import { accountingBulkPatch, accountingInvoiceKey, checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
 import { CUSTOMER_TERMS, termsDays, effectiveFeeRate, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
 import { invoiceKind } from "@/lib/batchInvoice";
@@ -208,7 +208,7 @@ function Accounting() {
   };
   const amountFor = (l: Load, kind: Kind) => (kind === "bill" ? billMath(l).net : loadTotals(l).revenue);
   const viewer = useBlobViewer();
-  const groupOf = (s: SyncRow) => sync.filter((x) => x.invoice_number && x.invoice_number === s.invoice_number && x.kind === s.kind);
+  const groupOf = (s: SyncRow) => sync.filter((x) => accountingInvoiceKey(x) === accountingInvoiceKey(s));
   const invoiceTerms = (s: SyncRow) => s.terms ?? companyById.get(loadById.get(s.load_id)?.customer_id ?? "")?.pay_terms ?? "Net 30";
   const dueOf = (s: SyncRow) => s.due_date ?? new Date(new Date(s.created_at).getTime() + termsDays(invoiceTerms(s)) * 86_400_000).toISOString().slice(0, 10);
   const invoicePdf = async (s: SyncRow) => {

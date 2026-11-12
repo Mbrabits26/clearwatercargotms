@@ -112,7 +112,7 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
     }
     const { data: ex } = await admin.from("qb_sync").select("id, qb_ref, invoice_number").eq("load_id", data.loadId).eq("kind", kind).maybeSingle();
     const exRow = ex as { id: string; qb_ref: string | null; invoice_number: string | null } | null;
-    if (exRow?.qb_ref && exRow.qb_ref !== data.qbId) throw new Error(`This load is already linked to QuickBooks invoice #${exRow.invoice_number ?? exRow.qb_ref}. If that one is the double, void it in QuickBooks and remove it from the Sync log first.`);
+    if (exRow?.qb_ref && exRow.qb_ref !== data.qbId) throw new Error(`This load is already linked to QuickBooks invoice #${exRow.invoice_number ?? exRow.qb_ref}. Use Link QB invoice in Accounting to verify and replace the assignment, or Remove assignment to release it. Do not void a valid QuickBooks invoice.`);
     if (ex) await admin.from("qb_sync").update({ ...real, qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
     else {
       const { data: ins, error } = await admin.from("qb_sync").insert({ ...real, load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never).select("id").single();
@@ -137,6 +137,28 @@ export const qbFindExistingInvoice = createServerFn({ method: "POST" })
     return { invoices: await lookupExistingInvoice(admin, entityForKind(row.kind), data.value, data.by) };
   });
 
+export const qbRemoveInvoiceAssignment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ rowId: z.string().uuid(), previousRef: z.string().min(1).max(40) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context as never);
+    const { data: row, error } = await context.supabase.from("qb_sync").select("id, kind, invoice_number, qb_ref").eq("id", data.rowId).single();
+    if (error || !row || row.kind === "bill") throw new Error("Customer invoice not found.");
+    if (row.qb_ref !== data.previousRef) throw new Error("The invoice link changed. Close this window and try again.");
+    let query = context.supabase.from("qb_sync").select("id, qb_ref").eq("kind", row.kind);
+    query = row.invoice_number ? query.eq("invoice_number", row.invoice_number) : query.eq("id", row.id);
+    query = query.eq("qb_ref", data.previousRef);
+    const { data: group, error: groupError } = await query;
+    if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
+    if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before removing.");
+    const { manualInvoiceUnlinkPatch } = await import("./qbManualLink");
+    const ids = group.map((g) => g.id);
+    const { data: updated, error: saveError } = await context.supabase.from("qb_sync").update(manualInvoiceUnlinkPatch()).in("id", ids).eq("kind", row.kind).eq("qb_ref", data.previousRef).select("id");
+    if (saveError) throw new Error(saveError.message);
+    if (updated?.length !== ids.length) throw new Error("The invoice changed while saving. Refresh and review its link.");
+    return { count: ids.length };
+  });
+
 export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ rowId: z.string().uuid(), qbId: z.string().min(1).max(40), previousRef: z.string().nullable() }).parse(d))
@@ -152,13 +174,14 @@ export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
     if (!invoice?.docNumber) throw new Error("QuickBooks didn't return an invoice number.");
     let groupQuery = context.supabase.from("qb_sync").select("id, qb_ref, attachments").eq("kind", row.kind);
     groupQuery = row.invoice_number ? groupQuery.eq("invoice_number", row.invoice_number) : groupQuery.eq("id", row.id);
+    groupQuery = row.qb_ref ? groupQuery.eq("qb_ref", row.qb_ref) : groupQuery.is("qb_ref", null);
     const { data: group, error: groupError } = await groupQuery;
     if (groupError || !group?.length) throw new Error("Invoice group could not be read.");
     if (group.some((g) => g.qb_ref !== data.previousRef)) throw new Error("Combined invoice has different QuickBooks links. Review it before assigning.");
     const ids = group.map((g) => g.id);
     const { data: used, error: usedError } = await context.supabase.from("qb_sync").select("id, invoice_number").eq("kind", row.kind).eq("qb_ref", invoice.id);
     if (usedError) throw new Error(usedError.message);
-    if (used?.some((u) => !ids.includes(u.id))) throw new Error("This QuickBooks invoice is already assigned to another TMS invoice. Review that link first.");
+    if (used?.some((u) => !ids.includes(u.id))) throw new Error(`QuickBooks invoice ${invoice.docNumber} is already assigned to TMS invoice ${used.filter((u) => !ids.includes(u.id)).map((u) => u.invoice_number || u.id).join(", ")}. Open that invoice's Link QB invoice window and confirm Remove assignment first, then assign it here. Nothing needs to be deleted in QuickBooks.`);
     // Retain files already present on the replacement invoice, so the next sync won't upload them twice.
     const { parseAttachments } = await import("./qbAttachments");
     const patch = manualInvoiceLinkPatch(row.qb_ref, invoice, new Date().toISOString());
