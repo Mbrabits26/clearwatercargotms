@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Diagnose missing queued entries for 114 checked Accounting loads, explain AR inclusion, and correct Paid + Closeout for already-closed unpaid loads without deleting invoices.
+- [x] Diagnose missing Accounting entries: removing a queue record does not remove its load; AR includes unpaid customer invoice records only. Corrected Paid + Closeout for previously closed unpaid loads; 25 tests passed (including 114 loads), signed-in missing-entry flow and payment confirmation verified without changing payments. Exact user's 114 checked IDs unavailable; no batch payment applied.
 
 - [x] Align Accounting checked-load and quick-batch choices, including customer Paid, Closeout and Paid + Closeout; 21 tests passed including a 115-load batch, real-account 115-load and Sync log confirmations verified and cancelled without changing payments.
 
