@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Align Accounting checked-load and quick-batch choices, including customer Paid, Closeout and Paid + Closeout; preserve confirmations and handle selections over 100 without changing real payments during verification.
+- [x] Align Accounting checked-load and quick-batch choices, including customer Paid, Closeout and Paid + Closeout; 21 tests passed including a 115-load batch, real-account 115-load and Sync log confirmations verified and cancelled without changing payments.
 
 - [x] Restore app-wide load hover details including Accounting; exclude Dispatch board and load detail screen. Four rule tests passed; real Accounting table/summary, repeat hover, Home and laptop previews verified; no financial changes.
 
