@@ -39,6 +39,7 @@ import { qbStatus, qbStartConnect, qbDisconnect, qbSyncNow } from "@/lib/quickbo
 import { ActionButton, Hint, useConfirm, type ConfirmSpec } from "@/components/ActionGuard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkActionBar, SelectAllBox, useSelection, type BulkAction } from "@/components/BulkActionBar";
+import { buildLoadListActions } from "@/components/LoadListBar";
 import { Files, ClipboardCheck, Landmark } from "lucide-react";
 import { InvoicePacketDialog, buildPacketBlob, listPacketDocs, saveBlob } from "@/components/InvoicePacket";
 import { packetDefault } from "@/lib/invoicePacket";
@@ -554,6 +555,7 @@ function Accounting() {
     } },
   ];
   const reviewActions: BulkAction<Load>[] = [
+    ...buildLoadListActions({ actions: ["paid", "closeout", "paid_closeout", "status", "pod", "carrier_paid"] }),
     ...(tab === "bill" ? [{ value: "carrier", label: "Attach / review carrier invoices", financeOnly: true, hint: "Review the correct invoice and payment details separately for each checked load.", all: (items: Load[]) => startReview("carrier", items) }] : [
       { value: "create", label: "Create invoices", hint: "Create separate or combined invoices for the checked loads, with review before saving.", all: () => setBatchOpen(true) },
       { value: "packets", label: "Download invoice packets", hint: "Download one invoice, POD and BOL packet per checked invoice.", all: downloadPackets },
@@ -569,6 +571,16 @@ function Accounting() {
     { value: "export", label: "Export checked to CSV", hint: "Download only the checked loads as a spreadsheet.", all: (items) => downloadReportCsv({ title: TAB_TITLE[tab] ?? "Accounting", head: ["Load", "Customer ref", "Payee", "Amount", "Invoice", "QuickBooks"], rows: items.map((l) => { const s = synced(l.id, tab as Kind); return [l.load_number, l.customer_ref ?? "", payee(l, tab), usd(amountFor(l, tab as Kind)), s?.invoice_number ?? "", qbText(s)]; }) }) },
   ];
   const logReviewActions: BulkAction<SyncRow>[] = [
+    ...buildLoadListActions({ actions: ["paid", "closeout", "paid_closeout", "status", "pod", "carrier_paid"] }).map((action): BulkAction<SyncRow> => ({
+      ...action,
+      points: (items, param) => action.points?.([...new Set(items.map((s) => s.load_id))].flatMap((id) => { const l = loadById.get(id); return l ? [l] : []; }), param) ?? [],
+      each: async (row, param) => {
+        const checked = shownSync.filter((s) => logSel.has(s.id) && s.load_id === row.load_id);
+        if (checked[0]?.id !== row.id) return `${row.invoice_number ?? row.id}: skipped — load already included by another checked entry`;
+        const load = loadById.get(row.load_id);
+        return load && action.each ? action.each(load, param) : `${row.invoice_number ?? row.id}: skipped — load not available`;
+      },
+    })),
     ...["edit", "attach", "link"].map((action): BulkAction<SyncRow> => ({ value: action, label: action === "edit" ? "Edit invoice / terms (review each)" : action === "attach" ? "Attach documents (review each)" : "Link existing QB invoices (review each)", financeOnly: action !== "attach", hint: "Review every checked invoice separately with its existing safeguards.", all: (items) => startReview(action as ReviewAction, items.flatMap((s) => { const l = loadById.get(s.load_id); return l ? [l] : []; }), items) })),
     ...logActions,
     ...commonEdits,
@@ -667,11 +679,11 @@ function Accounting() {
         <Button size="sm" variant="outline" onClick={nextReview}>Skip / next entry</Button>
         <Button size="sm" variant="ghost" onClick={finishReview}>Stop review</Button>
       </div>}
-      {tab !== "log" && <BulkActionBar key={tab} items={selectedLoads} total={shown.length} actions={reviewActions} onClear={() => setPicked([])} invalidate={["qb_sync", "loads"]} noun="loads" applyLabel="Apply to all checked" />}
+      {tab !== "log" && <BulkActionBar key={tab} items={selectedLoads} total={shown.length} actions={reviewActions} onClear={() => setPicked([])} invalidate={["qb_sync", "loads", "load-work", "load_notes", "carrier_pay_due", "carrier_payments", "due_reminders"]} noun="loads" applyLabel="Apply to all checked" quickActions={["paid", "closeout", "paid_closeout"]} />}
       <div className="overflow-x-auto rounded-md border bg-card">
         {tab === "log" ? (
           <>
-          <div className="p-2"><BulkActionBar items={shownSync.filter((x) => logSel.has(x.id))} total={shownSync.length} actions={logReviewActions} onClear={logSel.clear} applyLabel="Apply to all checked" invalidate={["qb_sync"]} noun="items" /></div>
+          <div className="p-2"><BulkActionBar items={shownSync.filter((x) => logSel.has(x.id))} total={shownSync.length} actions={logReviewActions} onClear={logSel.clear} applyLabel="Apply to all checked" invalidate={["qb_sync", "loads", "load-work", "load_notes", "carrier_pay_due", "carrier_payments", "due_reminders"]} noun="items" quickActions={["paid", "closeout", "paid_closeout"]} /></div>
           <Table>
             <TableHeader><TableRow><TableHead className="w-8"><SelectAllBox ids={shownSync.map((x) => x.id)} sel={logSel} /></TableHead><TableHead>Type</TableHead><TableHead>Load</TableHead><TableHead>Payee / customer</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="w-24">Actions</TableHead></TableRow></TableHeader>
             <TableBody>

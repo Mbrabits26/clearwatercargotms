@@ -90,8 +90,8 @@ export function exportAction<T>(title: string, head: string[], row: (t: T) => (s
 }
 
 /** "N selected · Action [..] · Apply" bar shown once rows are checked. */
-export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, noun = "rows", applyLabel = "Apply" }: {
-  items: T[]; total: number; actions: BulkAction<T>[]; onClear: () => void; invalidate: string[]; noun?: string; applyLabel?: string;
+export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, noun = "rows", applyLabel = "Apply", quickActions = [] }: {
+  items: T[]; total: number; actions: BulkAction<T>[]; onClear: () => void; invalidate: string[]; noun?: string; applyLabel?: string; quickActions?: string[];
 }) {
   const { isAdmin, isFinance } = useRouteContext({ from: "/_authenticated" });
   const qc = useQueryClient();
@@ -157,6 +157,10 @@ export function BulkActionBar<T>({ items, total, actions, onClear, invalidate, n
         </Hint>
         <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => { onClear(); setErrors([]); }}>Clear selection</Button>
       </div>
+      {quickActions.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t pt-2">
+        <span className="text-xs text-muted-foreground">Quick batch</span>
+        {quickActions.flatMap((key) => { const action = list.find((item) => item.value === key); return action ? [<Hint key={key} text={action.hint}><Button size="sm" variant={value === key ? "secondary" : "outline"} disabled={!!busy} onClick={() => { setValue(key); setParam(""); setErrors([]); }}>{action.label}</Button></Hint>] : []; })}
+      </div>}
       {!!errors.length && <div role="alert" className="max-h-40 overflow-auto rounded border border-destructive/40 p-2 text-xs text-destructive">{errors.map((e, k) => <p key={k}>{e}</p>)}</div>}
       <Dialog open={!!typing} onOpenChange={(o) => { if (!o) typing?.(false); }}>
         <DialogContent>
