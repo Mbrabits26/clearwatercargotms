@@ -112,7 +112,7 @@ export const qbLinkInvoice = createServerFn({ method: "POST" })
     }
     const { data: ex } = await admin.from("qb_sync").select("id, qb_ref, invoice_number").eq("load_id", data.loadId).eq("kind", kind).maybeSingle();
     const exRow = ex as { id: string; qb_ref: string | null; invoice_number: string | null } | null;
-    if (exRow?.qb_ref && exRow.qb_ref !== data.qbId) throw new Error(`This load is already linked to QuickBooks invoice #${exRow.invoice_number ?? exRow.qb_ref}. If that one is the double, void it in QuickBooks and remove it from the Sync log first.`);
+    if (exRow?.qb_ref && exRow.qb_ref !== data.qbId) throw new Error(`This load is already linked to QuickBooks invoice #${exRow.invoice_number ?? exRow.qb_ref}. Use Link QB invoice in Accounting to verify and replace the assignment, or Remove assignment to release it. Do not void a valid QuickBooks invoice.`);
     if (ex) await admin.from("qb_sync").update({ ...real, qb_ref: data.qbId, status: "sent", error: null, sent_at: now }).eq("id", (ex as { id: string }).id);
     else {
       const { data: ins, error } = await admin.from("qb_sync").insert({ ...real, load_id: data.loadId, kind: data.entity === "fleet" ? "fleet_invoice" : "invoice", amount: data.amount, status: "sent", qb_ref: data.qbId, sent_at: now, created_by: context.userId } as never).select("id").single();
@@ -179,7 +179,7 @@ export const qbAssignExistingInvoice = createServerFn({ method: "POST" })
     const ids = group.map((g) => g.id);
     const { data: used, error: usedError } = await context.supabase.from("qb_sync").select("id, invoice_number").eq("kind", row.kind).eq("qb_ref", invoice.id);
     if (usedError) throw new Error(usedError.message);
-    if (used?.some((u) => !ids.includes(u.id))) throw new Error("This QuickBooks invoice is already assigned to another TMS invoice. Review that link first.");
+    if (used?.some((u) => !ids.includes(u.id))) throw new Error(`QuickBooks invoice ${invoice.docNumber} is already assigned to TMS invoice ${used.filter((u) => !ids.includes(u.id)).map((u) => u.invoice_number || u.id).join(", ")}. Open that invoice's Link QB invoice window and confirm Remove assignment first, then assign it here. Nothing needs to be deleted in QuickBooks.`);
     // Retain files already present on the replacement invoice, so the next sync won't upload them twice.
     const { parseAttachments } = await import("./qbAttachments");
     const patch = manualInvoiceLinkPatch(row.qb_ref, invoice, new Date().toISOString());
