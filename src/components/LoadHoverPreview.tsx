@@ -15,10 +15,10 @@ export function LoadHoverPreview() {
   const active = useRef<HTMLElement | null>(null);
   const timers = useRef<{ open?: ReturnType<typeof setTimeout>; close?: ReturnType<typeof setTimeout> }>({});
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  useEffect(() => { setTarget(null); }, [pathname]);
+  useEffect(() => { active.current = null; setTarget(null); }, [pathname]);
   useEffect(() => {
     const clear = () => { clearTimeout(timers.current.open); clearTimeout(timers.current.close); };
-    const close = () => { clearTimeout(timers.current.close); timers.current.close = setTimeout(() => setTarget(null), 220); };
+    const close = () => { clearTimeout(timers.current.close); timers.current.close = setTimeout(() => { active.current = null; setTarget(null); }, 220); };
     const enter = (event: PointerEvent | FocusEvent) => {
       const element = event.target;
       if (!(element instanceof HTMLElement)) return;
@@ -33,30 +33,19 @@ export function LoadHoverPreview() {
         number = hoverLoadNumber(text);
         if (number) break;
       }
+      if (anchor && number && active.current === anchor) { clearTimeout(timers.current.close); return; }
       clear();
       if (!anchor || !number) { close(); return; }
-      if (active.current === anchor) return;
       const next = { number, element: anchor };
       active.current = anchor;
       timers.current.open = setTimeout(() => setTarget(next), 250);
     };
-    const leave = (event: PointerEvent) => {
-      const source = event.target;
-      const destination = event.relatedTarget;
-      if (!(source instanceof HTMLElement) || (!active.current?.contains(source) && !source.closest("[data-load-hover-preview]"))) return;
-      if (destination instanceof HTMLElement && (active.current?.contains(destination) || destination.closest("[data-load-hover-preview]"))) return;
-      close();
-    };
-    const click = () => { clear(); setTarget(null); };
-    const stay = (event: PointerEvent) => {
-      const element = event.target;
-      if (element instanceof HTMLElement && (active.current?.contains(element) || element.closest("[data-load-hover-preview]"))) clearTimeout(timers.current.close);
-    };
+    const click = () => { clear(); active.current = null; setTarget(null); };
     document.addEventListener("pointermove", enter);
     document.addEventListener("click", click);
     return () => { clear(); document.removeEventListener("pointermove", enter); document.removeEventListener("click", click); };
   }, []);
-  return <Popover open={!!target} onOpenChange={(open) => { if (!open) setTarget(null); }}>
+  return <Popover open={!!target} onOpenChange={(open) => { if (!open) { active.current = null; setTarget(null); } }}>
     <PopoverAnchor virtualRef={{ current: { getBoundingClientRect: () => target?.element.getBoundingClientRect() ?? new DOMRect() } }} />
     {target && <PopoverContent data-load-hover-preview aria-label={`Quick load details ${target.number}`} side="right" align="start" collisionPadding={12} className="z-[80] min-h-96 max-h-[80dvh] w-[26rem] max-w-[calc(100vw-1.5rem)] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} onPointerEnter={() => { clearTimeout(timers.current.open); clearTimeout(timers.current.close); }}>
       <LoadHoverDetails number={target.number} onClose={() => setTarget(null)} />
