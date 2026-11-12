@@ -12,6 +12,7 @@ import { ArrowRight } from "lucide-react";
 /** One delegated preview covers load refs in tables, notices, chat and portalled windows. */
 export function LoadHoverPreview() {
   const [target, setTarget] = useState<{ number: string; element: HTMLElement } | null>(null);
+  const active = useRef<HTMLElement | null>(null);
   const timers = useRef<{ open?: ReturnType<typeof setTimeout>; close?: ReturnType<typeof setTimeout> }>({});
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   useEffect(() => { setTarget(null); }, [pathname]);
@@ -35,14 +36,22 @@ export function LoadHoverPreview() {
       clear();
       if (!anchor || !number) { close(); return; }
       const next = { number, element: anchor };
+      active.current = anchor;
       timers.current.open = setTimeout(() => setTarget(next), 250);
+    };
+    const leave = (event: PointerEvent) => {
+      const source = event.target;
+      const destination = event.relatedTarget;
+      if (!(source instanceof HTMLElement) || (!active.current?.contains(source) && !source.closest("[data-load-hover-preview]"))) return;
+      if (destination instanceof HTMLElement && (active.current?.contains(destination) || destination.closest("[data-load-hover-preview]"))) return;
+      close();
     };
     const click = () => { clear(); setTarget(null); };
     document.addEventListener("pointerover", enter);
     document.addEventListener("focusin", enter);
-    document.addEventListener("pointerout", close);
+    document.addEventListener("pointerout", leave);
     document.addEventListener("click", click);
-    return () => { clear(); document.removeEventListener("pointerover", enter); document.removeEventListener("focusin", enter); document.removeEventListener("pointerout", close); document.removeEventListener("click", click); };
+    return () => { clear(); document.removeEventListener("pointerover", enter); document.removeEventListener("focusin", enter); document.removeEventListener("pointerout", leave); document.removeEventListener("click", click); };
   }, []);
   return <Popover open={!!target} onOpenChange={(open) => { if (!open) setTarget(null); }}>
     <PopoverAnchor virtualRef={{ current: { getBoundingClientRect: () => target?.element.getBoundingClientRect() ?? new DOMRect() } }} />
