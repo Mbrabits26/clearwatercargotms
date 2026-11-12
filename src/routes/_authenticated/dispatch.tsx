@@ -388,7 +388,7 @@ function Dispatch() {
   const alertLoads = !alertView ? [] : { calls: overdueCalls, pu: latePu, del: lateDel, pay: carrierDue, inv: overdueInv }[alertView.kind];
 
   return (
-    <div className="flex h-full flex-col">
+    <div data-load-hover-exclude className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b bg-card/50 px-4 py-2 text-xs">
         {latePu.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={latePu.length} label="late for pickup" onClick={() => setAlertView({ title: "Late for scheduled pickup", kind: "pu" })} />}
         {lateDel.length > 0 && <Alert icon={AlarmClock} tone="text-destructive" n={lateDel.length} label="late for delivery" onClick={() => setAlertView({ title: "Late for scheduled delivery", kind: "del" })} />}
@@ -618,7 +618,7 @@ const Cockpit = memo(function Cockpit({
   const netCarrier = t.cost - qpFee - adv - advFee;
 
   return (
-    <div className="space-y-4 p-3 sm:p-5">
+    <div data-load-hover-exclude className="space-y-4 p-3 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="font-mono text-sm text-gold">{load.load_number}</div>

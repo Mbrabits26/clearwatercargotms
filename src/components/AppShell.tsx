@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
 import { QuickOnboardButton } from "@/components/QuickOnboard";
 import { LandingPicker } from "@/components/LandingPicker";
+import { LoadHoverPreview } from "@/components/LoadHoverPreview";
 import { landingFor, type Landing } from "@/lib/landing";
 import { AppWindowsProvider } from "@/lib/appWindows";
 import { AppWindowHost } from "@/components/AppWindowHost";
@@ -121,6 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <div className="print:hidden"><ChatWidget userId={user.id} /></div>
       <AppWindowHost />
+      <LoadHoverPreview />
     </div>
     </AppWindowsProvider>
   );
