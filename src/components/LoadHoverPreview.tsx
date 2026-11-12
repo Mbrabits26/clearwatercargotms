@@ -47,15 +47,20 @@ export function LoadHoverPreview() {
       close();
     };
     const click = () => { clear(); setTarget(null); };
+    const stay = (event: PointerEvent) => {
+      const element = event.target;
+      if (element instanceof HTMLElement && (active.current?.contains(element) || element.closest("[data-load-hover-preview]"))) clearTimeout(timers.current.close);
+    };
     document.addEventListener("pointerover", enter);
     document.addEventListener("focusin", enter);
     document.addEventListener("pointerout", leave);
     document.addEventListener("click", click);
-    return () => { clear(); document.removeEventListener("pointerover", enter); document.removeEventListener("focusin", enter); document.removeEventListener("pointerout", leave); document.removeEventListener("click", click); };
+    document.addEventListener("pointermove", stay);
+    return () => { clear(); document.removeEventListener("pointerover", enter); document.removeEventListener("focusin", enter); document.removeEventListener("pointerout", leave); document.removeEventListener("click", click); document.removeEventListener("pointermove", stay); };
   }, []);
   return <Popover open={!!target} onOpenChange={(open) => { if (!open) setTarget(null); }}>
     <PopoverAnchor virtualRef={{ current: { getBoundingClientRect: () => target?.element.getBoundingClientRect() ?? new DOMRect() } }} />
-    {target && <PopoverContent data-load-hover-preview aria-label={`Quick load details ${target.number}`} side="right" align="start" collisionPadding={12} className="z-[80] max-h-[80dvh] w-[26rem] max-w-[calc(100vw-1.5rem)] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} onPointerEnter={() => { clearTimeout(timers.current.open); clearTimeout(timers.current.close); }} onPointerLeave={() => { timers.current.close = setTimeout(() => setTarget(null), 220); }}>
+    {target && <PopoverContent data-load-hover-preview aria-label={`Quick load details ${target.number}`} side="right" align="start" collisionPadding={12} className="z-[80] min-h-96 max-h-[80dvh] w-[26rem] max-w-[calc(100vw-1.5rem)] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()} onPointerEnter={() => { clearTimeout(timers.current.open); clearTimeout(timers.current.close); }}>
       <LoadHoverDetails number={target.number} onClose={() => setTarget(null)} />
     </PopoverContent>}
   </Popover>;
