@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Diagnose CW-15412/CW-10508's shared displayed invoice number; allow verified correction or removal of stale assignments without changing QuickBooks or payment status.
+
 - [x] Non-US packet/RC signatures address the sender, assigned load broker and admins; informational yellow/red Carrier Checks show inline after MC/DOT lookup and persist in recipient bells. Real signed-in red check, inline warning and admin recipient records verified; no signatures or carrier data changed. Signature routing covered by tests; no real overseas signing submitted. Preview only.
 
 - [x] Finance-only Remove assignment and verified replacement prompts; corrected QB 2165 (ref 40115320) from CW-10508 to CW-15412 through the signed-in UI without changing amounts or payments. Held CW-10508; QB FF-1018 / internal 5094 is unavailable.
