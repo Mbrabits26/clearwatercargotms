@@ -27,7 +27,7 @@ describe.skipIf(!db)("live invoice-number trigger for assignment corrections", (
         // transaction-local copy of the deployed function; it rolls back with all test writes.
         const [definition] = await sql`SELECT pg_get_functiondef('public.apply_invoice_correction(jsonb)'::regprocedure) AS body`;
         if (!definition) throw new Error("Correction function required");
-        await sql.unsafe(String(definition.body).replace("public.apply_invoice_correction", "pg_temp.test_invoice_correction"));
+        await sql.unsafe(String(definition.body).replace("public.apply_invoice_correction", "pg_temp.test_invoice_correction").replace("auth.uid()", "current_setting('request.jwt.claim.sub')::uuid"));
         await sql`SELECT pg_temp.test_invoice_correction(${sql.json(plan)})`;
         const [afterA] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${a.id}`;
         const [afterB] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${b.id}`;
