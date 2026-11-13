@@ -2335,6 +2335,7 @@ export type Database = {
       }
     }
     Functions: {
+      apply_invoice_correction: { Args: { p_plan: Json }; Returns: Json }
       batch_load_action: {
         Args: { _action: string; _ids: string[]; _note?: string }
         Returns: Json
