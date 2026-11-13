@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Removed QuickBooks assignments stay blank on hold until verified; live trigger tests cover both companies and preserve financial fields.
+- [x] Invoice correction choices: leave blank, explicitly allocate FF-/INV- on hold, choose another existing invoice, or swap with the previous invoice. Both affected groups save atomically with confirmation and stale-link checks. 14 tests passed; signed-in choices and live invoice 2119 lookup verified without saving financial changes. UI requires publishing.
+- [x] Verified live QB 2119 / ID 4962 description ref 383324: already correctly assigned to CW-15394 ($650). CW-10514 ref 387259 is unlinked and held. No assignment change needed or applied.
+
 - [x] Prepare a read-only corrected invoice candidate list for the original 65 report loads: 18 direct replacements, 4 consolidated-invoice reference matches, 7 current matches, 36 without same-company reference matches (including one cross-company candidate). Live all-date scans plus original-ID reads; printable PDF and complete CSV verified. No assignments changed.
 
 - [x] Accounting: All completed loads / Active accounting / Paid & closed out views expose existing corrections without reopening. Signed-in paid CW-14743 and closed CW-15428 dialogs verified; 23 tests passed. Preview only; no financial changes applied.

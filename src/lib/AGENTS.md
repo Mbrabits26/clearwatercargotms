@@ -1,5 +1,7 @@
 # src/lib
 
+- Invoice reassignment choices use `qbCorrection.functions.ts` and finance-only `apply_invoice_correction` to save both affected groups atomically with stale-link checks; new numbers stay held until explicitly sent. Why: a failed replacement must never leave half a swap or silently create a QB invoice.
+
 - Safety sources in `chat_mentions` bypass optional chat/mention switches; `carrierAlerts.ts` classifies flags and deduplicates sender/load-broker/admin recipients. Why: informational warnings must reach their intended recipients, including the author.
 
 - Load hover previews use one delegated AppShell listener and per-load RLS reads; screen-local exclusion markers disable board/detail previews while other windows remain eligible. Why: every load reference shares the same behavior without per-row listeners.
