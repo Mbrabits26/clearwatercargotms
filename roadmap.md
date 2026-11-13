@@ -55,3 +55,6 @@
 - [ ] Core ELD: receiver + Live ELD tab built; waiting on Core ELD to send data (or give pull API docs)
 
 - [x] Queue 10 first-touch shipper emails (Jordan Lumber + Culpeper excluded per user); send Mon 8am ET window
+
+- [ ] Carrier QuickPay fee change in carrier settings updates the rate con
+- [ ] Fix QB invoices assigned to wrong loads (shipper ref in QB description)
