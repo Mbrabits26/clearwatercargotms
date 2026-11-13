@@ -470,6 +470,13 @@
       "when": 1794488979112,
       "tag": "0066_allow_doc_tracking_pings",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1794598232008,
+      "tag": "0067_hold_unlinked_invoice_number",
+      "breakpoints": true
     }
   ]
 }
