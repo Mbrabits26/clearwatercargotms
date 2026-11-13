@@ -16,6 +16,8 @@ describe.skipIf(!db)("live invoice-number trigger for assignment corrections", (
         if (!finance) throw new Error("Finance test user required");
         await sql`SELECT set_config('request.jwt.claim.sub', ${finance.user_id}, true)`;
         const rows = await sql`SELECT id, kind, invoice_number, qb_ref, amount, status FROM public.qb_sync WHERE kind = 'fleet_invoice' AND qb_ref IS NOT NULL ORDER BY id LIMIT 2`;
+        await sql`CREATE TEMP TABLE correction_rows (LIKE public.qb_sync INCLUDING DEFAULTS) ON COMMIT DROP`;
+        await sql`INSERT INTO correction_rows SELECT * FROM public.qb_sync`;
         expect(rows.length).toBe(2);
         const groups = [];
         for (const r of rows) groups.push(await sql`SELECT id, kind, invoice_number, qb_ref FROM public.qb_sync WHERE kind = ${r.kind} AND invoice_number = ${r.invoice_number} AND qb_ref = ${r.qb_ref}`);
@@ -27,14 +29,14 @@ describe.skipIf(!db)("live invoice-number trigger for assignment corrections", (
         // transaction-local copy of the deployed function; it rolls back with all test writes.
         const [definition] = await sql`SELECT pg_get_functiondef('public.apply_invoice_correction(jsonb)'::regprocedure) AS body`;
         if (!definition) throw new Error("Correction function required");
-        await sql.unsafe(String(definition.body).replace("public.apply_invoice_correction", "pg_temp.test_invoice_correction").replace("auth.uid()", "current_setting('request.jwt.claim.sub')::uuid"));
+        await sql.unsafe(String(definition.body).replace("public.apply_invoice_correction", "pg_temp.test_invoice_correction").replaceAll("public.qb_sync", "pg_temp.correction_rows").replace("auth.uid()", "current_setting('request.jwt.claim.sub')::uuid"));
         await sql`SELECT pg_temp.test_invoice_correction(${sql.json(plan)})`;
-        const [afterA] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${a.id}`;
-        const [afterB] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${b.id}`;
+        const [afterA] = await sql`SELECT qb_ref, invoice_number, amount FROM correction_rows WHERE id = ${a.id}`;
+        const [afterB] = await sql`SELECT qb_ref, invoice_number, amount FROM correction_rows WHERE id = ${b.id}`;
         expect(afterA).toMatchObject({ qb_ref: b.qb_ref, invoice_number: b.invoice_number, amount: a.amount });
         expect(afterB).toMatchObject({ qb_ref: a.qb_ref, invoice_number: a.invoice_number, amount: b.amount });
         await expect(sql.savepoint(async (sp) => { await sp`SELECT pg_temp.test_invoice_correction(${sp.json(plan)})`; })).rejects.toThrow("changed");
-        const [unchanged] = await sql`SELECT qb_ref FROM public.qb_sync WHERE id = ${a.id}`;
+        const [unchanged] = await sql`SELECT qb_ref FROM correction_rows WHERE id = ${a.id}`;
         expect(unchanged?.qb_ref).toBe(b.qb_ref);
         throw new Error("ROLLBACK_VERIFIED_TEST");
       });
