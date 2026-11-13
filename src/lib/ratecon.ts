@@ -27,6 +27,14 @@ const party = (c: Company | undefined, city: string, st: string) => ({
   phone: c?.phone ?? "",
 });
 
+/** Rate con terms line, using the load's or carrier's chosen Quick Pay fee %. */
+export function rateConTerms(load: Load, carrier: Carrier): string {
+  const pt = effectivePayTerms(load, carrier);
+  if (pt.value === "factoring") return carrier.factoring_company ? `Net 30 · Paid to ${carrier.factoring_company}` : pt.terms;
+  if (!pt.fee) return pt.terms;
+  const pct = +(effectiveFeeRate(load, carrier) * 100).toFixed(2);
+  return pt.value === "quickpay" ? `Quick Pay: ${pct}% fee, paid in 3 days` : `Factored Quick Pay: ${pct}% fee`;
+}
 export function buildRateConData(o: { load: Load; carrier: Carrier; shipper?: Company; consignee?: Company; customer?: Company }): RateConData {
   const { load, carrier } = o;
   const acc = ((load.accessorials as Accessorial[]) ?? []).filter((a) => Number(a.amount));
@@ -39,7 +47,7 @@ export function buildRateConData(o: { load: Load; carrier: Carrier; shipper?: Co
     pickup: d10(load.pickup_at), delivery: d10(load.delivery_at),
     carrier: carrier.legal_name, carrierMc: carrier.mc_number ? `MC ${carrier.mc_number}` : carrier.dot_number ? `DOT ${carrier.dot_number}` : "",
     equipment: load.equipment, customer: o.customer?.name ?? "",
-    terms: effectivePayTerms(load, carrier).value === "factoring" && carrier.factoring_company ? `Net 30 · Paid to ${carrier.factoring_company}` : effectivePayTerms(load, carrier).terms,
+    terms: rateConTerms(load, carrier),
     remitTo: carrier.factoring_company ? `${carrier.factoring_company} (NOA on file)` : carrier.legal_name,
     lines, total: lines.reduce((s, l) => s + l.amount, 0),
     shipper: party(o.shipper, load.origin_city, load.origin_state),
