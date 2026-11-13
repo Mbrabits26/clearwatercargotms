@@ -2,6 +2,7 @@
 
 - [ ] Keep removed QuickBooks assignments unnumbered on hold until the correct invoice is verified; preserve amounts, payments and closeout.
 - [ ] Invoice corrections: choose leave blank, allocate a new company invoice, or link an existing invoice; moving an already-linked QB invoice can correct both loads together with verification, for both companies.
+- [ ] Verify QB 2119 description ref 383324 belongs to CW-15394, not CW-10514 ref 387259; correct verified assignment without changing payments or amounts.
 
 - [x] Prepare a read-only corrected invoice candidate list for the original 65 report loads: 18 direct replacements, 4 consolidated-invoice reference matches, 7 current matches, 36 without same-company reference matches (including one cross-company candidate). Live all-date scans plus original-ID reads; printable PDF and complete CSV verified. No assignments changed.
 
