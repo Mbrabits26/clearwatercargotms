@@ -1,6 +1,7 @@
 # Roadmap
 
 - [ ] Accounting: find completed/paid/closed-out loads and correct their invoice assignments without reopening; verify fifth printed entry (CW-14743) read-only.
+- [ ] Accounting invoice editor: expose verified invoice-number correction for completed loads alongside existing amount/terms/payee edits; preserve payment and closeout.
 
 - [x] CW-15412 remains correctly linked to QB 2165 / ID 5048 / ref 40115320. CW-10508 was unlinked with stale displayed 2165; verified removal through the signed-in UI cleared it to fresh TMS number FF-1122, on hold, preserving $1,625 and load status. Removal works even on stale unlinked entries; assignment prompts include load/customer ref, and confirmations appear above the invoice window. Ten tests passed. FF-1018 is still not found in Foust QuickBooks; no replacement assigned. Preview changes require publication.
 

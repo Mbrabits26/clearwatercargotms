@@ -821,14 +821,14 @@ function Accounting() {
       {paidOpen && <QbPaidDialog open={paidOpen} onOpenChange={setPaidOpen} />}
       {qbAuditOpen && <QbAuditDialog open={qbAuditOpen} onOpenChange={setQbAuditOpen} />}
       <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
-      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => reviewQueue ? nextReview() : setEditing(null)} onSaved={() => { if (reviewQueue) nextReview(); else setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onAssign={() => { if (editing) { setLinking(editing); setEditing(null); } }} onClose={() => reviewQueue ? nextReview() : setEditing(null)} onSaved={() => { if (reviewQueue) nextReview(); else setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <QbAttachDialog key={attaching?.id ?? "none"} row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
         onClose={() => reviewQueue ? nextReview() : setAttaching(null)} onSaved={() => { if (reviewQueue) nextReview(); else setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
     </div>
   );
 }
 
-function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow | null; groupSize?: number; onClose: () => void; onSaved: () => void }) {
+function EditSyncDialog({ row, groupSize = 1, onAssign, onClose, onSaved }: { row: SyncRow | null; groupSize?: number; onAssign: () => void; onClose: () => void; onSaved: () => void }) {
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
   const [terms, setTerms] = useState("");
@@ -900,6 +900,10 @@ function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow
             <Input className="mt-1" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           {isInvoice && <>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-y py-2 text-sm">
+              <span>Invoice number: {row?.invoice_number || "—"}</span>
+              <ActionButton size="sm" variant="outline" hint="Type the correct QuickBooks invoice number, read its description and verify the assignment. Payment status and closeout stay unchanged. Unsaved edits in this window are not saved." onClick={onAssign}><Link2 className="mr-1 h-4 w-4" />Change invoice number</ActionButton>
+            </div>
             <label className="block text-xs text-muted-foreground">Bill the customer through
               <select className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground disabled:opacity-60" value={kind} disabled={locked} onChange={(e) => setKind(e.target.value)}>
                 <option value="invoice">Clearwater Cargo (INV-, Clearwater QuickBooks)</option>
