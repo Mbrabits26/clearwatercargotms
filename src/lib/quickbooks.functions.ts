@@ -92,6 +92,18 @@ export const qbScanInvoices = createServerFn({ method: "POST" })
     return { invoices: invoices.filter((i) => !used.has(i.id)), alreadyLinked: invoices.length - invoices.filter((i) => !used.has(i.id)).length };
   });
 
+/** Read-only pull of one QuickBooks invoice by its number (any date). */
+export const qbPullInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ value: z.string().trim().min(1).max(40), entity: z.enum(["brokerage", "fleet"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context as never);
+    const { lookupExistingInvoice } = await import("./quickbooks.server");
+    const invoices = await lookupExistingInvoice(admin, data.entity, data.value, "number");
+    const { data: linked } = await admin.from("qb_sync").select("qb_ref, invoice_number").eq("kind", data.entity === "fleet" ? "fleet_invoice" : "invoice").in("qb_ref", invoices.length ? invoices.map((i) => i.id) : ["-"]);
+    return { invoices, linked: (linked ?? []).map((r) => ({ qbRef: String(r.qb_ref), invoiceNumber: r.invoice_number as string | null })) };
+  });
+
 /** Links an existing QuickBooks invoice to a load without creating anything in QuickBooks. */
 export const qbLinkInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

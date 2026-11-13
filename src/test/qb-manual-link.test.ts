@@ -20,3 +20,9 @@ describe("manual existing invoice assignment", () => {
     expect(manualInvoiceLinkPatch("2088", invoice, "now")).not.toHaveProperty("attachments_sent");
   });
 });
+import { invoiceNumberVariants } from "@/lib/qbManualLink";
+import { it as it2, expect as expect2 } from "vitest";
+it2("typed QB numbers try plain and INV-/FF- forms", () => {
+  expect2(invoiceNumberVariants(" ff-1018 ")).toEqual(["FF-1018", "1018", "INV-1018"]);
+  expect2(invoiceNumberVariants("2165")).toEqual(["2165", "INV-2165", "FF-2165"]);
+});

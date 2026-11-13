@@ -17,3 +17,9 @@ export function manualInvoiceLinkPatch(previousRef: string | null, invoice: QbIn
     ...(previousRef !== invoice.id ? { attachments_sent: [] as string[] } : {}),
   };
 }
+/** Typed QuickBooks invoice numbers: exact, digits only, and INV-/FF- forms (e.g. "1018" → 1018, INV-1018, FF-1018). */
+export function invoiceNumberVariants(value: string): string[] {
+  const v = value.trim().toUpperCase().replace(/\s+/g, "");
+  const digits = v.replace(/^(INV|FF|CW)-?/, "");
+  return [...new Set([v, digits, `INV-${digits}`, `FF-${digits}`].filter(Boolean))];
+}

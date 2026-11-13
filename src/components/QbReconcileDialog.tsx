@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Maximize2, Minimize2, Minus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { qbScanInvoices, qbLinkInvoice } from "@/lib/quickbooks.functions";
+import { qbScanInvoices, qbLinkInvoice, qbPullInvoice } from "@/lib/quickbooks.functions";
 import { rangeFor, rangeOptions, type RangeKey } from "@/lib/dateRanges";
 import { planMatches, type MatchLoad, type QbInvoice } from "@/lib/qbMatch";
 import { QbFilesPanel } from "@/components/QbFilesPanel";
@@ -25,6 +25,8 @@ type Props = { open: boolean; onOpenChange: (o: boolean) => void; loads: Load[];
 export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, available, onMinimize }: Props) {
   const scan = useServerFn(qbScanInvoices);
   const link = useServerFn(qbLinkInvoice);
+  const pullFn = useServerFn(qbPullInvoice);
+  const [num, setNum] = useState("");
   const qc = useQueryClient();
   const [range, setRange] = useState<RangeKey>("ytd");
   const [[from, to], setDates] = useState<[string, string]>(rangeFor("ytd")!);
@@ -54,6 +56,22 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
     setBusy(true);
     try { const r = await scan({ data: { from, to, openOnly, entity } }); setInvoices(r.invoices); toast.success(`Found ${r.invoices.length} unlinked QuickBooks invoices${r.alreadyLinked ? ` (${r.alreadyLinked} already linked)` : ""}.`); }
     catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  };
+  const pull = async () => {
+    if (!num.trim()) return;
+    setBusy(true);
+    try {
+      const r = await pullFn({ data: { value: num, entity } });
+      const used = new Set(r.linked.map((l) => l.qbRef));
+      const free = r.invoices.filter((i) => !used.has(i.id));
+      if (!r.invoices.length) toast.error(`No ${entity === "fleet" ? "Foust Farms" : "Clearwater"} QuickBooks invoice #${num.trim()} found.`);
+      else if (!free.length) toast.error(`QuickBooks #${num.trim()} is already linked in the TMS (${r.linked.map((l) => l.invoiceNumber || l.qbRef).join(", ")}). Use Remove assignment on that invoice first.`);
+      else {
+        setDone((d) => { const n = new Set(d); free.forEach((i) => n.delete(i.id)); return n; });
+        setInvoices((cur) => [...free, ...(cur ?? []).filter((c) => !free.some((f) => f.id === c.id))]);
+        toast.success(`Pulled QuickBooks #${free.map((f) => f.docNumber ?? f.id).join(", ")} to the top of the list.`);
+      }
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
   const doLink = async (inv: QbInvoice, loadId: string) => {
     try {
@@ -109,6 +127,10 @@ export function QbReconcileDialog({ open, onOpenChange, loads, companies, sync, 
           <label className="text-xs text-muted-foreground">To<DatePicker className="mt-1" value={to} onChange={(v) => { setRange("custom"); setDates([from, v]); }} /></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />Unpaid only</label>
           <Hint text="Reads invoices from QuickBooks for these dates and suggests a load for each. Read-only — nothing changes in QuickBooks or the TMS."><Button onClick={run} disabled={busy}>{busy ? "Scanning…" : "Scan QuickBooks"}</Button></Hint>
+          <label className="text-xs text-muted-foreground">QuickBooks invoice #
+            <Input className="mt-1 w-40" value={num} placeholder="e.g. 2165 or FF-1018" onChange={(e) => setNum(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") pull(); }} />
+          </label>
+          <Hint text="Pulls this one invoice from QuickBooks by its number, any date, and puts it at the top to pick a load. Read-only."><Button variant="outline" onClick={pull} disabled={busy || !num.trim()}>Pull invoice</Button></Hint>
           {invoices && <ReportExport className="ml-auto" build={exportSpec} />}
         </div>
         {invoices && (
