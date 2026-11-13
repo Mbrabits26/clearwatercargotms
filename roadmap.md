@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Accounting: All completed loads / Active accounting / Paid & closed out views expose existing corrections without reopening. Signed-in paid CW-14743 and closed CW-15428 dialogs verified; 23 tests passed. Preview only; no financial changes applied.
+- [x] Accounting invoice editor: Change invoice number opens typed, company-verified QB lookup and confirmation; payment/closeout unchanged. Closed-load removal prompt verified and cancelled.
+- [ ] CW-14743: live QB 1992 / ID 4112 describes ref 364073, while load ref is 366561. CW-14334 has 364073 but no invoice row; verify customer/amount/documents before any reassignment. No changes applied.
+
 - [x] CW-15412 remains correctly linked to QB 2165 / ID 5048 / ref 40115320. CW-10508 was unlinked with stale displayed 2165; verified removal through the signed-in UI cleared it to fresh TMS number FF-1122, on hold, preserving $1,625 and load status. Removal works even on stale unlinked entries; assignment prompts include load/customer ref, and confirmations appear above the invoice window. Ten tests passed. FF-1018 is still not found in Foust QuickBooks; no replacement assigned. Preview changes require publication.
 
 - [x] Non-US packet/RC signatures address the sender, assigned load broker and admins; informational yellow/red Carrier Checks show inline after MC/DOT lookup and persist in recipient bells. Real signed-in red check, inline warning and admin recipient records verified; no signatures or carrier data changed. Signature routing covered by tests; no real overseas signing submitted. Preview only.

@@ -14,6 +14,7 @@ import { parseAttachments } from "@/lib/qbAttachments";
 import { supabase } from "@/integrations/supabase/client";
 import { carriersQuery, companiesQuery, loadsQuery, fetchAllPaged } from "@/lib/queries";
 import { agingTotal, carrierAccountingEntries } from "@/lib/accountingSummary";
+import { accountingLoadInScope, type AccountingLoadScope } from "@/lib/accountingLoadScope";
 import { accountingBulkPatch, accountingInvoiceKey, checkedAccountingRows, uniqueAccountingInvoices } from "@/lib/accountingBulk";
 import { CUSTOMER_TERMS, termsDays, effectiveFeeRate, effectivePayTerms, fmtDate, isFleetLoad, loadTotals, usd, type Accessorial, type Load } from "@/lib/tms";
 import { BatchInvoiceDialog } from "@/components/BatchInvoiceDialog";
@@ -151,20 +152,21 @@ function Accounting() {
   const [range, setRange] = useState<RangeKey>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [loadScope, setLoadScope] = useState<AccountingLoadScope>("all");
 
   // Lookups by id (thousands of companies) so each keystroke doesn't rescan every list.
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const carrierById = useMemo(() => new Map(carriers.map((c) => [c.id, c])), [carriers]);
   const loadById = useMemo(() => new Map(loads.map((l) => [l.id, l])), [loads]);
   const synced = (id: string, kind: string) => sync.find((s) => s.load_id === id && s.kind === kind);
-  const delivered = loads.filter((l) => ["delivered", "invoiced"].includes(l.status));
+  const delivered = loads.filter((l) => accountingLoadInScope(l, loadScope));
   // Each load sits under the company that bills it: its existing invoice's company, else the default
   // (our own trucks → Foust Farms, outside carriers → Clearwater). Staff can bill through either company.
   const billedKind = (l: Load) => sync.find((s) => s.load_id === l.id && s.kind !== "bill")?.kind ?? invoiceKind(l);
   const ar = delivered.filter((l) => billedKind(l) === "invoice");
   const fleetAr = delivered.filter((l) => billedKind(l) === "fleet_invoice");
   const carrierEntries = carrierAccountingEntries(loads, carrierById, new Set(sync.filter((s) => s.kind !== "bill").map((s) => s.load_id)));
-  const ap0 = carrierEntries.filter((e) => e.owed).map((e) => e.load);
+  const ap0 = carrierEntries.filter((e) => loadScope === "active" ? e.owed && !e.load.closed_at : loadScope === "history" ? accountingLoadInScope(e.load, "history") : e.owed || accountingLoadInScope(e.load, "all")).map((e) => e.load);
   const [batchOpen, setBatchOpen] = useState(false);
   const needsReview = (l: Load) => qbReviewState(l, sync) !== null;
   // Arriving from the "invoiced loads to review" notice: show only those, on the tab that holds them.
@@ -196,7 +198,7 @@ function Accounting() {
   const shown = needle ? rowsR.filter((l) => (hayById.get(l.id) ?? "").includes(needle)) : rowsR;
   // Draw the first rows only; "Show more" adds the rest so long lists stay quick.
   const [limit, setLimit] = useState(200);
-  useEffect(() => { setLimit(200); }, [needle, tab, from, to, reviewOnly]);
+  useEffect(() => { setLimit(200); }, [needle, tab, from, to, reviewOnly, loadScope]);
   const shownSync = needle ? syncR.filter((x) => `${x.invoice_number ?? ""} ${x.payee ?? ""} ${hayById.get(x.load_id) ?? ""}`.toLowerCase().includes(needle)) : syncR;
   /** Carrier bill math: rate con total minus the Quick Pay fee for the load's pay terms. */
   const billMath = (l: Load) => {
@@ -454,6 +456,7 @@ function Accounting() {
     const filters = [
       datesLine(tab === "log" ? "Load dates (or queued date)" : "Delivery dates", from, to) + (range !== "all" && range !== "custom" ? ` (${rangeOptions().find((o) => o.value === range)?.label ?? ""})` : ""),
       needle && `Search: "${q.trim()}"`,
+      tab !== "log" && `Loads: ${loadScope === "active" ? "Active accounting" : loadScope === "history" ? "Paid & closed out" : "All completed loads"}`,
       reviewOnly && tab !== "bill" && tab !== "log" && "Only invoiced loads not yet in QuickBooks",
     ].filter((x): x is string => !!x);
     const aging = (k: string, b: ReturnType<typeof bucket>): [string, string][] => [[`${k} open`, usd(b.total)], ["0–30 days", usd(b.a)], ["31–60 days", usd(b.b)], ["60+ days", usd(b.c)]];
@@ -483,10 +486,10 @@ function Accounting() {
     const kind = tab as Kind;
     return {
       title: TAB_TITLE[kind]!, company: kind === "fleet_invoice" ? "fleet" : "brokerage", filters, summary: [["Loads", String(shown.length)], ...aging("AR", arB)],
-      head: ["Load", "Customer ref #", "Lane", "Bill to", "Delivered", "Age", "Amount", "Invoice #", "QuickBooks"],
-      right: [5, 6],
-      rows: shown.map((l) => { const s = synced(l.id, kind); return [l.load_number, l.customer_ref ?? "", lane(l), payee(l, kind), day(l.delivery_at), age(l), usd(amountFor(l, kind)), s?.invoice_number ?? "", qbText(s)]; }),
-      total: ["Total", "", `${shown.length} loads`, "", "", "", usd(shown.reduce((t, l) => t + amountFor(l, kind), 0)), "", ""],
+      head: ["Load", "Customer ref #", "Lane", "Bill to", "Delivered", "Status / closeout", "Age", "Amount", "Invoice #", "QuickBooks"],
+      right: [6, 7],
+      rows: shown.map((l) => { const s = synced(l.id, kind); return [l.load_number, l.customer_ref ?? "", lane(l), payee(l, kind), day(l.delivery_at), `${l.status}${l.closed_at ? ` · Closed out ${day(l.closed_at)}` : ""}`, age(l), usd(amountFor(l, kind)), s?.invoice_number ?? "", qbText(s)]; }),
+      total: ["Total", "", `${shown.length} loads`, "", "", "", "", usd(shown.reduce((t, l) => t + amountFor(l, kind), 0)), "", ""],
     };
   };
 
@@ -655,6 +658,12 @@ function Accounting() {
         </TabsList>
       </Tabs>
       <div className="flex flex-wrap items-end gap-2">
+      {tab !== "log" && <label className="text-xs text-muted-foreground">Loads
+        <Select value={loadScope} onValueChange={(v) => { setLoadScope(v as AccountingLoadScope); setReviewOnly(false); setPicked([]); }}>
+          <SelectTrigger className="mt-1 w-48" aria-label="Accounting load scope"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All completed loads</SelectItem><SelectItem value="active">Active accounting</SelectItem><SelectItem value="history">Paid &amp; closed out</SelectItem></SelectContent>
+        </Select>
+      </label>}
       <label className="text-xs text-muted-foreground">Date range
         <Select value={range} onValueChange={(v) => { setRange(v as RangeKey); setPicked([]); const r = rangeFor(v as RangeKey); if (r) { setFrom(r[0]); setTo(r[1]); } }}>
           <SelectTrigger className="mt-1 w-44"><SelectValue /></SelectTrigger>
@@ -737,7 +746,7 @@ function Accounting() {
                 return (
                   <TableRow key={l.id}>
                     <TableCell><Checkbox aria-label={`Select ${l.load_number}`} checked={picked.includes(l.id)} onCheckedChange={(v) => setPicked((p) => (v === true ? [...p, l.id] : p.filter((x) => x !== l.id)))} /></TableCell>
-                    <TableCell><LoadQuickLook load={l} />{tab !== "bill" && billedKind(l) !== invoiceKind(l) && <div className="text-[10px] text-warning">Billed through {billedKind(l) === "fleet_invoice" ? "Foust Farms" : "Clearwater"}</div>}</TableCell>
+                    <TableCell><LoadQuickLook load={l} /><div className="text-xs text-muted-foreground">Customer ref: {l.customer_ref || "—"}</div><div className="text-xs text-muted-foreground">{l.status}{l.closed_at ? ` · Closed out ${fmtDate(l.closed_at)}` : ""}</div>{tab !== "bill" && billedKind(l) !== invoiceKind(l) && <div className="text-[10px] text-warning">Billed through {billedKind(l) === "fleet_invoice" ? "Foust Farms" : "Clearwater"}</div>}</TableCell>
                     <TableCell>{l.origin_city}, {l.origin_state} → {l.dest_city}, {l.dest_state}</TableCell>
                     <TableCell>{payee(l, tab as Kind)}</TableCell>
                     <TableCell>{fmtDate(l.delivery_at)}</TableCell>
@@ -782,7 +791,7 @@ function Accounting() {
                 );
               })}
               {shown.length > limit && <TableRow><TableCell colSpan={9} className="text-center"><Button size="sm" variant="outline" onClick={() => setLimit((n) => n + 200)}>Show more ({shown.length - limit} more)</Button></TableCell></TableRow>}
-              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{(needle || from || to) && rows.length ? "No matches." : reviewOnly && tab !== "bill" ? "No invoiced loads waiting for QuickBooks here." : tab === "bill" ? "No loads with a signed POD yet." : tab === "fleet_invoice" ? "No delivered loads billed by Foust Farms." : "No delivered loads to invoice."}</TableCell></TableRow>}
+              {!shown.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{needle || from || to ? "No matches in this tab and date range." : reviewOnly && tab !== "bill" ? "No invoiced loads waiting for QuickBooks here." : "No loads in this accounting view."}</TableCell></TableRow>}
             </TableBody>
           </Table>
         )}
@@ -812,14 +821,14 @@ function Accounting() {
       {paidOpen && <QbPaidDialog open={paidOpen} onOpenChange={setPaidOpen} />}
       {qbAuditOpen && <QbAuditDialog open={qbAuditOpen} onOpenChange={setQbAuditOpen} />}
       <FactoringRemittanceDialog open={factorOpen} onOpenChange={setFactorOpen} loads={loads} carriers={carrierById as Map<string, PayCarrier>} invoiced={invoicedIds} canPay={isFinance} />
-      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onClose={() => reviewQueue ? nextReview() : setEditing(null)} onSaved={() => { if (reviewQueue) nextReview(); else setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
+      <EditSyncDialog row={editing} groupSize={editing ? groupOf(editing).length : 1} onAssign={() => { if (editing) { setLinking(editing); setEditing(null); } }} onClose={() => reviewQueue ? nextReview() : setEditing(null)} onSaved={() => { if (reviewQueue) nextReview(); else setEditing(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
       <QbAttachDialog key={attaching?.id ?? "none"} row={attaching} loads={attaching ? (attaching.kind !== "bill" ? groupOf(attaching) : [attaching]).map((x) => loads.find((l) => l.id === x.load_id)).filter((l): l is Load => !!l) : []}
         onClose={() => reviewQueue ? nextReview() : setAttaching(null)} onSaved={() => { if (reviewQueue) nextReview(); else setAttaching(null); qc.invalidateQueries({ queryKey: ["qb_sync"] }); }} />
     </div>
   );
 }
 
-function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow | null; groupSize?: number; onClose: () => void; onSaved: () => void }) {
+function EditSyncDialog({ row, groupSize = 1, onAssign, onClose, onSaved }: { row: SyncRow | null; groupSize?: number; onAssign: () => void; onClose: () => void; onSaved: () => void }) {
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
   const [terms, setTerms] = useState("");
@@ -891,6 +900,10 @@ function EditSyncDialog({ row, groupSize = 1, onClose, onSaved }: { row: SyncRow
             <Input className="mt-1" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           {isInvoice && <>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-y py-2 text-sm">
+              <span>Invoice number: {row?.invoice_number || "—"}</span>
+              <ActionButton size="sm" variant="outline" hint="Type the correct QuickBooks invoice number, read its description and verify the assignment. Payment status and closeout stay unchanged. Unsaved edits in this window are not saved." onClick={onAssign}><Link2 className="mr-1 h-4 w-4" />Change invoice number</ActionButton>
+            </div>
             <label className="block text-xs text-muted-foreground">Bill the customer through
               <select className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground disabled:opacity-60" value={kind} disabled={locked} onChange={(e) => setKind(e.target.value)}>
                 <option value="invoice">Clearwater Cargo (INV-, Clearwater QuickBooks)</option>
