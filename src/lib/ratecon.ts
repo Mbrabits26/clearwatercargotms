@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { effectivePayTerms, type Accessorial, type Carrier, type Company, type Load } from "./tms";
+import { effectivePayTerms, effectiveFeeRate, type Accessorial, type Carrier, type Company, type Load } from "./tms";
 
 export const CW = { name: "Clearwater Cargo LLC", addr1: "P.O Box 100", addr2: "Staley, NC 27355", phone: "252-497-7916" };
 
