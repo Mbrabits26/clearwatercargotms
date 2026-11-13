@@ -375,7 +375,9 @@ export async function lookupExistingInvoice(admin: Admin, entity: QbEntity, valu
     if (!result.Invoice) throw new Error("Invoice not found in this QuickBooks company.");
     return [toQbInvoice(result.Invoice)];
   }
-  return (await qb.query<RawInv>("Invoice", `where DocNumber = '${esc(value)}'`)).map(toQbInvoice);
+  const { invoiceNumberVariants } = await import("./qbManualLink");
+  const list = invoiceNumberVariants(value).map((v) => `'${esc(v)}'`).join(", ");
+  return (await qb.query<RawInv>("Invoice", `where DocNumber in (${list})`)).map(toQbInvoice);
 }
 /** Read-only pull of QuickBooks invoices in a date range (paged, max 2000). */
 export async function scanInvoices(admin: Admin, from: string, to: string, openOnly: boolean, entity: QbEntity = "brokerage") {
