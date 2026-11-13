@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ActionButton } from "@/components/ActionGuard";
+import { QbCorrectionOptions } from "@/components/QbCorrectionOptions";
 
 type Row = { id: string; kind: string; invoice_number: string | null; qb_ref: string | null; payee: string | null; amount: number; deductions?: unknown };
 export function QbManualLinkDialog({ row, groupTotal, groupSize, customerRef, loadNumber, onClose }: { row: Row; groupTotal: number; groupSize: number; customerRef?: string | null; loadNumber?: string; onClose: () => void }) {
@@ -53,12 +54,14 @@ export function QbManualLinkDialog({ row, groupTotal, groupSize, customerRef, lo
         <label className="min-w-40 flex-1 text-sm">{by === "number" ? "QuickBooks invoice number" : "QuickBooks internal ID"}<Input className="mt-1" value={value} onChange={(e) => { setValue(e.target.value); setInvoices(null); }} /></label>
         <Button type="submit" disabled={busy || !value.trim()}><Search className="mr-1 h-4 w-4" />{busy ? "Checking…" : "Find invoice"}</Button>
       </form>
+      <QbCorrectionOptions row={row} loadNumber={loadNumber} customerRef={customerRef} onClose={onClose} />
       {invoices?.length === 0 && <div className="text-sm text-muted-foreground">No invoice found in this company.</div>}
       {invoices?.map((invoice) => <div key={invoice.id} className="space-y-2 border-t pt-3 text-sm">
         <div className="font-semibold">Invoice {invoice.docNumber} · {invoice.customer}</div>
         <div>{usd(invoice.total)} · Open balance {usd(invoice.balance)} · {invoice.date ? fmtDate(invoice.date) : "—"}</div>
         <div className="text-muted-foreground">QuickBooks internal ID: {invoice.id}</div>
         <div className="whitespace-pre-wrap break-words text-muted-foreground">{invoice.text || "No customer reference or description on this invoice."}</div>
+        <QbCorrectionOptions row={row} invoice={invoice} loadNumber={loadNumber} customerRef={customerRef} onClose={onClose} />
         {Math.abs(invoice.total - groupTotal) > 0.01 && <div className="text-warning">Amount differs: TMS {usd(groupTotal)} / QuickBooks {usd(invoice.total)}.</div>}
         <ActionButton disabled={busy} hint="Assign this existing invoice and clear stale errors. No new invoice is sent." confirm={{ title: `Assign ${loadNumber || row.invoice_number} to QuickBooks invoice ${invoice.docNumber}?`, body: `${invoice.customer} · ${usd(invoice.total)} · QuickBooks ID ${invoice.id}`, points: [`Verify customer ref ${customerRef || "—"} against the QuickBooks description above.`, row.qb_ref && row.qb_ref !== invoice.id ? `Replaces the old QuickBooks link ${row.qb_ref}.` : "Links the TMS invoice to this existing QuickBooks invoice.", `${groupSize} load(s) will be marked sent in the TMS; stale invoice and attachment errors are cleared.`, "TMS amounts and load payment status stay unchanged. Nothing is created, deleted, or voided in QuickBooks.", "Documents already present are retained; any missing picked documents can upload on the next sync.", Math.abs(invoice.total - groupTotal) > 0.01 ? "Warning: the amounts differ. Verify the customer and reference before confirming." : null], confirmLabel: "Assign invoice" }} onClick={() => link(invoice)}><Link2 className="mr-1 h-4 w-4" />Assign invoice</ActionButton>
       </div>)}
