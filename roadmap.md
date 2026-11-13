@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Prepare a read-only corrected invoice candidate list for the original 65 report loads: 18 direct replacements, 4 consolidated-invoice reference matches, 7 current matches, 36 without same-company reference matches (including one cross-company candidate). Live all-date scans plus original-ID reads; printable PDF and complete CSV verified. No assignments changed.
+
 - [x] Accounting: All completed loads / Active accounting / Paid & closed out views expose existing corrections without reopening. Signed-in paid CW-14743 and closed CW-15428 dialogs verified; 23 tests passed. Preview only; no financial changes applied.
 - [x] Accounting invoice editor: Change invoice number opens typed, company-verified QB lookup and confirmation; payment/closeout unchanged. Closed-load removal prompt verified and cancelled.
 - [ ] CW-14743: live QB 1992 / ID 4112 describes ref 364073, while load ref is 366561. CW-14334 has 364073 but no invoice row; verify customer/amount/documents before any reassignment. No changes applied.
