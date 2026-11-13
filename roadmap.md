@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] CW-15412 remains correctly linked to QB 2165 / ID 5048 / ref 40115320. CW-10508 was unlinked with stale displayed 2165; verified removal through the signed-in UI cleared it to fresh TMS number FF-1122, on hold, preserving $1,625 and load status. Removal works even on stale unlinked entries; assignment prompts include load/customer ref, and confirmations appear above the invoice window. Ten tests passed. FF-1018 is still not found in Foust QuickBooks; no replacement assigned. Preview changes require publication.
+
 - [x] Non-US packet/RC signatures address the sender, assigned load broker and admins; informational yellow/red Carrier Checks show inline after MC/DOT lookup and persist in recipient bells. Real signed-in red check, inline warning and admin recipient records verified; no signatures or carrier data changed. Signature routing covered by tests; no real overseas signing submitted. Preview only.
 
 - [x] Finance-only Remove assignment and verified replacement prompts; corrected QB 2165 (ref 40115320) from CW-10508 to CW-15412 through the signed-in UI without changing amounts or payments. Held CW-10508; QB FF-1018 / internal 5094 is unavailable.

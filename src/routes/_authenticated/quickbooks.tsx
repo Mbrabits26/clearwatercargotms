@@ -691,7 +691,7 @@ function Accounting() {
               {shownSync.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell><Checkbox aria-label="Select" checked={logSel.has(s.id)} onCheckedChange={(v) => logSel.toggle(s.id, v === true)} /></TableCell>
-                  <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
+                  <TableCell>{KIND_LABEL[s.kind] ?? s.kind}{s.invoice_number && <div className="text-[10px] text-gold">{s.invoice_number}</div>}{s.kind !== "bill" && <div className="text-xs text-muted-foreground">{s.qb_ref ? `QB ID ${s.qb_ref}` : "Not assigned in QuickBooks"}</div>}{s.qb_class && <div className="text-[10px] text-muted-foreground">Class: {s.qb_class}</div>}</TableCell>
                   <TableCell>{loadById.get(s.load_id) ? <LoadQuickLook load={loadById.get(s.load_id)!} /> : "—"}</TableCell>
                   <TableCell>{s.payee}</TableCell>
                   <TableCell>{usd(owed(s))}{s.kind !== "bill" && parseDeductions(s.deductions).length > 0 && <div className="text-[10px] text-muted-foreground">of {usd(Number(s.amount))} · {parseDeductions(s.deductions).map((d) => `${d.label} ${d.pct}%`).join(", ")}</div>}</TableCell>
@@ -769,7 +769,7 @@ function Accounting() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-1">
-                        {s ? <Pill status={s.status} /> : <span className="text-xs text-muted-foreground">Not sent</span>}
+                        {s ? <><Pill status={s.status} />{tab !== "bill" && <span className="text-xs text-muted-foreground">{s.qb_ref ? `QB ID ${s.qb_ref}` : "Not assigned in QuickBooks"}</span>}</> : <span className="text-xs text-muted-foreground">Not sent</span>}
                         {isFinance && tab !== "bill" && <ActionButton size="sm" variant="outline" aria-label="Assign existing QuickBooks invoice" hint="Link an invoice already in QuickBooks instead of sending a duplicate. Existing TMS invoices can be reassigned and marked sent; loads without a TMS invoice use the matching window." onClick={() => s ? setLinking(s) : openWindow("qbMatch")}><Link2 className="mr-1 h-3.5 w-3.5" />Link QB invoice</ActionButton>}
                         {s && isFinance && <ActionButton size="icon" variant="ghost" aria-label="Edit invoice / terms" hint={HINT.edit} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></ActionButton>}
                         {s && <ActionButton size="sm" variant="ghost" className="h-8 px-2" aria-label="Attach documents for QuickBooks" hint={HINT.attach} onClick={() => setAttaching(s)}><Paperclip className="h-3.5 w-3.5" />{attachCount(s) > 0 && <span className="ml-0.5 text-[10px]">{attachCount(s)}</span>}</ActionButton>}
@@ -803,7 +803,7 @@ function Accounting() {
           </Table></div>
         </DialogContent>
       </Dialog>
-      {linking && <QbManualLinkDialog key={linking.id} row={linking} groupSize={groupOf(linking).length || 1} groupTotal={(groupOf(linking).length ? groupOf(linking) : [linking]).reduce((sum, row) => sum + owed(row), 0)} customerRef={loadById.get(linking.load_id)?.customer_ref} onClose={() => reviewQueue ? nextReview() : setLinking(null)} />}
+      {linking && <QbManualLinkDialog key={linking.id} row={linking} groupSize={groupOf(linking).length || 1} groupTotal={(groupOf(linking).length ? groupOf(linking) : [linking]).reduce((sum, row) => sum + owed(row), 0)} customerRef={loadById.get(linking.load_id)?.customer_ref} loadNumber={loadById.get(linking.load_id)?.load_number} onClose={() => reviewQueue ? nextReview() : setLinking(null)} />}
       <InvoicePacketDialog invoiceNumber={packetRow?.invoice_number ?? null} loads={packetRow ? groupOf(packetRow).map((x) => loadById.get(x.load_id)).filter((l): l is Load => !!l) : []}
         buildInvoice={() => (packetRow ? invoicePdf(packetRow) : Promise.resolve(null))}
         onEmail={async (blob, name) => { if (packetRow) await emailInvoice(packetRow, { blob, name }); }} onClose={() => reviewQueue ? nextReview() : setPacketRow(null)} />

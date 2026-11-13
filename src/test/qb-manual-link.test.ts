@@ -7,7 +7,11 @@ describe("manual existing invoice assignment", () => {
   it("removes a wrong assignment without deleting the invoice or queuing a duplicate", () => {
     const before = { qb_ref: "5048", invoice_number: "2165", amount: 1625, status: "sent", paid: true };
     const after = { ...before, ...manualInvoiceUnlinkPatch() };
-    expect(after).toMatchObject({ qb_ref: null, invoice_number: "2165", amount: 1625, status: "hold", paid: true, sent_at: null, attachments_sent: [] });
+    expect(after).toMatchObject({ qb_ref: null, invoice_number: null, amount: 1625, status: "hold", paid: true, sent_at: null, attachments_sent: [] });
+  });
+  it("clears CW-10508's stale 2165 number even when its QuickBooks link is already empty", () => {
+    const before = { load_number: "CW-10508", customer_ref: "40115924", qb_ref: null, invoice_number: "2165", amount: 1625, status: "hold" };
+    expect({ ...before, ...manualInvoiceUnlinkPatch() }).toMatchObject({ load_number: "CW-10508", customer_ref: "40115924", qb_ref: null, invoice_number: null, amount: 1625, status: "hold" });
   });
   it("replaces FF-1017's stale 5093 reference with verified 2088 and stops queue errors", () => {
     expect(manualInvoiceLinkPatch("5093", invoice, "2026-11-09T14:41:00Z")).toEqual({ qb_ref: "2088", invoice_number: "2088", status: "sent", error: null, attach_error: null, sent_at: "2026-11-09T14:41:00Z", attachments_sent: [] });

@@ -24,7 +24,7 @@ export function ActionGuardProvider({ children }: { children: ReactNode }) {
       <Ctx.Provider value={ask}>
         {children}
         <AlertDialog open={!!spec} onOpenChange={(o) => { if (!o) done(false); }}>
-          <AlertDialogContent className="max-h-[85vh] overflow-auto">
+          <AlertDialogContent className="z-[60] max-h-[85vh] overflow-auto">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 shrink-0 text-warning" />{spec?.title}</AlertDialogTitle>
               {spec?.body ? <AlertDialogDescription asChild><div className="text-sm">{spec.body}</div></AlertDialogDescription> : <AlertDialogDescription className="sr-only">Confirm this action</AlertDialogDescription>}
