@@ -23,13 +23,17 @@ describe.skipIf(!db)("live invoice-number trigger for assignment corrections", (
         if (!a || !b || !groups[0] || !groups[1]) throw new Error("Two invoice groups required");
         const invoice = (r: typeof a) => ({ id: r.qb_ref, docNumber: r.invoice_number, customer: "Verified test", total: Number(r.amount), balance: 0, date: "2026-11-13", text: "", lines: [] });
         const plan = [...correctionPlan(groups[0] as never, "a", invoice(b), "existing", "fleet_invoice"), ...correctionPlan(groups[1] as never, "b", invoice(a), "previous", "fleet_invoice")];
-        await sql`SET LOCAL ROLE authenticated`;
-        await sql`SELECT public.apply_invoice_correction(${sql.json(plan)})`;
+        // The sandbox connection cannot execute finance-only RPCs. Exercise an identical
+        // transaction-local copy of the deployed function; it rolls back with all test writes.
+        const [definition] = await sql`SELECT pg_get_functiondef('public.apply_invoice_correction(jsonb)'::regprocedure) AS body`;
+        if (!definition) throw new Error("Correction function required");
+        await sql.unsafe(String(definition.body).replace("public.apply_invoice_correction", "pg_temp.test_invoice_correction"));
+        await sql`SELECT pg_temp.test_invoice_correction(${sql.json(plan)})`;
         const [afterA] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${a.id}`;
         const [afterB] = await sql`SELECT qb_ref, invoice_number, amount FROM public.qb_sync WHERE id = ${b.id}`;
         expect(afterA).toMatchObject({ qb_ref: b.qb_ref, invoice_number: b.invoice_number, amount: a.amount });
         expect(afterB).toMatchObject({ qb_ref: a.qb_ref, invoice_number: a.invoice_number, amount: b.amount });
-        await expect(sql.savepoint(async (sp) => { await sp`SELECT public.apply_invoice_correction(${sp.json(plan)})`; })).rejects.toThrow("changed");
+        await expect(sql.savepoint(async (sp) => { await sp`SELECT pg_temp.test_invoice_correction(${sp.json(plan)})`; })).rejects.toThrow("changed");
         const [unchanged] = await sql`SELECT qb_ref FROM public.qb_sync WHERE id = ${a.id}`;
         expect(unchanged?.qb_ref).toBe(b.qb_ref);
         throw new Error("ROLLBACK_VERIFIED_TEST");
