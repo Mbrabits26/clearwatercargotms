@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AccList } from "./AccEditor";
+import { CityInput } from "@/components/CityInput";
 
 const rpm = (n: number | null | undefined) => (n ? `$${n.toFixed(2)}/mi` : "—");
 export const HEALTH_TONE = { healthy: "text-success", moderate: "text-warning", low: "text-destructive", none: "text-muted-foreground" } as const;
@@ -27,7 +28,7 @@ export function QuickLaneCheck() {
   const { data: loads = [] } = useQuery(laneHistoryQuery());
   const miles$ = useServerFn(drivingMiles);
   const market$ = useServerFn(getMarketRates);
-  const [f, setF] = useState({ origin: "", dest: "", equipment: "Dry Van", kind: "spot" as BidKind, miles: "", fsc: "0", margin: "15", carrier: "", linehaul: "" });
+  const [f, setF] = useState({ origin: "", dest: "", equipment: "Dry Van", kind: "spot" as BidKind, miles: "", fsc: "0", margin: "15", carrier: "", linehaul: "", roundTrip: false, perWeek: "" });
   const [acc, setAcc] = useState<BidAcc[]>([]);
   const [mkt, setMkt] = useState<MarketRate | null>(null);
   const [busy, setBusy] = useState("");
@@ -39,12 +40,13 @@ export function QuickLaneCheck() {
   const t = laneTotals(calcLane, 0);
   const est = estimateCarrierCost(calcLane, f.kind, hist?.costRpm ?? null);
 
-  const lookupMiles = async (auto = false) => {
-    if (!ok) return;
+  const lookupMiles = async (auto = false, origin = f.origin, dest = f.dest) => {
+    const a = splitPlace(origin), b = splitPlace(dest);
+    if (!/^[A-Z]{2}$/.test(a.state) || !/^[A-Z]{2}$/.test(b.state)) return;
     setBusy("miles");
     try {
-      const r = await miles$({ data: { origin: f.origin, dest: f.dest } });
-      if (r.miles) setF((s) => (auto && s.miles ? s : { ...s, miles: String(r.miles) })); else if (!auto) toast.error("Couldn't find driving miles for that lane.");
+      const r = await miles$({ data: { origin, dest } });
+      if (r.miles) setF((s) => ({ ...s, miles: String(r.miles! * (s.roundTrip ? 2 : 1)) })); else if (!auto) toast.error("Couldn't find driving miles for that lane.");
     } catch (e) { toast.error((e as Error).message); }
     setBusy("");
   };
@@ -63,13 +65,31 @@ export function QuickLaneCheck() {
     const p = priceLane(calcLane, cost, 0, margin);
     if (p) setF((s) => ({ ...s, carrier: String(p.carrier_cost), linehaul: String(p.linehaul), margin: String(margin) }));
   };
+  const perWeek = Number(f.perWeek) || 0;
+  const volLabel = [f.roundTrip ? "Round trip" : "", perWeek ? `${perWeek} loads/week` : ""].filter(Boolean).join(" · ");
+  const saveAsQuote = async () => {
+    if (!(t.allIn > 0)) return toast.error("Add a linehaul (or use Price at) first.");
+    setBusy("save");
+    const accTxt = acc.map((a) => `${a.type} ${usd(a.amount)}`).join(", ");
+    const notes = [volLabel, `Linehaul ${usd(t.linehaul)}`, t.fsc ? `FSC ${usd(t.fsc)}` : "", accTxt ? `Accessorials: ${accTxt}` : ""].filter(Boolean).join(" · ");
+    const { error } = await supabase.from("quotes").insert({
+      kind: f.kind, origin_city: o.city, origin_state: o.state, dest_city: d.city, dest_state: d.state, equipment: f.equipment,
+      miles: Number(f.miles) || null, rate: t.allIn, target_carrier_rate: t.carrier > 0 ? t.carrier : null, notes, accessorials: acc as never,
+      expires_at: new Date(Date.now() + (f.kind === "contract" ? 30 : 1) * 86400_000).toISOString(),
+    });
+    setBusy("");
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["quotes"] });
+    toast.success("Saved as a quote");
+    navigate({ to: "/quotes" });
+  };
   const saveAsBid = async () => {
     setBusy("save");
-    const { data: bid, error } = await supabase.from("bids").insert({ name: `${f.origin} → ${f.dest}`, kind: f.kind, fsc_per_mile: Number(f.fsc) || 0, target_margin: Number(f.margin) || 15 }).select("id").single();
+    const { data: bid, error } = await supabase.from("bids").insert({ name: `${f.origin} ${f.roundTrip ? "⇄" : "→"} ${f.dest}${f.roundTrip ? " round trip" : ""}`, kind: f.kind, fsc_per_mile: Number(f.fsc) || 0, target_margin: Number(f.margin) || 15 }).select("id").single();
     if (error) { setBusy(""); return toast.error(error.message); }
     const { error: le } = await supabase.from("bid_lanes").insert({
       bid_id: bid.id, origin_city: o.city, origin_state: o.state, origin_zip: o.zip || null, dest_city: d.city, dest_state: d.state, dest_zip: d.zip || null,
-      equipment: f.equipment, miles: Number(f.miles) || null, carrier_cost: Number(f.carrier) || null, linehaul: Number(f.linehaul) || null, accessorials: acc as never,
+      equipment: f.equipment, miles: Number(f.miles) || null, carrier_cost: Number(f.carrier) || null, linehaul: Number(f.linehaul) || null, accessorials: acc as never, volume: volLabel || null,
       market_spot_rpm: mkt?.spot_rpm ?? null, market_contract_rpm: mkt?.contract_rpm ?? null, market_note: mkt?.scope ?? null,
       history_rpm: hist?.revRpm ?? null, history_cost_rpm: hist?.costRpm ?? null, history_n: hist?.n ?? 0,
     });
@@ -83,14 +103,16 @@ export function QuickLaneCheck() {
     <div className="space-y-3 rounded-lg border p-4">
       <h2 className="font-display text-lg font-bold uppercase tracking-wider text-gold">Quick lane check</h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Input className="col-span-2" placeholder="From — City, ST" value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })} onBlur={() => !f.miles && f.dest && lookupMiles(true)} />
-        <Input className="col-span-2" placeholder="To — City, ST" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} onBlur={() => !f.miles && f.origin && lookupMiles(true)} />
+        <CityInput className="col-span-2" placeholder="From — start typing a city" value={f.origin} onChange={(v) => setF((s) => ({ ...s, origin: v, miles: "" }))} onPick={(v) => lookupMiles(true, v, f.dest)} />
+        <CityInput className="col-span-2" placeholder="To — start typing a city" value={f.dest} onChange={(v) => setF((s) => ({ ...s, dest: v, miles: "" }))} onPick={(v) => lookupMiles(true, f.origin, v)} />
+        <label className="col-span-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={f.roundTrip} onChange={(e) => { const rt = e.target.checked; setF((s) => ({ ...s, roundTrip: rt, miles: s.miles ? String(Math.round(Number(s.miles) * (rt ? 2 : 0.5))) : "" })); }} />Round trip (miles there and back)</label>
+        <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">Loads per week<Input type="number" className="h-8 w-20" value={f.perWeek} onChange={(e) => setF({ ...f, perWeek: e.target.value })} /></label>
         <select value={f.equipment} onChange={(e) => { setF({ ...f, equipment: e.target.value }); setMkt(null); }} className="h-9 rounded border bg-background px-2 text-sm">{EQUIPMENT.map((x) => <option key={x}>{x}</option>)}</select>
         <div className="flex gap-1 text-xs">
           {(["spot", "contract"] as const).map((k) => <button key={k} type="button" onClick={() => setF({ ...f, kind: k })} className={cn("flex-1 rounded px-2 capitalize", f.kind === k ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>{k}</button>)}
         </div>
         <div className="col-span-2 flex gap-1">
-          <Input type="number" placeholder="Miles" value={f.miles} onChange={(e) => setF({ ...f, miles: e.target.value })} />
+          <Input type="number" placeholder={busy === "miles" ? "Finding miles…" : "Miles"} value={f.miles} onChange={(e) => setF({ ...f, miles: e.target.value })} />
           <Button variant="outline" size="sm" className="h-9" disabled={!ok || !!busy} onClick={() => lookupMiles()} title="Look up driving miles"><MapPin className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" className="h-9" disabled={!ok || !!busy} onClick={lookupMarket}><Globe className="mr-1 h-4 w-4" />{busy === "market" ? "Checking…" : "Market"}</Button>
         </div>
@@ -128,8 +150,10 @@ export function QuickLaneCheck() {
           <div className="flex justify-between"><span>Accessorials</span><b>{usd(t.acc)}</b></div>
           <div className="flex justify-between border-t pt-1 text-base"><span>All-in to customer</span><b className="text-gold">{usd(t.allIn)}</b></div>
           <div className="flex justify-between text-xs text-muted-foreground"><span>All-in per mile</span><span>{rpm(t.allInRpm)}</span></div>
+          {perWeek > 0 && t.allIn > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>{perWeek}/week · yearly revenue / margin</span><span>{usd(t.allIn * perWeek * 52)} / {usd(t.margin * perWeek * 52)}</span></div>}
           <div className={cn("flex justify-between", HEALTH_TONE[t.health])}><span>Margin</span><b>{t.health === "none" ? "—" : `${usd(t.margin)} · ${t.pct.toFixed(1)}%`}</b></div>
           <Button className="mt-2 w-full" disabled={!ok || !!busy} onClick={saveAsBid}><Save className="mr-1 h-4 w-4" />Save as a {f.kind} bid</Button>
+          <Button variant="outline" className="w-full" disabled={!ok || !!busy} onClick={saveAsQuote}><Save className="mr-1 h-4 w-4" />Save as a quote</Button>
         </div>
       </div>
     </div>

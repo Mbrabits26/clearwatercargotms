@@ -20,12 +20,12 @@ async function check(r: Response) {
 
 export const placesAutocomplete = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ input: z.string().trim().min(3).max(200), sessionToken: z.string().max(64) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ input: z.string().trim().min(3).max(200), sessionToken: z.string().max(64), cities: z.boolean().optional() }).parse(d))
   .handler(async ({ data }) => {
     const r = await fetch(`${GW}/places:autocomplete`, {
       method: "POST",
       headers: { ...creds(), "Content-Type": "application/json", "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text" },
-      body: JSON.stringify({ input: data.input, sessionToken: data.sessionToken, includedRegionCodes: ["us", "ca", "mx"], locationBias: { circle: { center: { latitude: 35.78, longitude: -79.6 }, radius: 50000 } } }),
+      body: JSON.stringify({ input: data.input, sessionToken: data.sessionToken, ...(data.cities ? { includedPrimaryTypes: ["(cities)"] } : {}), includedRegionCodes: ["us", "ca", "mx"], locationBias: { circle: { center: { latitude: 35.78, longitude: -79.6 }, radius: 50000 } } }),
     });
     const j = (await check(r)) as { suggestions?: { placePrediction?: { placeId: string; text: { text: string } } }[] };
     return (j.suggestions ?? []).flatMap((s) => (s.placePrediction ? [{ id: s.placePrediction.placeId, text: s.placePrediction.text.text }] : []));

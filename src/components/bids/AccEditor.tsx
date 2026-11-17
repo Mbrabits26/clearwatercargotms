@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export const BID_ACC_TYPES = ["Stop-off", "Tarp", "Hazmat", "Team", "Driver Assist", "Lumper", "Detention", "TONU", "Liftgate", "Border crossing", "Toll", "Other"];
+export const BID_ACC_TYPES = ["Stop-off", "Tarp", "Hazmat", "Team", "Driver Assist", "Pallet jack", "Lumper", "Detention", "TONU", "Liftgate", "Border crossing", "Toll", "Other"];
 
 /** Edits the list of extra charges added to a bid lane's all-in. */
 export function AccList({ value, onChange }: { value: BidAcc[]; onChange: (v: BidAcc[]) => void }) {
