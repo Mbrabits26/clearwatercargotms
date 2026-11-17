@@ -133,6 +133,7 @@ export function QuickLaneCheck() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2 text-xs">
+            <label className="col-span-2 text-muted-foreground">Customer pays us $ (all-in rate)<Input type="number" value={t.allIn > 0 ? String(Math.round(t.allIn * 100) / 100) : ""} placeholder="e.g. 5000" onChange={(e) => { const v = Number(e.target.value) || 0; setF({ ...f, linehaul: v ? String(Math.round((v - t.fsc - t.acc) * 100) / 100) : "" }); }} /></label>
             <label className="text-muted-foreground">Carrier cost $ (all-in)<Input type="number" value={f.carrier} placeholder={est.cost ? String(est.cost) : ""} onChange={(e) => setF({ ...f, carrier: e.target.value })} /></label>
             <label className="text-muted-foreground">Fuel surcharge $/mi<Input type="number" step="0.01" value={f.fsc} onChange={(e) => setF({ ...f, fsc: e.target.value })} /></label>
             <label className="text-muted-foreground">Linehaul $ (our bid)<Input type="number" value={f.linehaul} onChange={(e) => setF({ ...f, linehaul: e.target.value })} /></label>
@@ -151,6 +152,7 @@ export function QuickLaneCheck() {
           <div className="flex justify-between border-t pt-1 text-base"><span>All-in to customer</span><b className="text-gold">{usd(t.allIn)}</b></div>
           <div className="flex justify-between text-xs text-muted-foreground"><span>All-in per mile</span><span>{rpm(t.allInRpm)}</span></div>
           {perWeek > 0 && t.allIn > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>{perWeek}/week · yearly revenue / margin</span><span>{usd(t.allIn * perWeek * 52)} / {usd(t.margin * perWeek * 52)}</span></div>}
+          {t.allIn > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>Max carrier pay at {Number(f.margin) || 15}% margin</span><span>{usd(t.allIn * (1 - (Number(f.margin) || 15) / 100))}</span></div>}
           <div className={cn("flex justify-between", HEALTH_TONE[t.health])}><span>Margin</span><b>{t.health === "none" ? "—" : `${usd(t.margin)} · ${t.pct.toFixed(1)}%`}</b></div>
           <Button className="mt-2 w-full" disabled={!ok || !!busy} onClick={saveAsBid}><Save className="mr-1 h-4 w-4" />Save as a {f.kind} bid</Button>
           <Button variant="outline" className="w-full" disabled={!ok || !!busy} onClick={saveAsQuote}><Save className="mr-1 h-4 w-4" />Save as a quote</Button>
