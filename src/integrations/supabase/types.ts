@@ -789,6 +789,106 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_applications: {
+        Row: {
+          answers: Json
+          approved_limit: number | null
+          approved_terms: string | null
+          bid_id: string | null
+          company_id: string | null
+          company_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          expires_at: string
+          id: string
+          quote_id: string | null
+          requested_limit: number | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          signer_ip: string | null
+          signer_name: string | null
+          signer_title: string | null
+          status: string
+          submitted_at: string | null
+          token: string
+          user_agent: string | null
+        }
+        Insert: {
+          answers?: Json
+          approved_limit?: number | null
+          approved_terms?: string | null
+          bid_id?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          quote_id?: string | null
+          requested_limit?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          status?: string
+          submitted_at?: string | null
+          token?: string
+          user_agent?: string | null
+        }
+        Update: {
+          answers?: Json
+          approved_limit?: number | null
+          approved_terms?: string | null
+          bid_id?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          quote_id?: string | null
+          requested_limit?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
+          signer_title?: string | null
+          status?: string
+          submitted_at?: string | null
+          token?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_applications_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bids"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_applications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_applications_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deletion_log: {
         Row: {
           deleted_at: string

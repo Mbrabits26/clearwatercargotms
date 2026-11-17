@@ -71,3 +71,4 @@
 - [x] Bid Desk quick lane: city suggestions, auto miles, round trip, loads/week, save as quote
 
 - [x] Price Columbus OH ⇄ Atlanta GA dry van round trip w/ driver assist (answered in chat)
+- [x] Customer credit application (send from Directory/Quotes/Bid Desk, public sign page, finance approves)

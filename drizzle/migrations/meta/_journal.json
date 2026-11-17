@@ -484,6 +484,13 @@
       "when": 1794598546014,
       "tag": "0068_atomic_invoice_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794938178992,
+      "tag": "0069_credit_applications",
+      "breakpoints": true
     }
   ]
 }

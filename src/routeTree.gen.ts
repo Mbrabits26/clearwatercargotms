@@ -27,6 +27,7 @@ import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedQuickbooksRouteImport } from './routes/_authenticated/quickbooks'
 import { Route as AuthenticatedQuotesRouteImport } from './routes/_authenticated/quotes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as CreditTokenRouteImport } from './routes/credit.$token'
 import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as OnboardTokenRouteImport } from './routes/onboard.$token'
 import { Route as QuoteTokenRouteImport } from './routes/quote.$token'
@@ -130,6 +131,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const CreditTokenRoute = CreditTokenRouteImport.update({
+  id: '/credit/$token',
+  path: '/credit/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OfferTokenRoute = OfferTokenRouteImport.update({
   id: '/offer/$token',
   path: '/offer/$token',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/credit/$token': typeof CreditTokenRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/quote/$token': typeof QuoteTokenRoute
@@ -243,6 +250,7 @@ export interface FileRoutesByTo {
   '/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/quotes': typeof AuthenticatedQuotesRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/credit/$token': typeof CreditTokenRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/quote/$token': typeof QuoteTokenRoute
@@ -276,6 +284,7 @@ export interface FileRoutesById {
   '/_authenticated/quickbooks': typeof AuthenticatedQuickbooksRoute
   '/_authenticated/quotes': typeof AuthenticatedQuotesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/credit/$token': typeof CreditTokenRoute
   '/offer/$token': typeof OfferTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/quote/$token': typeof QuoteTokenRoute
@@ -309,6 +318,7 @@ export interface FileRouteTypes {
     | '/quickbooks'
     | '/quotes'
     | '/reports'
+    | '/credit/$token'
     | '/offer/$token'
     | '/onboard/$token'
     | '/quote/$token'
@@ -340,6 +350,7 @@ export interface FileRouteTypes {
     | '/quickbooks'
     | '/quotes'
     | '/reports'
+    | '/credit/$token'
     | '/offer/$token'
     | '/onboard/$token'
     | '/quote/$token'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/_authenticated/quickbooks'
     | '/_authenticated/quotes'
     | '/_authenticated/reports'
+    | '/credit/$token'
     | '/offer/$token'
     | '/onboard/$token'
     | '/quote/$token'
@@ -394,6 +406,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   VerifyRoute: typeof VerifyRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  CreditTokenRoute: typeof CreditTokenRoute
   OfferTokenRoute: typeof OfferTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
   QuoteTokenRoute: typeof QuoteTokenRoute
@@ -536,6 +549,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/credit/$token': {
+      id: '/credit/$token'
+      path: '/credit/$token'
+      fullPath: '/credit/$token'
+      preLoaderRoute: typeof CreditTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/offer/$token': {
       id: '/offer/$token'
       path: '/offer/$token'
@@ -663,6 +683,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  CreditTokenRoute: CreditTokenRoute,
   OfferTokenRoute: OfferTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
   QuoteTokenRoute: QuoteTokenRoute,

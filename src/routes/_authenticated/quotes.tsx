@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
 import { EQUIPMENT, usd } from "@/lib/tms";
 import { buildQuotePdf, type Quote } from "@/lib/quote";
+import { CreditAppButton } from "@/components/CreditAppButton";
 import { composeEmail } from "@/lib/email";
 import { RateView } from "@/components/RateView";
 import { BuyBox } from "@/components/BuyBox";
@@ -190,6 +191,7 @@ function QuoteBuilder() {
                 </select>
                 <Button size="sm" variant="ghost" onClick={() => pdf(q)} aria-label="PDF"><FileDown className="h-4 w-4" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => email(q)} aria-label="Email"><Mail className="h-4 w-4" /></Button>
+                <CreditAppButton companyId={q.customer_id} companyName={q.customer_name} email={q.customer_email} quoteId={q.id} />
                 <ConfirmDelete table="quotes" id={q.id} label={q.quote_number} what="Quote" invalidate={["quotes"]} />
               </div>
             );

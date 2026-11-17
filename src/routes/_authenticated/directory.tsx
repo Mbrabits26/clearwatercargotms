@@ -8,6 +8,7 @@ import { CUSTOMER_TERMS } from "@/lib/tms";
 import { useReviewChanges, diff } from "@/components/ReviewChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, profilesQuery } from "@/lib/queries";
+import { CreditAppButton } from "@/components/CreditAppButton";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { BulkActionBar, SelectAllBox, useSelection, deleteAction, exportAction, type BulkAction } from "@/components/BulkActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -168,6 +169,7 @@ function Directory() {
                     {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>)}
                   </select>
                 </TableCell>}
+                {kind === "customer" && <TableCell className="w-10"><CreditAppButton companyId={c.id} companyName={c.name} email={c.email} contact={c.contact_name} /></TableCell>}
                 <TableCell className="w-10"><Button size="icon" variant="ghost" aria-label="Edit" onClick={() => startEdit(c)}><Pencil className="h-4 w-4" /></Button></TableCell>
                 <TableCell className="w-10"><ConfirmDelete table="companies" id={c.id} label={c.name} what={label} invalidate={["companies"]} linked="Any loads or quotes using this company will keep their details but lose the link to it." /></TableCell>
               </TableRow>

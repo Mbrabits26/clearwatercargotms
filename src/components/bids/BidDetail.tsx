@@ -12,6 +12,8 @@ import { EQUIPMENT, usd } from "@/lib/tms";
 import { accList, counterList, estimateCarrierCost, guessMapping, laneTotals, offerRpm, OUT_FIELDS, rpmMargin, type BidKind, type Ladder, type OutField, type SheetTable } from "@/lib/bidDesk";
 import { bidFiles, bidLanesQuery, fetchBidLanes, bidQuery, bidTables, downloadBlob, historyFor, ladderFor, laneLabel, laneToLoad, laneToQuote, myName, noticeLowLanes, placeText, priceOne, refreshBidStatus, saveCounters, type Bid, type BidLane } from "@/lib/bids";
 import { composeEmailWithFiles } from "@/lib/email";
+import { CreditAppButton } from "@/components/CreditAppButton";
+import { creditAppUrl } from "@/lib/creditApp";
 import { EntityCombobox } from "@/components/EntityCombobox";
 import { DatePicker } from "@/components/DatePicker";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
@@ -277,7 +279,7 @@ export function BidDetail({ bidId }: { bidId: string }) {
             onChange={(v) => { const c = customers.find((x) => x.id === v.id); saveBid({ customer_id: v.id, customer_name: v.name || null, customer_email: c?.email ?? bid.customer_email }); }}
             placeholder="Customer" newLabel="name only" />
         </div>
-        <label className="text-xs text-muted-foreground">Customer email<Input key={bid.customer_email ?? ""} defaultValue={bid.customer_email ?? ""} onBlur={(e) => e.target.value !== (bid.customer_email ?? "") && saveBid({ customer_email: e.target.value.trim() || null })} /></label>
+        <label className="text-xs text-muted-foreground">Customer email<Input key={bid.customer_email ?? ""} defaultValue={bid.customer_email ?? ""} onBlur={(e) => e.target.value !== (bid.customer_email ?? "") && saveBid({ customer_email: e.target.value.trim() || null })} /><span className="mt-1 inline-block"><CreditAppButton label companyId={bid.customer_id} companyName={bid.customer_name} email={bid.customer_email} bidId={bid.id} /></span></label>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-muted-foreground">Type
             <select value={bid.kind} onChange={(e) => saveBid({ kind: e.target.value })} className="h-9 w-full rounded border bg-background px-2 text-sm text-foreground"><option value="spot">Spot</option><option value="contract">Contract</option></select>
@@ -515,6 +517,13 @@ function SubmitBid({ bid, lanes, onClose, onQuotes }: { bid: Bid; lanes: BidLane
             <Input placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
             <Input placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
             <Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} />
+            <Button size="sm" variant="outline" className="mt-1" onClick={async () => {
+              const { data: u } = await supabase.auth.getUser();
+              const { data, error } = await supabase.from("credit_applications").insert({ company_id: bid.customer_id, company_name: bid.customer_name, email: to.trim() || null, bid_id: bid.id, created_by: u.user?.id ?? null }).select("token").single();
+              if (error) return toast.error(error.message);
+              setBody((b) => b.replace(/\n\nClearwater Cargo LLC · Staley/, `\n\nNew customers: please fill out and sign our credit application online:\n${creditAppUrl(window.location.origin, data.token)}\n\nClearwater Cargo LLC · Staley`));
+              toast.success("Credit application link added to the email");
+            }}>Add credit application link</Button>
             <Button disabled={sending} onClick={send}><Send className="mr-1 h-4 w-4" />{sending ? "Sending…" : "Email bid"}</Button>
           </div>
           <div className="border-t pt-3">
