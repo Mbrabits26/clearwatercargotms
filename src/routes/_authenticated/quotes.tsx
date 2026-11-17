@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { companiesQuery, laneHistoryQuery } from "@/lib/queries";
 import { EQUIPMENT, usd } from "@/lib/tms";
 import { buildQuotePdf, type Quote } from "@/lib/quote";
+import { QuoteEditButton } from "@/components/QuoteEditDialog";
 import { CreditAppButton } from "@/components/CreditAppButton";
 import { composeEmail } from "@/lib/email";
 import { RateView } from "@/components/RateView";
@@ -160,7 +161,7 @@ function QuoteBuilder() {
           <DatePicker placeholder="Pickup date" value={f.pickup_date ?? ""} onChange={(v) => set("pickup_date")({ target: { value: v } })} />
           <Input type="number" placeholder="Quote rate $ (all-in)" value={f.rate} onChange={set("rate")} />
           <Input type="number" placeholder="Target carrier pay $" value={f.target_carrier_rate} onChange={set("target_carrier_rate")} />
-          <Input placeholder="Notes" value={f.notes} onChange={set("notes")} />
+          <Input placeholder="Notes (round trip, driver assist, etc.)" value={f.notes} onChange={set("notes")} />
         </div>
         {lane.origin_state.length === 2 && lane.dest_state.length === 2 && (
           <RateView loads={loads} lane={lane} onApply={(c, k) => setF((s) => ({ ...s, rate: String(c), target_carrier_rate: String(k) }))} />
@@ -189,6 +190,7 @@ function QuoteBuilder() {
                 <select value={expired ? "expired" : q.status} onChange={(e) => setStatus(q, e.target.value)} className="h-8 rounded border bg-background px-1 text-xs capitalize">
                   {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <QuoteEditButton q={q} />
                 <Button size="sm" variant="ghost" onClick={() => pdf(q)} aria-label="PDF"><FileDown className="h-4 w-4" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => email(q)} aria-label="Email"><Mail className="h-4 w-4" /></Button>
                 <CreditAppButton companyId={q.customer_id} companyName={q.customer_name} email={q.customer_email} quoteId={q.id} />

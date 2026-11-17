@@ -72,3 +72,4 @@
 
 - [x] Price Columbus OH ⇄ Atlanta GA dry van round trip w/ driver assist (answered in chat)
 - [x] Customer credit application (send from Directory/Quotes/Bid Desk, public sign page, finance approves)
+- [x] Edit saved quotes (notes quick-adds: round trip, driver assist, pallet jack; extra charges)
