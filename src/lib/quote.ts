@@ -30,7 +30,13 @@ export async function buildQuotePdf(q: Quote, logoUrl: string) {
 
   doc.setTextColor(20, 20, 20);
   let y = 125;
-  const row = (k: string, v: string) => { doc.setFont("helvetica", "bold"); doc.text(k, L, y); doc.setFont("helvetica", "normal"); doc.text(v, L + 140, y); y += 18; };
+  const pdfSafe = (t: string) => t.replace(/[→⇄]/g, (c) => (c === "→" ? "->" : "<->"));
+  const row = (k: string, v: string) => {
+    v = pdfSafe(v);
+    doc.setFont("helvetica", "bold"); doc.text(doc.splitTextToSize(k, 132), L, y);
+    doc.setFont("helvetica", "normal"); const lines = doc.splitTextToSize(v, R - L - 140) as string[]; doc.text(lines, L + 140, y);
+    y += Math.max(18, lines.length * doc.getLineHeight() + 4);
+  };
   doc.setFontSize(11);
   row("Prepared for", q.customer_name ?? "");
   row("Date", new Date(q.created_at).toLocaleDateString());
@@ -50,7 +56,7 @@ export async function buildQuotePdf(q: Quote, logoUrl: string) {
   doc.setFontSize(14); row("TOTAL", money(total));
   if (q.miles) { doc.setFontSize(10); row("Rate per mile", `$${(total / q.miles).toFixed(2)}`); }
   doc.setFontSize(10);
-  if (q.notes) { y += 10; doc.text(doc.splitTextToSize(`Notes: ${q.notes}`, R - L), L, y); y += 30; }
+  if (q.notes) { y += 10; const n = doc.splitTextToSize(pdfSafe(`Notes: ${q.notes}`), R - L) as string[]; doc.text(n, L, y); y += n.length * doc.getLineHeight() + 10; }
   y += 10;
   doc.setTextColor(110, 110, 110);
   doc.text(doc.splitTextToSize(`This quote is valid for 24 hours from issue and subject to equipment availability at time of tender. Detention, layover, TONU and lumper charges billed as incurred with receipts. ${CW.name} · ${CW.phone}`, R - L), L, y);

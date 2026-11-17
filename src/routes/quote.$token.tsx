@@ -46,8 +46,8 @@ function QuoteAcceptPage() {
   const q = data?.ok ? data.quote : null;
   const total = q ? q.rate + q.accessorials.reduce((s, a) => s + Number(a.amount || 0), 0) : 0;
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-lg space-y-4 rounded-lg border bg-card p-5">
+    <div className="min-h-screen bg-background p-4 break-words">
+      <div className="mx-auto w-full max-w-lg min-w-0 space-y-4 rounded-lg border bg-card p-5">
         <div className="flex items-center gap-3">
           <img src={logo.url} alt="Clearwater Cargo" className="h-12 w-12 rounded" />
           <div>
@@ -66,10 +66,10 @@ function QuoteAcceptPage() {
             </div>
             <div className="space-y-1 rounded border p-3 text-sm">
               <div className="flex justify-between"><span>Linehaul (all-in)</span><span>{usd(q.rate)}</span></div>
-              {q.accessorials.filter((a) => Number(a.amount)).map((a, i) => <div key={i} className="flex justify-between"><span>{a.type}</span><span>{usd(Number(a.amount))}</span></div>)}
+              {q.accessorials.filter((a) => Number(a.amount)).map((a, i) => <div key={i} className="flex justify-between gap-2"><span className="min-w-0">{a.type}</span><span>{usd(Number(a.amount))}</span></div>)}
               <div className="flex justify-between border-t pt-1 font-display text-2xl text-gold"><span>Total</span><span>{usd(total)}</span></div>
             </div>
-            {q.notes && <p className="text-sm text-muted-foreground">{q.notes}</p>}
+            {q.notes && <p className="whitespace-pre-line break-words text-sm text-muted-foreground">{q.notes}</p>}
             {q.status === "won" ? (
               <p className="rounded border border-success/40 p-3 text-sm text-success">Accepted — thank you! A Clearwater dispatcher will reach out to confirm pickup details.</p>
             ) : q.status === "lost" ? (
