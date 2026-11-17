@@ -69,3 +69,5 @@
 - [x] Carrier QuickPay fee change in carrier settings updates the rate con
 - [ ] Fix QB invoices assigned to wrong loads (shipper ref in QB description)
 - [x] Bid Desk quick lane: city suggestions, auto miles, round trip, loads/week, save as quote
+
+- [x] Price Columbus OH ⇄ Atlanta GA dry van round trip w/ driver assist (answered in chat)
