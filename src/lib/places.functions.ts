@@ -2,14 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const GW = "https://connector-gateway.lovable.dev/google_maps/places/v1";
-
-function creds() {
-  const lov = process.env["LOVABLE_API_KEY"];
-  const key = process.env["GOOGLE_MAPS_API_KEY"];
-  if (!lov || !key) throw new Error("Google address lookup is not connected");
-  return { Authorization: `Bearer ${lov}`, "X-Connection-Api-Key": key };
-}
 
 async function check(r: Response) {
   if (r.ok) return r.json();
@@ -22,9 +14,9 @@ export const placesAutocomplete = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ input: z.string().trim().min(3).max(200), sessionToken: z.string().max(64), cities: z.boolean().optional() }).parse(d))
   .handler(async ({ data }) => {
-    const r = await fetch(`${GW}/places:autocomplete`, {
+    const r = await (await import("./mapsKey.server")).mapsFetch(`places/v1/places:autocomplete`, {
       method: "POST",
-      headers: { ...creds(), "Content-Type": "application/json", "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text" },
+      headers: { "Content-Type": "application/json", "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text" },
       body: JSON.stringify({ input: data.input, sessionToken: data.sessionToken, ...(data.cities ? { includedPrimaryTypes: ["(cities)"] } : {}), includedRegionCodes: ["us", "ca", "mx"], locationBias: { circle: { center: { latitude: 35.78, longitude: -79.6 }, radius: 50000 } } }),
     });
     const j = (await check(r)) as { suggestions?: { placePrediction?: { placeId: string; text: { text: string } } }[] };
@@ -35,8 +27,8 @@ export const placeDetails = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ placeId: z.string().regex(/^[A-Za-z0-9_-]{5,300}$/), sessionToken: z.string().max(64) }).parse(d))
   .handler(async ({ data }) => {
-    const r = await fetch(`${GW}/places/${data.placeId}?sessionToken=${encodeURIComponent(data.sessionToken)}`, {
-      headers: { ...creds(), "X-Goog-FieldMask": "displayName,addressComponents,nationalPhoneNumber,types" },
+    const r = await (await import("./mapsKey.server")).mapsFetch(`places/v1/places/${data.placeId}?sessionToken=${encodeURIComponent(data.sessionToken)}`, {
+      headers: { "X-Goog-FieldMask": "displayName,addressComponents,nationalPhoneNumber,types" },
     });
     const j = (await check(r)) as { displayName?: { text: string }; nationalPhoneNumber?: string; types?: string[]; addressComponents?: { longText: string; shortText: string; types: string[] }[] };
     const comps = j.addressComponents ?? [];
@@ -58,9 +50,9 @@ export const drivingMiles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ origin: z.string().trim().min(3).max(200), dest: z.string().trim().min(3).max(200) }).parse(d))
   .handler(async ({ data }) => {
-    const r = await fetch("https://connector-gateway.lovable.dev/google_maps/routes/directions/v2:computeRoutes", {
+    const r = await (await import("./mapsKey.server")).mapsFetch("routes/directions/v2:computeRoutes", {
       method: "POST",
-      headers: { ...creds(), "Content-Type": "application/json", "X-Goog-FieldMask": "routes.distanceMeters" },
+      headers: { "Content-Type": "application/json", "X-Goog-FieldMask": "routes.distanceMeters" },
       body: JSON.stringify({ origin: { address: data.origin }, destination: { address: data.dest }, travelMode: "DRIVE" }),
     });
     const j = (await check(r)) as { routes?: { distanceMeters?: number }[] };
