@@ -91,27 +91,27 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
         qc.invalidateQueries({ queryKey: ["carriers"] });
       } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the certificate"); }
       update({ coi_received: true } as Partial<Carrier>, "Document uploaded");
-    } else if (kind === "noa" && doc) {
+    } else if ((kind === "noa" || kind === "voided_check") && doc) {
       await readNoaNow(doc.id);
-      update({ noa_received: true } as Partial<Carrier>, "Document uploaded");
+      update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
     } else update({ [flag[kind]!]: true } as Partial<Carrier>, "Document uploaded");
     setBusy(false);
   };
   const readNoaNow = async (docId: string) => {
-      const t = toast.loading("Reading notice of assignment…");
+      const t = toast.loading("Reading payment details…");
       try {
         const r = await readNoa({ data: { carrierId: c.id, docId } });
         toast.dismiss(t);
         const n = r.noa;
-        if (r.found) toast.success(`NOA read — check these against the document`, { duration: 20000, description: [
+        if (r.found) toast.success(`Payment details read — check these against the document`, { duration: 20000, description: [
           n.factoring_company && `Factor: ${n.factoring_company}`, n.remit_address && `Remit: ${n.remit_address}`, n.remit_email && `Email: ${n.remit_email}`,
           n.bank_name && `Bank: ${n.bank_name}`, n.routing && `Routing ${n.routing}`, n.account && `Account ${n.account}`,
           r.filled.length ? `Filled blanks: ${r.filled.join(", ").replace(/_/g, " ")}` : "Nothing new filled (existing info kept)", r.bankSkipped,
         ].filter(Boolean).join(" · ") });
-        else toast.warning("Couldn't read payment details from the NOA — please enter them by hand.");
+        else toast.warning("Couldn't read payment details from the document — please enter them by hand.");
         qc.invalidateQueries({ queryKey: ["carriers"] });
         qc.invalidateQueries({ queryKey: ["carrier_payment_accounts"] });
-      } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the NOA"); }
+      } catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : "Couldn't read the document"); }
   };
   const fileDocs: DocItem[] = docs.filter((d) => d.file_path).map((d) => ({ name: d.file_name ?? d.kind, bucket: "carrier-docs", path: d.file_path }));
 
@@ -163,7 +163,7 @@ export function DocumentsPanel({ c, update }: { c: Carrier; update: (p: Partial<
               }} />
             </span>
             <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-              {d.kind === "noa" && d.file_path && <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" disabled={busy} onClick={async () => { setBusy(true); await readNoaNow(d.id); setBusy(false); }}>Read NOA</Button>}
+              {(d.kind === "noa" || d.kind === "voided_check") && d.file_path && <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" disabled={busy} onClick={async () => { setBusy(true); await readNoaNow(d.id); setBusy(false); }}>{d.kind === "noa" ? "Read NOA" : "Read check"}</Button>}
               {d.source} · {fmtDate(d.uploaded_at)}</span>
           </li>
         ))}

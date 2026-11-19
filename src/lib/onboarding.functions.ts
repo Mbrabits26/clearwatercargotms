@@ -120,10 +120,15 @@ export const submitPacket = createServerFn({ method: "POST" })
           }
         } catch (e) { console.error("COI read failed", e); }
       }
-      await supabaseAdmin.from("carrier_documents").insert({
+      const { data: newDoc } = await supabaseAdmin.from("carrier_documents").insert({
         carrier_id: carrierId, kind: f.kind, file_path: path, file_name: f.name, source: "carrier portal",
         expires_on: expires,
-      });
+      }).select("id").single();
+      // The carrier's own NOA / voided check fills their blank payment details (never overwrites).
+      if ((f.kind === "noa" || f.kind === "voided_check") && newDoc && key) {
+        try { const { readPayDoc } = await import("./payDoc.server"); await readPayDoc(supabaseAdmin, true, { carrierId, docId: newDoc.id }); }
+        catch (e) { console.error("Payment doc read failed", e); }
+      }
     }
     // Signed PDF of the exact agreement text shown on the portal, plus a signature certificate page.
     const signedAt = new Date().toISOString();
