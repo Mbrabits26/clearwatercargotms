@@ -7,9 +7,10 @@ export function mapsFetch(path: string, init: RequestInit = {}): Promise<Respons
   const headers = new Headers(init.headers);
   if (own) {
     const [first, ...rest] = path.replace(/^\//, "").split("/");
-    const base = HOSTS[first];
-    const url = base ? `${base}/${rest.join("/")}` : `https://maps.googleapis.com/${path.replace(/^\//, "")}`;
-    headers.set("X-Goog-Api-Key", own);
+    const base = first ? HOSTS[first] : undefined;
+    if (base) { headers.set("X-Goog-Api-Key", own); return fetch(`${base}/${rest.join("/")}`, { ...init, headers }); }
+    const p = path.replace(/^\//, "");
+    const url = `https://maps.googleapis.com/${p}${p.includes("?") ? "&" : "?"}key=${encodeURIComponent(own)}`;
     return fetch(url, { ...init, headers });
   }
   const lov = process.env["LOVABLE_API_KEY"];
