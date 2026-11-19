@@ -5,7 +5,7 @@ import { LoadWorkNotice } from "@/components/LoadWorkNotice";
 import { InvoicedQbReview } from "@/components/InvoicedQbReview";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal, Gavel, Home } from "lucide-react";
+import { Truck, Building2, ShieldCheck, Settings, LogOut, Container, BarChart3, BookOpen, Calculator, Users, MoreHorizontal, Gavel, Home, PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { ConnectGmail } from "@/components/ConnectGmail";
 import { getMailClient, setMailClient, type MailClient } from "@/lib/email";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -36,6 +37,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
   const [home, setHome] = useState<Landing>("/dispatch");
   useEffect(() => setHome(landingFor(user.id, { isAdmin, isAccountant })), [user.id, isAdmin, isAccountant]);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => setCollapsed(localStorage.getItem("cw-side-collapsed") === "1"), []);
+  const toggleSide = () => setCollapsed((c) => { localStorage.setItem("cw-side-collapsed", c ? "0" : "1"); return !c; });
+  const roleLabel = [isAdmin && "Admin", isAccountant && "Accountant"].filter(Boolean).join(" / ") || "Broker";
   const nav = [
     { to: "/home", label: "Home", icon: Home, p: "" },
     { to: "/dispatch", label: "Dispatch Board", icon: Truck, p: "dispatch" },
@@ -52,50 +57,58 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AppWindowsProvider>
     <div className="flex h-dvh flex-col print:block print:h-auto">
-      <header className="flex h-14 print:hidden shrink-0 items-center gap-4 border-b bg-sidebar px-3 lg:px-4">
-        <Link to={home} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+      <header className="flex h-14 print:hidden shrink-0 items-center gap-3 border-b bg-sidebar px-3 lg:px-4">
+        <Button variant="ghost" size="icon" className="hidden shrink-0 lg:inline-flex" onClick={toggleSide} aria-label={collapsed ? "Expand menu" : "Collapse menu"} title={collapsed ? "Expand menu" : "Collapse menu"}>
+          {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+        </Button>
+        <Link to={home} className="flex min-w-0 items-center gap-2 whitespace-nowrap">
           <img src={logo.url} alt="Clearwater Cargo" className="h-9 w-9 shrink-0 rounded-sm bg-foreground object-contain lg:h-10 lg:w-10" />
-          <div className="leading-none">
-            <div className="font-display text-base font-bold uppercase tracking-wider text-gold sm:text-lg">Clearwater Cargo</div>
+          <div className="min-w-0 leading-none">
+            <div className="truncate font-display text-base font-bold uppercase tracking-wider text-gold sm:text-lg">Clearwater Cargo</div>
             <div className="hidden text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:block">Staley, NC · TMS</div>
           </div>
         </Link>
-        <nav className="hidden min-w-0 flex-1 gap-1 overflow-x-auto lg:flex">
+        <div className="ml-auto hidden shrink-0 sm:block"><QuickOnboardButton label="Onboard" /></div>
+        <div className="ml-auto shrink-0 sm:ml-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="hidden shrink-0 lg:inline-flex" aria-label="Settings" title="Settings"><Settings2 className="h-5 w-5" /></Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 space-y-3">
+            <div className="text-sm">
+              <div className="truncate font-medium">{user.email}</div>
+              <span className="mt-1 inline-block rounded border border-gold/40 px-2 py-0.5 text-xs uppercase tracking-wider text-gold">{roleLabel}</span>
+            </div>
+            <div className="border-t pt-3"><ConnectGmail /></div>
+            <label className="block text-xs text-muted-foreground">Email service
+              <select value={mail} onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }} className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground">
+                <option value="gmail">Gmail</option><option value="default">Default app</option>
+              </select>
+            </label>
+            <label className="block text-xs text-muted-foreground">Start screen
+              <LandingPicker className="mt-1 h-9 w-full rounded border bg-background px-2 text-sm text-foreground" />
+            </label>
+            <Button variant="outline" className="w-full justify-start" onClick={signOut}><LogOut className="mr-2 h-4 w-4" />Sign out</Button>
+          </PopoverContent>
+        </Popover>
+      </header>
+      <div className="flex min-h-0 flex-1 print:block">
+        <aside className={`hidden shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-2 print:hidden lg:flex ${collapsed ? "w-14" : "w-52"}`}>
           {nav.map((n) => (
             <Link
               key={n.to}
               to={n.to}
-              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
+              title={n.label}
+              className={`flex items-center gap-3 whitespace-nowrap rounded-md py-2 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${collapsed ? "justify-center px-0" : "px-3"}`}
+              activeProps={{ className: "bg-sidebar-accent text-gold" }}
             >
-              <n.icon className="h-4 w-4" />
-              {n.label}
+              <n.icon className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">{n.label}</span>}
             </Link>
           ))}
-        </nav>
-        <div className="ml-auto hidden shrink-0 2xl:block"><QuickOnboardButton label="Onboard" /></div>
-        <div className="ml-auto shrink-0 2xl:ml-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
-        <div className="hidden shrink-0 items-center gap-2 text-sm lg:flex">
-          <ConnectGmail />
-          <select
-            value={mail}
-            onChange={(e) => { const v = e.target.value as MailClient; setMail(v); setMailClient(v); }}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            title="Which email to use for invites and rate cons"
-          >
-            <option value="gmail">Email: Gmail</option>
-            <option value="default">Email: Default app</option>
-          </select>
-          <span className="rounded border border-gold/40 px-2 py-0.5 text-xs uppercase tracking-wider text-gold">
-            {[isAdmin && "Admin", isAccountant && "Accountant"].filter(Boolean).join(" / ") || "Broker"}
-          </span>
-          <span className="hidden text-muted-foreground xl:inline">{user.email}</span>
-          <Button onClick={signOut} size="icon" variant="ghost" aria-label="Sign out">
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-      <main className="min-h-0 flex-1 overflow-auto print:overflow-visible pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"><div className="print:hidden"><LoadWorkNotice />{(isAdmin || isAccountant) && <><InvoicedQbReview /><CarrierPayDue /><DueReminders /></>}</div>{children}</main>
+        </aside>
+      <main className="min-h-0 min-w-0 flex-1 overflow-auto print:overflow-visible pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"><div className="print:hidden"><LoadWorkNotice />{(isAdmin || isAccountant) && <><InvoicedQbReview /><CarrierPayDue /><DueReminders /></>}</div>{children}</main>
+      </div>
       <nav className="fixed inset-x-0 bottom-0 z-30 print:hidden grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
         {nav.filter((n) => ["/dispatch", "/carriers", "/directory"].includes(n.to)).map((n) => (
           <Link key={n.to} to={n.to} className="flex min-h-11 flex-col items-center justify-center gap-1 text-[11px] text-sidebar-foreground/70" activeProps={{ className: "text-gold bg-sidebar-accent" }}>
