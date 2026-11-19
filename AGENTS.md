@@ -51,4 +51,4 @@
 - Shipper cold outreach (Gmail per sender, cron send + reply reads): see `src/lib/AGENTS.md`.
 - Start screen: `landing.ts` (personal choice in localStorage per user, else role default admin→Home, accountant→Accounting, broker→Dispatch); Home cockpit is read-only summaries linking to existing screens. Load refs are duplicate-checked across loads (`loadRefDup.ts`) with ask-first confirm.
 
-- App frame: nav tabs live in a collapsible left sidebar (collapse choice in localStorage); Gmail/email service/role/start screen/sign out sit in the header settings popover. Why: 11 top tabs clipped on laptops.
+- AppShell: collapsible left sidebar nav; account settings in header popover. Why: top tabs clipped on laptops.
