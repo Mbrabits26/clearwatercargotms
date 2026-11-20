@@ -74,7 +74,7 @@ export function QuickLaneCheck() {
     const notes = [volLabel, `Linehaul ${usd(t.linehaul)}`, t.fsc ? `FSC ${usd(t.fsc)}` : "", accTxt ? `Accessorials: ${accTxt}` : ""].filter(Boolean).join(" · ");
     const { error } = await supabase.from("quotes").insert({
       kind: f.kind, origin_city: o.city, origin_state: o.state, dest_city: d.city, dest_state: d.state, equipment: f.equipment,
-      miles: Number(f.miles) || null, rate: t.allIn, target_carrier_rate: t.carrier > 0 ? t.carrier : null, notes, accessorials: acc as never,
+      miles: Number(f.miles) || null, rate: t.linehaul + t.fsc, target_carrier_rate: t.carrier > 0 ? t.carrier : null, notes, accessorials: acc as never,
       expires_at: new Date(Date.now() + (f.kind === "contract" ? 30 : 1) * 86400_000).toISOString(),
     });
     setBusy("");

@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Quick lane check quotes exclude structured extras from the base rate, keeping fuel included; 24 tests passed. Signed-in save/readback, customer PDF and acceptance page each verified at $5,000 including $150 driver assist; temporary quote deleted, no load created. Existing quotes unchanged; publish required.
+
 - [x] Removed QuickBooks assignments stay blank on hold until verified; live trigger tests cover both companies and preserve financial fields.
 - [x] Invoice correction choices: leave blank, explicitly allocate FF-/INV- on hold, choose another existing invoice, or swap with the previous invoice. Both affected groups save atomically with confirmation and stale-link checks. 14 tests passed; signed-in choices and live invoice 2119 lookup verified without saving financial changes. UI requires publishing.
 - [x] Verified live QB 2119 / ID 4962 description ref 383324: already correctly assigned to CW-15394 ($650). CW-10514 ref 387259 is unlinked and held. No assignment change needed or applied.
