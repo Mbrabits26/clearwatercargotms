@@ -11,6 +11,7 @@ import { fmtDate, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackingCopyText } from "@/lib/trackingCopy";
+import { GoogleVoiceShareButton } from "@/components/GoogleVoiceShareButton";
 
 export function TrackingPanel({ load }: { load: Load }) {
   const qc = useQueryClient();
@@ -88,18 +89,7 @@ export function TrackingPanel({ load }: { load: Load }) {
               </Button>
             )}
             {active.driver_phone && (
-              <Button size="sm" variant="outline" title="Copies the message and opens Google Voice to this driver — paste with Cmd+V and send"
-                onClick={async () => {
-                  const driverPhone = active.driver_phone;
-                  if (!driverPhone) return;
-                  const digits = driverPhone.replace(/\D/g, "");
-                  const num = digits.length === 10 ? `1${digits}` : digits;
-                  try { await navigator.clipboard.writeText(message()); } catch { /* ignore */ }
-                  window.open(`https://voice.google.com/u/0/messages?itemId=t.%2B${num}`, "_blank", "noopener");
-                  toast.success("Message copied — paste with Cmd+V in Google Voice and send");
-                }}>
-                <MessageSquare className="mr-1 h-3.5 w-3.5" />Google Voice
-              </Button>
+              <GoogleVoiceShareButton phone={active.driver_phone} message={message()} />
             )}
             <Button size="sm" variant="outline" onClick={async () => { await navigator.clipboard.writeText(message()); toast.success("Text message copied"); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy text</Button>
             {active.driver_phone && <>
