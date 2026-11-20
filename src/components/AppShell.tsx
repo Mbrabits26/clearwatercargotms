@@ -10,6 +10,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/clearwater-logo.jpg.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatWidget } from "@/components/ChatWidget";
+import { NewLoadButton } from "@/components/NewLoadButton";
 import { QuickOnboardButton } from "@/components/QuickOnboard";
 import { LandingPicker } from "@/components/LandingPicker";
 import { LoadHoverPreview } from "@/components/LoadHoverPreview";
@@ -38,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [home, setHome] = useState<Landing>("/dispatch");
   useEffect(() => setHome(landingFor(user.id, { isAdmin, isAccountant })), [user.id, isAdmin, isAccountant]);
   const [collapsed, setCollapsed] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => setCollapsed(localStorage.getItem("cw-side-collapsed") === "1"), []);
   const toggleSide = () => setCollapsed((c) => { localStorage.setItem("cw-side-collapsed", c ? "0" : "1"); return !c; });
   const roleLabel = [isAdmin && "Admin", isAccountant && "Accountant"].filter(Boolean).join(" / ") || "Broker";
@@ -69,7 +71,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </Link>
         <div className="ml-auto hidden shrink-0 sm:block"><QuickOnboardButton label="Onboard" /></div>
-        <div className="ml-auto shrink-0 sm:ml-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
+        <div className="ml-auto shrink-0 sm:ml-0 lg:hidden"><NewLoadButton collapsed /></div>
+        <div className="shrink-0"><NotificationBell userId={user.id} isAdmin={isAdmin} isFinance={isAdmin || isAccountant} /></div>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="hidden shrink-0 lg:inline-flex" aria-label="Settings" title="Settings"><Settings2 className="h-5 w-5" /></Button>
@@ -94,6 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       <div className="flex min-h-0 flex-1 print:block">
         <aside className={`hidden shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-2 print:hidden lg:flex ${collapsed ? "w-14" : "w-52"}`}>
+          <NewLoadButton collapsed={collapsed} className={collapsed ? "mx-auto" : "w-full justify-start"} />
           {nav.map((n) => (
             <Link
               key={n.to}
@@ -115,11 +119,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <n.icon className="h-5 w-5" />{n.label.replace(" Board", "")}
           </Link>
         ))}
-        <Sheet>
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger asChild><Button variant="ghost" className="h-full min-h-11 rounded-none text-sidebar-foreground/70"><span className="flex flex-col items-center gap-1 text-[11px]"><MoreHorizontal className="h-5 w-5" />More</span></Button></SheetTrigger>
           <SheetContent side="bottom" className="max-h-[85dvh] overflow-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             <SheetHeader><SheetTitle className="font-display uppercase text-gold">Clearwater Cargo</SheetTitle></SheetHeader>
             <div className="mt-4 grid gap-2">
+              <NewLoadButton className="min-h-11 w-full justify-start" beforeOpen={() => setMoreOpen(false)} />
               {nav.filter((n) => !["/dispatch", "/carriers", "/directory"].includes(n.to)).map((n) => (
                 <SheetClose key={n.to} asChild><Link to={n.to} className="flex min-h-11 items-center gap-3 rounded border px-3 text-sm"><n.icon className="h-5 w-5 text-gold" />{n.label}</Link></SheetClose>
               ))}
