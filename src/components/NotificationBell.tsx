@@ -26,6 +26,17 @@ const PREF_ROWS: { key: string; label: string; group: "Email" | "In-app" }[] = [
   { key: "app_chat", label: "Chat messages", group: "In-app" },
 ];
 
+/** Finds the carrier an alert is about from its DOT #, MC # or name. */
+async function carrierIdFromText(body: string): Promise<string | null> {
+  const dot = body.match(/DOT\s*#?\s*(\d{3,})/i)?.[1];
+  const mc = body.match(/MC\s*#?\s*(\d{3,})/i)?.[1];
+  if (dot) { const { data } = await supabase.from("carriers").select("id").eq("dot_number", dot).limit(1).maybeSingle(); if (data) return data.id; }
+  if (mc) { const { data } = await supabase.from("carriers").select("id").eq("mc_number", mc).limit(1).maybeSingle(); if (data) return data.id; }
+  const name = body.match(/—\s*(?:Red|Yellow)\s*—\s*([^\n]+)/)?.[1]?.trim();
+  if (name) { const { data } = await supabase.from("carriers").select("id").ilike("legal_name", name).limit(1).maybeSingle(); if (data) return data.id; }
+  return null;
+}
+
 type Alert = { id: string; title: string; body: string; to: string; search?: Record<string, unknown>; at: number; read: boolean };
 
 function chime() {
@@ -104,7 +115,10 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
     const mentionAlert = async (m: { id: string; author_id: string; body: string; source: string; load_id: string | null; created_at: string }, quiet = false) => {
       if (isCarrierSafetyAlert(m.source)) {
         const [title, ...details] = m.body.split("\n");
-        return push(title ?? "Carrier warning", details.join("\n") || m.body, m.load_id ? "/dispatch" : "/carriers", m.load_id ? { load: m.load_id } : undefined, { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet });
+        const opts = { id: `mention-${m.id}`, at: new Date(m.created_at).getTime(), quiet };
+        if (m.load_id) return push(title ?? "Carrier warning", details.join("\n") || m.body, "/dispatch", { load: m.load_id }, opts);
+        const carrierId = await carrierIdFromText(m.body);
+        return push(title ?? "Carrier warning", details.join("\n") || m.body, "/carriers", carrierId ? { carrier: carrierId } : undefined, opts);
       }
       const who = names.current[m.author_id] ?? "A teammate";
       const group = /@(team|everyone)\b/i.test(m.body);
@@ -169,7 +183,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         if (!isAdmin && p.new.created_by !== userId) return;
         let name = p.new.email ?? "Carrier";
         if (p.new.carrier_id) { const { data } = await supabase.from("carriers").select("legal_name").eq("id", p.new.carrier_id).maybeSingle(); if (data) name = data.legal_name; }
-        push("Carrier packet submitted", `${name} completed onboarding — review it`, "/carriers");
+        push("Carrier packet submitted", `${name} completed onboarding — review it`, "/carriers", p.new.carrier_id ? { carrier: p.new.carrier_id } : undefined, { id: `packet-${p.new.id}` });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "load_tracking_pings" }, async (p: any) => {
         if (!on("app_driver")) return;

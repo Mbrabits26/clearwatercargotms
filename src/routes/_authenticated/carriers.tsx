@@ -40,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/carriers")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { carrier?: string } => ({ carrier: typeof s.carrier === "string" ? s.carrier : undefined }),
   loader: ({ context }) => context.queryClient.ensureQueryData(carriersQuery),
   component: Carriers,
 });
@@ -52,6 +53,9 @@ function Carriers() {
   const [adding, setAdding] = useState(false);
   const [mobileDetail, setMobileDetail] = useState(false);
   const [flt, setFlt] = useState<"all" | "expired" | "soon" | "docs">("all");
+  // Alerts and links open a specific carrier via ?carrier=<id>.
+  const { carrier: focus } = Route.useSearch();
+  useEffect(() => { if (focus && data.some((x) => x.id === focus)) { setSel(focus); setFlt("all"); setMobileDetail(true); } }, [focus, data]);
   const missingDocs = (c: Carrier) => !c.w9_received || !c.coi_received || !c.agreement_signed || (!!c.factoring_company && !c.noa_received);
   const hidden = (c: Carrier) => !!c.inactive || c.status === "dnu";
   const dq = useDeferredValue(q);
