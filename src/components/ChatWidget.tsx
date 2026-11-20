@@ -22,11 +22,11 @@ export function ChatWidget({ userId }: { userId: string }) {
     queryKey: ["chat-people"],
     queryFn: async () => (await supabase.from("profiles").select("id, full_name, email")).data ?? [],
   });
-  const { data: msgs = [] } = useQuery({
+  const { data: msgs = [], isSuccess: msgsLoaded } = useQuery({
     queryKey: ["chat-msgs"],
     queryFn: async () => ((await supabase.from("chat_messages").select("*").order("created_at", { ascending: false }).limit(500)).data ?? []).reverse() as Msg[],
   });
-  const { data: reads = [] } = useQuery({
+  const { data: reads = [], isSuccess: readsLoaded } = useQuery({
     queryKey: ["chat-reads"],
     queryFn: async () => (await supabase.from("chat_reads").select("*").eq("user_id", userId)).data ?? [],
   });
@@ -61,21 +61,15 @@ export function ChatWidget({ userId }: { userId: string }) {
   const readAt = (c: string) => reads.find((r) => r.channel === c)?.last_read_at ?? "1970-01-01";
   const unread = useMemo(() => {
     const m: Record<string, number> = {};
+    // Wait until both messages and "last read" marks have loaded, or everything looks unread.
+    if (!readsLoaded || !msgsLoaded) return m;
     for (const x of msgs) if (x.author_id !== userId && x.created_at > readAt(x.channel)) m[x.channel] = (m[x.channel] ?? 0) + 1;
     return m;
-  }, [msgs, reads, userId]);
+  }, [msgs, reads, userId, readsLoaded, msgsLoaded]);
   const total = Object.values(unread).reduce((a, b) => a + b, 0) + mentions.length;
 
-  // Pop open on login when there are unread messages
-  useEffect(() => {
-    if (!autoOpened.current && total > 0) {
-      autoOpened.current = true;
-      setOpen(true);
-      const first = Object.keys(unread)[0];
-      if (first) setChannel(first);
-      toast(`You have ${total} unread message${total > 1 ? "s" : ""}`);
-    }
-  }, [total]);
+  // Chat stays closed on login; the badge shows real unread counts only.
+  void autoOpened;
 
   useEffect(() => {
     const ch = supabase
