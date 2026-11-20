@@ -32,7 +32,7 @@ async function carrierIdFromText(body: string): Promise<string | null> {
   const mc = body.match(/MC\s*#?\s*(\d{3,})/i)?.[1];
   if (dot) { const { data } = await supabase.from("carriers").select("id").eq("dot_number", dot).limit(1).maybeSingle(); if (data) return data.id; }
   if (mc) { const { data } = await supabase.from("carriers").select("id").eq("mc_number", mc).limit(1).maybeSingle(); if (data) return data.id; }
-  const name = body.match(/—\s*(?:Red|Yellow)\s*—\s*([^\n]+)/)?.[1]?.trim();
+  const name = (body.match(/—\s*(?:Red|Yellow)\s*—\s*([^\n]+)/)?.[1] ?? body.match(/^(.+?) completed onboarding/)?.[1])?.trim();
   if (name) { const { data } = await supabase.from("carriers").select("id").ilike("legal_name", name).limit(1).maybeSingle(); if (data) return data.id; }
   return null;
 }
@@ -55,7 +55,14 @@ function chime() {
 export function NotificationBell({ userId, isAdmin, isFinance = false }: { userId: string; isAdmin: boolean; isFinance?: boolean }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const go = (to: string, search?: Record<string, unknown>) => navigate({ to, search: search as never });
+  const go = async (to: string, search?: Record<string, unknown>, text?: string) => {
+    // Older alerts were saved without the carrier; find it from the alert text.
+    if (to === "/carriers" && !search?.["carrier"] && text) {
+      const id = await carrierIdFromText(text);
+      if (id) search = { ...search, carrier: id };
+    }
+    navigate({ to, search: search as never });
+  };
   const key = `cw-alerts:${userId}`;
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [sound, setSound] = useState(true);
@@ -100,10 +107,10 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
       setAlerts(n);
       if (opts?.quiet) return true;
       if (soundRef.current) chime();
-      toast(title, { description: body, action: { label: "View", onClick: () => go(to, search) } });
+      toast(title, { description: body, action: { label: "View", onClick: () => go(to, search, `${title}\n${body}`) } });
       if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
         const n = new Notification(title, { body, tag: a.id });
-        n.onclick = () => { window.focus(); go(to, search); n.close(); };
+        n.onclick = () => { window.focus(); go(to, search, `${title}\n${body}`); n.close(); };
       }
     };
     const loadInfo = async (loadId: string) => {
@@ -262,7 +269,7 @@ export function NotificationBell({ userId, isAdmin, isFinance = false }: { userI
         <div className="max-h-96 overflow-auto">
           {alerts.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No alerts yet</p>}
           {alerts.map((a) => (
-            <button key={a.id} onClick={() => go(a.to, a.search)} className={`block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent ${a.read ? "" : "bg-accent/40"}`}>
+            <button key={a.id} onClick={() => go(a.to, a.search, `${a.title}\n${a.body}`)} className={`block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent ${a.read ? "" : "bg-accent/40"}`}>
               <div className="font-medium">{a.title}</div>
               <div className="text-xs text-muted-foreground">{a.body}</div>
               <div className="text-[10px] text-muted-foreground">{new Date(a.at).toLocaleString()}</div>
