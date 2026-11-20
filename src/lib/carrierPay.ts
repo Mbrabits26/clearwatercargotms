@@ -17,9 +17,17 @@ export const owesCarrier = (l: Load, hasInvoice = false) =>
 
 /** Pay math + due date for one load. Clock starts when the POD came in. */
 export function carrierPayDue(l: Load, carrier: PayCarrier | null | undefined, now = Date.now()) {
-  const pt = effectivePayTerms(l, carrier);
+  const baseTerms = effectivePayTerms(l, carrier);
   const gross = loadTotals(l).cost;
   const rate = effectiveFeeRate(l, carrier);
+  // Payment terms and amounts must use the same resolved load/carrier fee.
+  const pt = {
+    ...baseTerms,
+    fee: rate,
+    terms: isQuickPay(baseTerms.value)
+      ? baseTerms.terms.replace(/[\d.]+%/, `${Number((rate * 100).toFixed(2))}%`)
+      : baseTerms.terms,
+  };
   const fee = Math.round(gross * rate * 100) / 100;
   // Clock starts at the POD; without one (older loads) it starts at delivery.
   const start = new Date((l.pod_received ? l.pod_received_at : null) ?? l.delivery_at ?? l.pod_received_at ?? l.created_at).getTime();

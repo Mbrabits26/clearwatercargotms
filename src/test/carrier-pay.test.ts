@@ -83,6 +83,13 @@ describe("carrier payments window", () => {
 });
 
 describe("quick pay fee percent", () => {
+  it("Redland Farms' 3% QuickPay uses a $99 fee and $3,201 net on $3,300", () => {
+    const d = carrierPayDue(load({ carrier_rate: 3300, quickpay_fee_pct: null }), carrier({ legal_name: "REDLAND FARMS TRUCKING LLC", pay_terms: "quickpay", quickpay_fee_pct: 3 }), t0);
+    expect(d.rate).toBe(0.03);
+    expect(d.pt.fee).toBe(0.03);
+    expect(d.fee).toBe(99);
+    expect(d.net).toBe(3201);
+  });
   it("existing carriers with no chosen % keep the standard 5%", () => {
     expect(carrierPayDue(load(), carrier({ pay_terms: "quickpay" }), t0).fee).toBe(100);
   });
@@ -90,7 +97,9 @@ describe("quick pay fee percent", () => {
     expect(carrierPayDue(load(), carrier({ pay_terms: "quickpay", quickpay_fee_pct: 3 } as never), t0).fee).toBe(60);
   });
   it("a load % at final pay beats the carrier %", () => {
-    expect(carrierPayDue(load({ quickpay_fee_pct: 2 } as never), carrier({ pay_terms: "quickpay", quickpay_fee_pct: 3 } as never), t0).fee).toBe(40);
+    const d = carrierPayDue(load({ quickpay_fee_pct: 2 }), carrier({ pay_terms: "quickpay", quickpay_fee_pct: 3 }), t0);
+    expect(d.fee).toBe(40);
+    expect(d.pt.fee).toBe(0.02);
   });
   it("Net 30 never takes a fee even with a %", () => {
     expect(carrierPayDue(load({ quickpay_fee_pct: 2 } as never), carrier(), t0).fee).toBe(0);
