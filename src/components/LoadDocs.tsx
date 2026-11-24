@@ -12,9 +12,10 @@ import { markPodReceived, marksPod } from "@/lib/podMark";
 import { useRouteContext } from "@tanstack/react-router";
 import { CarrierInvoiceDialog, type BillTarget } from "@/components/CarrierInvoiceDialog";
 import { effectivePayTerms, loadTotals, type Load } from "@/lib/tms";
+import { useDocumentScan } from "@/components/useDocumentScan";
 
 const label = (n: string) => {
-  const k = n.split("-")[0]!.toLowerCase();
+  const k = (n.split("-")[0] ?? "").toLowerCase();
   return ({ pod: "POD", bol: "BOL", ratecon: "Rate con", invoice: "Invoice", carrier_invoice: "Carrier invoice", lumper: "Lumper receipt", scale: "Scale ticket", other: "Other" } as Record<string, string>)[k] ?? "File";
 };
 
@@ -28,6 +29,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
   const key = ["load-docs", loadId];
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<File | null>(null);
+  const scanner = useDocumentScan(file => { setPending(file); });
   const { data: files = [] } = useQuery({
     queryKey: key,
     queryFn: async () => (await supabase.storage.from("load-docs").list(loadId, { sortBy: { column: "created_at", order: "desc" } })).data ?? [],
@@ -79,6 +81,7 @@ export function LoadDocs({ loadId }: { loadId: string }) {
   };
   return (
     <div className="space-y-2">
+      {scanner.review}
       <ul className="divide-y text-sm">
         {items.map((d, i) => {
           const picked = typeFromName(d.name);
@@ -99,10 +102,12 @@ export function LoadDocs({ loadId }: { loadId: string }) {
         })}
         {!items.length && <li className="py-2 text-xs text-muted-foreground">No documents yet. Driver POD/BOL uploads and signed rate cons appear here.</li>}
       </ul>
-      <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-2">
-      <Button size="sm" variant="secondary" disabled={busy} asChild>
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-2"
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); if (!busy && !pending) scanner.choose(Array.from(e.dataTransfer.files)); }}>
+      <Button size="sm" variant="secondary" disabled={busy || scanner.busy || !!pending} asChild>
         <label className="cursor-pointer"><Upload className="mr-1 h-3.5 w-3.5" />{busy ? "Uploading…" : "Attach file"}
-          <input type="file" className="hidden" onChange={(e) => { setPending(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+          <input type="file" className="hidden" multiple onChange={(e) => { scanner.choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         </label>
       </Button>
       <span className="text-xs text-muted-foreground">or drag &amp; drop a file here — you'll pick the type next</span>

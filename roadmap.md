@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Staff load photos use scan review and become one PDF; existing PDFs stay intact. Load creation retains source PDFs on each created load/copy with attachment-only retries and original spreadsheet/text preservation. 14 tests passed; signed-in photo import → load creation → saved PDF download and two-photo staff BOL upload verified (1/2 pages); temporary documents and load deleted. Publish required.
+
 - [x] Quick lane check quotes exclude structured extras from the base rate, keeping fuel included; 24 tests passed. Signed-in save/readback, customer PDF and acceptance page each verified at $5,000 including $150 driver assist; temporary quote deleted, no load created. Existing quotes unchanged; publish required.
 
 - [x] Removed QuickBooks assignments stay blank on hold until verified; live trigger tests cover both companies and preserve financial fields.

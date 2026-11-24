@@ -1,5 +1,7 @@
 # src/lib
 
+- Staff load uploads reuse `useDocumentScan` and `documentPdf`; imported source PDFs attach to all created loads through stable `attachLoadSource` retry paths, with original spreadsheets/text retained. Why: failed uploads must not duplicate loads or discard source documents.
+
 - Invoice reassignment choices use `qbCorrection.functions.ts` and finance-only `apply_invoice_correction` to save both affected groups atomically with stale-link checks; new numbers stay held until explicitly sent. Why: a failed replacement must never leave half a swap or silently create a QB invoice.
 
 - Safety sources in `chat_mentions` bypass optional chat/mention switches; `carrierAlerts.ts` classifies flags and deduplicates sender/load-broker/admin recipients. Why: informational warnings must reach their intended recipients, including the author.

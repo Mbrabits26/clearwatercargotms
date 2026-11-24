@@ -27,6 +27,8 @@ import { BuyBox } from "@/components/BuyBox";
 import { CustomerCreditWarning } from "@/components/CustomerCreditWarning";
 import { postLowMarginNotice } from "@/lib/buyBox";
 import { FLEET_CARRIER_ID, isFleetLoad } from "@/lib/tms";
+import { useDocumentScan } from "@/components/useDocumentScan";
+import { attachLoadSource } from "@/lib/loadSourceDocument";
 
 type F = Record<string, string>;
 type Kind = "customer" | "shipper" | "consignee";
@@ -60,6 +62,13 @@ export function LoadBuilderDialog({
   const [f, setF] = useState<F>({ equipment: "Dry Van" });
   const [parties, setParties] = useState<Record<Kind, Party>>({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY });
   const [reading, setReading] = useState(false);
+  const [source, setSource] = useState<File | null>(null);
+  const [sourceOriginals, setSourceOriginals] = useState<File[]>([]);
+  const [savedTarget, setSavedTarget] = useState<{ id: string; ids: string[]; attempt: string; editing: boolean } | null>(null);
+  const scanner = useDocumentScan(async (file, originals) => {
+    setSource(file); setSourceOriginals(originals);
+    await readDoc(originals.length === 1 && /\.(xlsx|xls|csv|txt|eml)$/i.test(originals[0]?.name ?? "") ? originals[0] : file);
+  });
   const [found, setFound] = useState<Extracted[]>([]);
   const [foundIdx, setFoundIdx] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -118,7 +127,7 @@ export function LoadBuilderDialog({
     setParties({ customer: p(l.customer_id), shipper: p(l.shipper_id), consignee: p(l.consignee_id) });
     const car = carriers.find((x) => x.id === l.carrier_id);
     setCarrier(car ? { id: car.id, name: car.legal_name } : { id: null, name: "" });
-    setFound([]); setHint("");
+    setFound([]); setHint(""); setSource(null); setSourceOriginals([]); setSavedTarget(null);
   }, [open, editLoad?.id]);
   // New-load draft: restore on open, auto-save every change, cleared on create/discard.
   const DRAFT_KEY = "cw-load-draft";
@@ -215,9 +224,39 @@ export function LoadBuilderDialog({
     return data.id;
   };
 
-  const reset = () => { setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); setCarrier({ id: null, name: "" }); };
+  const reset = () => { setSource(null); setSourceOriginals([]); setSavedTarget(null); setHint(""); setF({ equipment: "Dry Van" }); setParties({ customer: EMPTY, shipper: EMPTY, consignee: EMPTY }); setCarrier({ id: null, name: "" }); };
 
+  const complete = (target: { id: string; editing: boolean }) => {
+    setSavedTarget(null);
+    qc.invalidateQueries({ queryKey: ["loads"] });
+    qc.invalidateQueries({ queryKey: ["companies"] });
+    qc.invalidateQueries({ queryKey: ["load-docs"] });
+    qc.invalidateQueries({ queryKey: ["load-doc-names"] });
+    const next = foundIdx + 1;
+    const nextLoad = found[next];
+    if (!target.editing && nextLoad) { setFoundIdx(next); apply(nextLoad); return; }
+    setFound([]);
+    if (!target.editing) {
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
+      reset(); onCreated(target.id);
+    }
+    onOpenChange(false);
+  };
+  const attach = async (target: { id: string; ids: string[]; attempt: string; editing: boolean }) => {
+    if (source) {
+      try { await attachLoadSource(target.ids, source, target.attempt, sourceOriginals); }
+      catch (e) { throw new Error(`Load saved, but its document wasn't attached: ${e instanceof Error ? e.message : "upload failed"}. Click Retry attachment; no new load will be created.`); }
+    }
+    complete(target);
+  };
   const save = async () => {
+    if (savedTarget) {
+      setSaving(true);
+      try { await attach(savedTarget); toast.success("Source document attached"); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't attach document"); }
+      finally { setSaving(false); }
+      return;
+    }
     const missing = [["origin city", f.origin_city], ["origin state", f.origin_state], ["destination city", f.dest_city], ["destination state", f.dest_state]]
       .filter(([, v]) => !String(v ?? "").trim()).map(([k]) => k);
     if (missing.length) return toast.error(`Missing: ${missing.join(", ")}`);
@@ -237,8 +276,8 @@ export function LoadBuilderDialog({
       const num = (k: string) => (f[k] ? Number(f[k]) : null);
       const row = {
         customer_id: customer_id ?? null, shipper_id: shipper_id ?? null, consignee_id: consignee_id ?? null,
-        origin_city: f.origin_city!, origin_state: f.origin_state!.toUpperCase(),
-        dest_city: f.dest_city!, dest_state: f.dest_state!.toUpperCase(),
+        origin_city: f.origin_city ?? "", origin_state: (f.origin_state ?? "").toUpperCase(),
+        dest_city: f.dest_city ?? "", dest_state: (f.dest_state ?? "").toUpperCase(),
         pickup_at: f.pickup_at ? new Date(f.pickup_at).toISOString() : null,
         delivery_at: f.delivery_at ? new Date(f.delivery_at).toISOString() : null,
         equipment: f.equipment ?? "Dry Van", commodity: f.commodity || null,
@@ -275,29 +314,26 @@ export function LoadBuilderDialog({
         toast.success([added.length ? `Load updated · added new ${added.join(", ")} to the Directory` : "Load updated", carrierNote].filter(Boolean).join(" · "));
         qc.invalidateQueries({ queryKey: ["loads"] });
         qc.invalidateQueries({ queryKey: ["companies"] });
-        onOpenChange(false);
+        const target = { id: editLoad.id, ids: [editLoad.id], attempt: crypto.randomUUID(), editing: true };
+        setSavedTarget(target); await attach(target);
         return;
       }
       const { data, error } = await supabase.from("loads").insert({ ...row, broker_id: user.id }).select("id, load_number").single();
       if (error) throw new Error(error.message);
       void notify(data.load_number);
+      const createdIds = [data.id];
       const extra = Math.max(1, Math.min(50, Number(f.copies) || 1)) - 1;
       if (extra > 0) {
         const stepMs = (Number(f.copy_step ?? "1") || 0) * 86_400_000;
-        const { error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id));
+        const { data: copies, error: e2 } = await supabase.from("loads").insert(copyRows(row, Array.from({ length: extra }, (_, i) => (i + 1) * stepMs), user.id)).select("id");
+        createdIds.push(...(copies ?? []).map(c => c.id));
         if (e2) toast.error(`First load created, but copies failed: ${e2.message}`);
       }
       toast.success([`${extra > 0 ? `${extra + 1} loads created` : "Load created"}${added.length ? ` · added new ${added.join(", ")} to the Directory` : ""}`, carrierNote].filter(Boolean).join(" · "));
       qc.invalidateQueries({ queryKey: ["loads"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
-      onCreated(data.id);
-      // Multi-load documents: move on to the next extracted load.
-      const next = foundIdx + 1;
-      if (next < found.length) { setFoundIdx(next); apply(found[next]!); return; }
-      setFound([]);
-      try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
-      reset();
-      onOpenChange(false);
+      const target = { id: data.id, ids: createdIds, attempt: crypto.randomUUID(), editing: false };
+      setSavedTarget(target); await attach(target);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't create load");
     } finally {
@@ -342,17 +378,19 @@ export function LoadBuilderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto">
+        {scanner.review}
         <DialogHeader><DialogTitle className="font-display text-2xl uppercase">{editLoad ? `Edit load ${editLoad.load_number}` : "Load builder"}</DialogTitle></DialogHeader>
         <div className="flex flex-wrap items-center gap-3 rounded border border-dashed border-gold/50 bg-gold/5 p-3">
-          <Button variant="secondary" disabled={reading} asChild>
+          <Button variant="secondary" disabled={reading || scanner.busy || !!savedTarget} asChild>
             <label className="cursor-pointer">
               {reading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileUp className="mr-1 h-4 w-4" />}
               {reading ? "Reading document…" : "Import from document"}
-              <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.txt" disabled={reading}
-                onChange={(e) => { readDoc(e.target.files?.[0]); e.target.value = ""; }} />
+              <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.txt,.eml" multiple disabled={reading || scanner.busy || !!savedTarget}
+                onChange={(e) => { scanner.choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
             </label>
           </Button>
           <span className="text-xs text-muted-foreground">Rate con, tender, BOL, load sheet — PDF, photo, Excel or CSV. Fields fill in for you to review.</span>
+          {source && <div className="w-full break-words text-xs text-gold">Source document: {source.name}</div>}
           {found.length > 1 && (
             <div className="flex w-full flex-wrap gap-1">
               {found.map((x, i) => (
@@ -441,7 +479,7 @@ export function LoadBuilderDialog({
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {!editLoad && <Button variant="ghost" onClick={discardDraft}>Discard draft</Button>}
           <Button variant="outline" onClick={() => onOpenChange(false)}>{editLoad ? "Cancel" : "Close (keeps draft)"}</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
+          <Button onClick={save} disabled={saving || reading || scanner.busy}>{saving ? "Saving…" : savedTarget ? "Retry attachment" : editLoad ? "Save changes" : found.length > 1 ? `Create load ${foundIdx + 1} of ${found.length}` : "Create load"}</Button>
         </div>
       </DialogContent>
       <Dialog open={!!fm} onOpenChange={(o) => !o && setFm(null)}>

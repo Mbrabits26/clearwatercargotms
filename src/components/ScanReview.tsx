@@ -31,7 +31,7 @@ function autoQuad(c: HTMLCanvasElement): Quad {
 }
 
 /** Driver reviews the auto-cropped page: drag corners, rotate, pick look, then keep. */
-export function ScanReview({ file, onDone }: { file: File; onDone: (result: File | null) => void }) {
+export function ScanReview({ file, onDone, label = "POD" }: { file: File; onDone: (result: File | null) => void; label?: string }) {
   const [turns, setTurns] = useState(0);
   const [canvas, setCanvas] = useState<HTMLCanvasElement>();
   const [quad, setQuad] = useState<Quad>();
@@ -76,13 +76,13 @@ export function ScanReview({ file, onDone }: { file: File; onDone: (result: File
 
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 p-3" role="dialog" aria-label="Review scanned POD page">
+    <div data-load-hover-exclude className="fixed inset-0 z-50 flex flex-col bg-background/95 p-3" role="dialog" aria-label={`Review scanned ${label} page`}>
       <div className="mb-2 text-center text-sm font-semibold">Check the page — drag the dots to the paper's corners</div>
       <div className="flex min-h-0 flex-1 items-center justify-center">
         {canvas && quad ? (
           <div ref={box} className="relative max-h-full touch-none select-none" style={{ aspectRatio: `${canvas.width}/${canvas.height}`, height: "100%", maxWidth: "100%" }}
             onPointerMove={move} onPointerUp={() => (drag.current = null)} onPointerLeave={() => (drag.current = null)}>
-            <img src={canvas.toDataURL("image/jpeg", 0.7)} alt="POD photo" className="h-full w-full object-contain" draggable={false} />
+            <img src={canvas.toDataURL("image/jpeg", 0.7)} alt={`${label} photo`} className="h-full w-full object-contain" draggable={false} />
             {mode !== "original" && <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${canvas.width} ${canvas.height}`} preserveAspectRatio="none">
               <polygon points={quad.map(p => `${p.x},${p.y}`).join(" ")} className="fill-primary/20 stroke-primary" strokeWidth={canvas.width / 200} />
             </svg>}
