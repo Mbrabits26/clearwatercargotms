@@ -529,6 +529,38 @@ export type Database = {
           },
         ]
       }
+      carrier_tracking_drivers: {
+        Row: {
+          carrier_id: string
+          created_at: string
+          driver_name: string
+          driver_phone: string
+          id: string
+        }
+        Insert: {
+          carrier_id: string
+          created_at?: string
+          driver_name?: string
+          driver_phone: string
+          id?: string
+        }
+        Update: {
+          carrier_id?: string
+          created_at?: string
+          driver_name?: string
+          driver_phone?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_tracking_drivers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carriers: {
         Row: {
           address: string | null

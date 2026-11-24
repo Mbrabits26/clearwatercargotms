@@ -491,6 +491,13 @@
       "when": 1794938178992,
       "tag": "0069_credit_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1795480435370,
+      "tag": "0070_saved_carrier_tracking_drivers",
+      "breakpoints": true
     }
   ]
 }

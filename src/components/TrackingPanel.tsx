@@ -4,19 +4,20 @@ import { backfillPingPlaces, getLanePoints } from "@/lib/tracking.functions";
 import { TrackingMap } from "@/components/TrackingMap";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Mail, MapPin, Ban, MessageSquare } from "lucide-react";
+import { Copy, Mail, MapPin, Ban, MessageSquare, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/email";
 import { fmtDate, type Load } from "@/lib/tms";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { TrackingDriverForm } from "@/components/TrackingDriverForm";
+import { type TrackingContact } from "@/lib/trackingDrivers";
+import { rateconPhone } from "@/lib/rateconDelivery";
 import { trackingCopyText } from "@/lib/trackingCopy";
 import { GoogleVoiceShareButton } from "@/components/GoogleVoiceShareButton";
 
 export function TrackingPanel({ load }: { load: Load }) {
   const qc = useQueryClient();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [editingDriver, setEditingDriver] = useState(false);
   const { data: tokens = [] } = useQuery({
     queryKey: ["tracking_tokens", load.id],
     queryFn: async () =>
@@ -46,17 +47,23 @@ export function TrackingPanel({ load }: { load: Load }) {
   const active = tokens.find((t) => t.status === "active" && new Date(t.expires_at) > new Date());
   const link = active ? `${window.location.origin}/track/${active.token}` : null;
 
-  const create = async () => {
+  const create = async ({ name, phone }: TrackingContact): Promise<boolean> => {
+    const normalizedPhone = phone.trim() ? rateconPhone(phone) : null;
+    if (phone.trim() && !normalizedPhone) { toast.error("Enter a valid driver phone number."); return false; }
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("load_tracking_tokens").insert({
+    const { error } = active ? await supabase.from("load_tracking_tokens").update({
+      driver_name: name.trim() || null, driver_phone: normalizedPhone,
+    }).eq("id", active.id).eq("load_id", load.id) : await supabase.from("load_tracking_tokens").insert({
       load_id: load.id,
-      driver_name: name || null,
-      driver_phone: phone || null,
+      driver_name: name.trim() || null,
+      driver_phone: normalizedPhone,
       created_by: u.user?.id,
     });
-    if (error) return toast.error(error.message);
-    toast.success("Tracking link created");
-    qc.invalidateQueries({ queryKey: ["tracking_tokens", load.id] });
+    if (error) { toast.error(error.message); return false; }
+    toast.success(active ? "Tracking driver updated" : "Tracking link created");
+    setEditingDriver(false);
+    await qc.invalidateQueries({ queryKey: ["tracking_tokens", load.id] });
+    return true;
   };
   // Copy and Email send the driver the exact same message.
   const message = () =>
@@ -73,13 +80,13 @@ export function TrackingPanel({ load }: { load: Load }) {
 
   return (
     <div className="space-y-3 text-sm">
-      {!active ? (
-        <div className="space-y-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Driver name (optional)" />
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Driver phone (optional)" />
-          <Button size="sm" onClick={create}>Create tracking link</Button>
-        </div>
-      ) : (
+      {(!active || editingDriver) && <TrackingDriverForm
+        key={`${load.id}:${load.carrier_id}:${load.driver_id}:${active?.id ?? "new"}`}
+        load={load}
+        initial={active ? { name: active.driver_name ?? "", phone: active.driver_phone ?? "" } : null}
+        onSubmit={create}
+      />}
+      {active && (
         <div className="space-y-2">
           <div className="break-all rounded border bg-background p-2 font-mono text-xs">{link}</div>
           <div className="flex flex-wrap gap-2">
@@ -98,6 +105,7 @@ export function TrackingPanel({ load }: { load: Load }) {
             </>}
             <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
             <Button size="sm" variant="outline" onClick={email}><Mail className="mr-1 h-3.5 w-3.5" />Email</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditingDriver((v) => !v)}><Pencil className="mr-1 h-3.5 w-3.5" />{editingDriver ? "Cancel edit" : "Edit / save driver"}</Button>
             <Button size="sm" variant="ghost" onClick={() => revoke(active.id)}><Ban className="mr-1 h-3.5 w-3.5" />Revoke</Button>
           </div>
           {active.driver_name && <div className="text-xs text-muted-foreground">Driver: {active.driver_name}{active.driver_phone ? ` · ${active.driver_phone}` : ""}</div>}
